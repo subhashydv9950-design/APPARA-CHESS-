@@ -1,0 +1,379 @@
+/* =========================================
+   APPARA CHESS — RESPONSIVE DESIGN
+   PART 05 START
+========================================= */
+
+/* TABLETS */
+@media (max-width: 1024px) {
+  .app-container {
+    padding-inline: 18px;
+  }
+
+  .content-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .game-sidebar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 15px;
+  }
+
+  .board-wrapper {
+    max-width: 620px;
+  }
+}
+
+/* SMALL TABLETS AND LARGE PHONES */
+@media (max-width: 768px) {
+  :root {
+    --header-height: 62px;
+    --bottom-nav-height: 66px;
+  }
+
+  .app-container {
+    padding: 15px 12px calc(var(--bottom-nav-height) + 20px);
+  }
+
+  .header {
+    padding-inline: 12px;
+  }
+
+  .brand-name {
+    font-size: 17px;
+  }
+
+  .page-heading {
+    font-size: 23px;
+  }
+
+  .home-hero {
+    padding: 25px 17px;
+  }
+
+  .hero-title {
+    font-size: clamp(25px, 6vw, 38px);
+  }
+
+  .hero-art {
+    min-height: 180px;
+  }
+
+  .mode-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .feature-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .online-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .training-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .game-layout {
+    gap: 16px;
+  }
+
+  .game-sidebar {
+    grid-template-columns: 1fr;
+  }
+
+  .player-panel {
+    padding: 10px;
+  }
+
+  .clock {
+    font-size: 17px;
+  }
+
+  .game-toolbar {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .game-toolbar button {
+    flex: 1;
+    min-width: 85px;
+  }
+
+  .profile-stats,
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tournament-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .bottom-nav {
+    min-height: var(--bottom-nav-height);
+  }
+}
+
+/* MOBILE PHONES */
+@media (max-width: 520px) {
+  body {
+    font-size: 14px;
+  }
+
+  .app-container {
+    padding-inline: 10px;
+  }
+
+  .header {
+    gap: 8px;
+  }
+
+  .brand-logo {
+    width: 34px;
+    height: 34px;
+    font-size: 17px;
+  }
+
+  .brand-name {
+    font-size: 15px;
+  }
+
+  .header-actions {
+    gap: 7px;
+  }
+
+  .header-actions button {
+    width: 35px;
+    height: 35px;
+  }
+
+  .page-heading {
+    font-size: 21px;
+  }
+
+  .page-subtitle {
+    font-size: 12px;
+  }
+
+  .home-hero {
+    padding: 20px 13px;
+    border-radius: 16px;
+  }
+
+  .hero-title {
+    font-size: 27px;
+  }
+
+  .hero-description {
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .hero-buttons {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero-buttons button {
+    width: 100%;
+  }
+
+  .mode-grid,
+  .feature-grid,
+  .content-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .mode-card,
+  .feature-card {
+    min-height: 115px;
+    padding: 13px 10px;
+  }
+
+  .mode-card h3,
+  .feature-card h3 {
+    font-size: 13px;
+  }
+
+  .mode-card p,
+  .feature-card p {
+    font-size: 10px;
+  }
+
+  .online-card,
+  .content-card,
+  .training-card,
+  .puzzle-card,
+  .tournament-card {
+    padding: 16px;
+  }
+
+  .board-wrapper {
+    padding: 4px;
+  }
+
+  .board-with-coordinates {
+    gap: 1px;
+  }
+
+  #rank-coordinates-left,
+  #rank-coordinates-right {
+    padding-inline: 2px;
+  }
+
+  .player-panel {
+    gap: 8px;
+  }
+
+  .player-avatar {
+    width: 34px;
+    height: 34px;
+  }
+
+  .player-name {
+    font-size: 12px;
+  }
+
+  .clock {
+    padding: 6px 9px;
+    font-size: 15px;
+  }
+
+  .game-toolbar {
+    gap: 7px;
+  }
+
+  .game-toolbar button {
+    min-width: 65px;
+    padding: 8px 9px;
+    font-size: 11px;
+  }
+
+  .leaderboard-item {
+    grid-template-columns: 35px minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .leaderboard-rank {
+    width: 31px;
+    height: 31px;
+  }
+
+  .leaderboard-rating {
+    font-size: 11px;
+  }
+
+  .profile-header {
+    gap: 13px;
+    padding: 16px;
+  }
+
+  .profile-avatar,
+  #profile-avatar {
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
+  }
+
+  .stat-card {
+    padding: 13px 8px;
+  }
+
+  .stat-card strong {
+    font-size: 18px;
+  }
+
+  .setting-row {
+    padding: 11px;
+  }
+
+  .setting-info strong {
+    font-size: 12px;
+  }
+
+  .setting-row select {
+    max-width: 115px;
+    font-size: 11px;
+  }
+
+  .about-card {
+    padding: 23px 15px;
+  }
+
+  .bottom-nav {
+    padding-inline: 3px;
+  }
+
+  .nav-item {
+    gap: 4px;
+    font-size: 9px;
+  }
+
+  .nav-item .nav-icon {
+    font-size: 18px;
+  }
+
+  .modal-box {
+    padding: 20px 15px;
+  }
+}
+
+/* VERY SMALL PHONES */
+@media (max-width: 360px) {
+  .brand-name {
+    font-size: 13px;
+  }
+
+  .mode-grid,
+  .feature-grid,
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nav-item {
+    font-size: 8px;
+  }
+
+  .nav-item .nav-icon {
+    font-size: 16px;
+  }
+
+  .hero-title {
+    font-size: 23px;
+  }
+
+  .clock {
+    font-size: 13px;
+  }
+}
+
+/* LANDSCAPE MOBILE */
+@media (max-height: 500px) and (orientation: landscape) {
+  .bottom-nav {
+    position: static;
+  }
+
+  .app-container {
+    padding-bottom: 15px;
+  }
+
+  .board-wrapper {
+    max-width: min(70vh, 480px);
+  }
+
+  .loading-screen {
+    min-height: 100vh;
+  }
+}
+
+/* =========================================
+   APPARA CHESS — RESPONSIVE DESIGN
+   PART 05 END
+========================================= */
