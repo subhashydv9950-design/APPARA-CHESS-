@@ -1,489 +1,478 @@
-
-/* =========================================================
-   APPARA CHESS — ONLINE MULTIPLAYER SERVICE
-   FILE: js/online.js
-   PART 12
-========================================================= */
-
-"use strict";
+/* =========================================
+   APPARA CHESS — ONLINE MULTIPLAYER
+   PART 21 START
+========================================= */
 
 class ApparaChessOnline {
-
     constructor() {
-        this.firebaseApp = null;
+        this.app = null;
         this.auth = null;
         this.database = null;
-        this.roomRef = null;
-
         this.user = null;
-        this.roomId = null;
+
+        this.roomRef = null;
         this.roomCode = null;
+        this.roomData = null;
 
-        this.isHost = false;
+        this.roomListener = null;
+        this.connectionListener = null;
+
         this.connected = false;
-        this.isReady = false;
-
+        this.isHost = false;
         this.playerColor = null;
-        this.opponent = null;
 
-        this.listeners = [];
-        this.onConnectionChange = null;
         this.onRoomUpdate = null;
+        this.onConnectionChange = null;
         this.onOpponentMove = null;
-        this.onOpponentJoined = null;
-        this.onOpponentLeft = null;
         this.onError = null;
 
-        this.config = null;
+        this.initialized = false;
+        this.busy = false;
     }
 
-    /* INITIALIZE FIREBASE */
-    async initialize(config) {
-        if (!config || !config.apiKey ||
-            !config.databaseURL || !config.projectId) {
-            return this.reportError(
-                "Firebase configuration is incomplete."
-            );
-        }
-
-        if (!window.firebase ||
-            typeof window.firebase.initializeApp !== "function") {
-            return this.reportError(
-                "Firebase SDK is not loaded."
-            );
-        }
+    async initialize() {
+        if (this.initialized) return true;
 
         try {
-            this.config = config;
-
-            if (!window.firebase.apps.length) {
-                this.firebaseApp =
-                    window.firebase.initializeApp(config);
-            } else {
-                this.firebaseApp =
-                    window.firebase.app();
+            if (window.apparaFirebaseReady) {
+                const ready = await window.apparaFirebaseReady;
+                if (!ready) throw new Error("Firebase configuration is incomplete.");
             }
 
-            this.auth = window.firebase.auth();
-            this.database = window.firebase.database();
+            if (!window.firebase) {
+                throw new Error("Firebase SDK is not loaded.");
+            }
 
-            this.auth.onAuthStateChanged(user => {
-                this.user = user || null;
-            });
+            if (!window.APPARA_FIREBASE_CONFIG ||
+                window.APPARA_FIREBASE_CONFIG.apiKey === "YOUR_FIREBASE_API_KEY") {
+                throw new Error("Firebase configuration is missing.");
+            }
 
-            this.isReady = true;
+            this.app = firebase.apps.length
+                ? firebase.app()
+                : firebase.initializeApp(window.APPARA_FIREBASE_CONFIG);
+
+            this.auth = firebase.auth();
+            this.database = firebase.database();
+
+            await this.signIn();
+
+            this.watchConnection();
+            this.initialized = true;
 
             return true;
 
         } catch (error) {
-            return this.reportError(error.message);
+            this.reportError(error);
+            return false;
         }
     }
 
-    /* SIGN IN ANONYMOUSLY */
-    async signInGuest(displayName = "Guest Player") {
-        if (!this.isReady) {
-            return this.reportError(
-                "Initialize Firebase before signing in."
-            );
+    async signIn() {
+        if (!this.auth) throw new Error("Firebase Auth is unavailable.");
+
+        if (this.auth.currentUser) {
+            this.user = this.auth.currentUser;
+            return this.user;
         }
 
-        try {
-            const result =
-                await this.auth.signInAnonymously();
+        const result = await this.auth.signInAnonymously();
+        this.user = result.user;
 
-            this.user = result.user;
-
-            await this.user.updateProfile({
-                displayName: displayName
-            });
-
-            return {
-                success: true,
-                uid: this.user.uid,
-                name: displayName
-            };
-
-        } catch (error) {
-            return this.reportError(error.message);
-        }
+        return this.user;
     }
 
-    /* GENERATE ROOM CODE */
+    watchConnection() {
+        if (!this.database) return;
+
+        const connectedRef = this.database.ref(".info/connected");
+
+        this.connectionListener = connectedRef.on("value", snapshot => {
+            this.connected = snapshot.val() === true;
+
+            if (typeof this.onConnectionChange === "function") {
+                this.onConnectionChange(this.connected);
+            }
+        });
+    }
+
     generateRoomCode() {
-        const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
+        const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         let code = "";
 
         for (let i = 0; i < 6; i++) {
-            code += characters[
-                Math.floor(Math.random() * characters.length)
-            ];
+            code += chars[Math.floor(Math.random() * chars.length)];
         }
 
         return code;
     }
 
-    /* CREATE PRIVATE ROOM */
-    async createRoom(options = {}) {
-        if (!this.isReady || !this.user) {
-            return this.reportError(
-                "Sign in before creating a room."
-            );
+    async createRoom(playerName = "White Player") {
+        if (!await this.initialize()) {
+            throw new Error("Online service could not initialize.");
         }
 
+        if (this.busy) throw new Error("Please wait.");
+        this.busy = true;
+
         try {
-            const code = this.generateRoomCode();
-            const roomId = this.database.ref("rooms").push().key;
+            let code = "";
+            let created = false;
+            let ref = null;
 
-            const roomData = {
-                code: code,
-                host: this.user.uid,
-                status: "waiting",
-                createdAt: Date.now(),
+            for (let attempt = 0; attempt < 5; attempt++) {
+                code = this.generateRoomCode();
+                ref = this.database.ref("rooms/" + code);
 
-                settings: {
-                    clock: options.clock || "rapid",
-                    difficulty: options.difficulty || "medium"
-                },
-
-                players: {
-                    [this.user.uid]: {
-                        name: this.user.displayName || "Player 1",
-                        color: "white",
-                        joinedAt: Date.now(),
-                        connected: true
+                const result = await ref.transaction(current => {
+                    if (current === null) {
+                        return {
+                            code,
+                            status: "waiting",
+                            hostId: this.user.uid,
+                            guestId: null,
+                            hostName: playerName,
+                            guestName: null,
+                            hostColor: "w",
+                            fen: this.getStartingFen(),
+                            turn: "w",
+                            moves: [],
+                            lastMove: null,
+                            createdAt: firebase.database.ServerValue.TIMESTAMP,
+                            updatedAt: firebase.database.ServerValue.TIMESTAMP
+                        };
                     }
-                },
 
-                game: {
-                    fen: "start",
-                    pgn: "",
-                    lastMove: null,
-                    updatedAt: Date.now()
+                    return;
+                });
+
+                if (result.committed) {
+                    created = true;
+                    break;
                 }
-            };
+            }
 
-            await this.database.ref("rooms/" + roomId)
-                .set(roomData);
+            if (!created) {
+                throw new Error("Could not create a unique room. Try again.");
+            }
 
-            this.roomId = roomId;
             this.roomCode = code;
+            this.roomRef = ref;
             this.isHost = true;
-            this.playerColor = "white";
-            this.connected = true;
+            this.playerColor = "w";
+            this.roomData = (await ref.once("value")).val();
 
-            await this.listenToRoom();
+            this.listenToRoom();
 
             return {
                 success: true,
-                roomId: roomId,
+                code,
                 roomCode: code,
-                color: "white"
+                color: "w",
+                room: this.roomData
             };
 
-        } catch (error) {
-            return this.reportError(error.message);
+        } finally {
+            this.busy = false;
         }
     }
 
-    /* JOIN PRIVATE ROOM */
-    async joinRoom(code) {
-        if (!this.isReady || !this.user) {
-            return this.reportError(
-                "Sign in before joining a room."
-            );
+    async joinRoom(code, playerName = "Black Player") {
+        if (!await this.initialize()) {
+            throw new Error("Online service could not initialize.");
         }
 
-        if (!code || code.trim().length !== 6) {
-            return this.reportError("Invalid room code.");
-        }
+        if (this.busy) throw new Error("Please wait.");
+        this.busy = true;
 
         try {
-            const snapshot = await this.database.ref("rooms")
-                .orderByChild("code")
-                .equalTo(code.trim().toUpperCase())
-                .once("value");
+            code = String(code || "").trim().toUpperCase();
 
-            if (!snapshot.exists()) {
-                return this.reportError("Room not found.");
+            if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) {
+                throw new Error("Enter a valid 6-character room code.");
             }
 
-            const rooms = snapshot.val();
-            const roomId = Object.keys(rooms)[0];
-            const room = rooms[roomId];
+            const ref = this.database.ref("rooms/" + code);
+            let joinError = null;
 
-            if (room.status !== "waiting") {
-                return this.reportError(
-                    "This room is no longer available."
-                );
-            }
+            const result = await ref.transaction(room => {
+                if (!room) {
+                    joinError = "Room not found.";
+                    return;
+                }
 
-            if (Object.keys(room.players || {}).length >= 2) {
-                return this.reportError("Room is full.");
-            }
+                if (room.hostId === this.user.uid) {
+                    joinError = "You cannot join your own room.";
+                    return;
+                }
 
-            if (room.players[this.user.uid]) {
-                return this.reportError(
-                    "You are already in this room."
-                );
-            }
+                if (room.guestId && room.guestId !== this.user.uid) {
+                    joinError = "This room is already full.";
+                    return;
+                }
 
-            const color = "black";
+                if (room.status !== "waiting" &&
+                    room.guestId !== this.user.uid) {
+                    joinError = "This match has already started.";
+                    return;
+                }
 
-            await this.database.ref(
-                "rooms/" + roomId + "/players/" + this.user.uid
-            ).set({
-                name: this.user.displayName || "Player 2",
-                color: color,
-                joinedAt: Date.now(),
-                connected: true
+                room.guestId = this.user.uid;
+                room.guestName = playerName;
+                room.status = "playing";
+                room.updatedAt = firebase.database.ServerValue.TIMESTAMP;
+
+                return room;
             });
 
-            await this.database.ref(
-                "rooms/" + roomId
-            ).update({
-                status: "playing"
-            });
+            if (!result.committed) {
+                throw new Error(joinError || "Could not join this room.");
+            }
 
-            this.roomId = roomId;
-            this.roomCode = room.code;
+            this.roomCode = code;
+            this.roomRef = ref;
             this.isHost = false;
-            this.playerColor = color;
-            this.connected = true;
+            this.playerColor = "b";
+            this.roomData = result.snapshot.val();
 
-            await this.listenToRoom();
-
-            if (typeof this.onOpponentJoined === "function") {
-                this.onOpponentJoined(room.host);
-            }
+            this.listenToRoom();
 
             return {
                 success: true,
-                roomId: roomId,
-                roomCode: room.code,
-                color: color
+                code,
+                roomCode: code,
+                color: "b",
+                room: this.roomData
             };
 
-        } catch (error) {
-            return this.reportError(error.message);
+        } finally {
+            this.busy = false;
         }
     }
 
-    /* LISTEN TO ROOM */
-    async listenToRoom() {
-        if (!this.roomId) return false;
+    getStartingFen() {
+        if (window.apparaChess &&
+            typeof window.apparaChess.getFEN === "function") {
+            return window.apparaChess.getFEN();
+        }
 
-        const roomReference =
-            this.database.ref("rooms/" + this.roomId);
+        return "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    }
 
-        this.roomRef = roomReference;
+    listenToRoom() {
+        if (!this.roomRef) return;
 
-        const callback = snapshot => {
-            const room = snapshot.val();
+        this.stopRoomListener();
 
-            if (!room) {
-                this.connected = false;
+        this.roomListener = this.roomRef.on("value", snapshot => {
+            if (!snapshot.exists()) {
+                this.reportError(new Error("Room no longer exists."));
                 return;
             }
 
-            this.opponent = Object.entries(room.players || {})
-                .find(([uid]) => uid !== this.user.uid)?.[1] || null;
+            const previous = this.roomData;
+            const current = snapshot.val();
+
+            this.roomData = current;
 
             if (typeof this.onRoomUpdate === "function") {
-                this.onRoomUpdate(room);
+                this.onRoomUpdate(current, previous);
             }
 
-            if (
-                room.game?.lastMove &&
-                room.game.lastMove.player !== this.user.uid &&
-                typeof this.onOpponentMove === "function"
-            ) {
-                this.onOpponentMove(room.game);
-            }
+            if (previous && current.moves) {
+                const oldCount = (previous.moves || []).length;
+                const newCount = current.moves.length;
 
-            if (typeof this.onConnectionChange === "function") {
-                this.onConnectionChange(true);
+                if (newCount > oldCount &&
+                    current.moves[newCount - 1].playerId !== this.user.uid) {
+                    if (typeof this.onOpponentMove === "function") {
+                        this.onOpponentMove(current.moves[newCount - 1], current);
+                    }
+                }
             }
+        }, error => this.reportError(error));
+    }
+
+    async sendMove(move, fen) {
+        if (!this.roomRef || !this.roomData) {
+            throw new Error("You are not in an online room.");
+        }
+
+        const current = this.roomData;
+
+        if (current.status !== "playing") {
+            throw new Error("The match is not active.");
+        }
+
+        const expectedId = current.turn === "w"
+            ? current.hostId
+            : current.guestId;
+
+        if (expectedId !== this.user.uid) {
+            throw new Error("It is not your turn.");
+        }
+
+        const moveData = {
+            from: move.from,
+            to: move.to,
+            promotion: move.promotion || "q",
+            san: move.san || "",
+            color: current.turn,
+            playerId: this.user.uid,
+            timestamp: Date.now()
         };
 
-        roomReference.on("value", callback);
+        let moveError = null;
 
-        this.listeners.push({
-            reference: roomReference,
-            event: "value",
-            callback: callback
+        const result = await this.roomRef.transaction(room => {
+            if (!room || room.status !== "playing") {
+                moveError = "Match is no longer active.";
+                return;
+            }
+
+            const playerId = room.turn === "w"
+                ? room.hostId
+                : room.guestId;
+
+            if (playerId !== this.user.uid) {
+                moveError = "It is not your turn.";
+                return;
+            }
+
+            room.moves = room.moves || [];
+            room.moves.push(moveData);
+
+            room.lastMove = moveData;
+            room.fen = fen;
+            room.turn = room.turn === "w" ? "b" : "w";
+            room.updatedAt = firebase.database.ServerValue.TIMESTAMP;
+
+            return room;
+        });
+
+        if (!result.committed) {
+            throw new Error(moveError || "Move could not be sent.");
+        }
+
+        this.roomData = result.snapshot.val();
+        return true;
+    }
+
+    async finishRoom(resultText = "finished") {
+        if (!this.roomRef) return false;
+
+        await this.roomRef.update({
+            status: "finished",
+            result: resultText,
+            finishedAt: firebase.database.ServerValue.TIMESTAMP
         });
 
         return true;
     }
 
-    /* SEND MOVE */
-    async sendMove(moveData) {
-        if (!this.connected || !this.roomId || !this.user) {
-            return this.reportError(
-                "Not connected to an online game."
-            );
-        }
+    async sendDrawOffer() {
+        if (!this.roomRef) return false;
 
-        try {
-            const engine = window.apparaChess;
+        const offer = {
+            from: this.user.uid,
+            timestamp: Date.now()
+        };
 
-            if (!engine || !engine.isReady()) {
-                return this.reportError(
-                    "Chess engine is unavailable."
-                );
-            }
-
-            const data = {
-                fen: engine.getPosition(),
-                pgn: engine.getPGN(),
-
-                lastMove: {
-                    from: moveData.from,
-                    to: moveData.to,
-                    promotion: moveData.promotion || null,
-                    player: this.user.uid,
-                    timestamp: Date.now()
-                },
-
-                updatedAt: Date.now()
-            };
-
-            await this.database.ref(
-                "rooms/" + this.roomId + "/game"
-            ).update(data);
-
-            return {
-                success: true
-            };
-
-        } catch (error) {
-            return this.reportError(error.message);
-        }
+        await this.roomRef.child("drawOffer").set(offer);
+        return true;
     }
 
-    /* SEND GAME RESULT */
-    async sendResult(result) {
-        if (!this.roomId || !this.user) return false;
+    async respondDrawOffer(accepted) {
+        if (!this.roomRef) return false;
 
-        try {
-            await this.database.ref(
-                "rooms/" + this.roomId + "/result"
-            ).set({
-                winner: result.winner || null,
-                reason: result.reason || "finished",
-                completedAt: Date.now()
-            });
-
-            return true;
-
-        } catch (error) {
-            this.reportError(error.message);
-            return false;
+        if (accepted) {
+            await this.finishRoom("draw");
+        } else {
+            await this.roomRef.child("drawOffer").remove();
         }
+
+        return true;
     }
 
-    /* LEAVE ROOM */
+    async resign() {
+        if (!this.roomRef) return false;
+
+        const winner = this.playerColor === "w" ? "black" : "white";
+        await this.finishRoom(winner + "_wins_by_resignation");
+
+        return true;
+    }
+
+    stopRoomListener() {
+        if (this.roomRef && this.roomListener) {
+            this.roomRef.off("value", this.roomListener);
+        }
+
+        this.roomListener = null;
+    }
+
     async leaveRoom() {
-        if (!this.roomId || !this.user) return false;
+        this.stopRoomListener();
 
-        try {
-            this.removeListeners();
-
-            const playerRef = this.database.ref(
-                "rooms/" + this.roomId +
-                "/players/" + this.user.uid
-            );
-
-            await playerRef.remove();
-
-            if (this.isHost) {
-                await this.database.ref(
-                    "rooms/" + this.roomId
-                ).update({
-                    status: "closed"
+        if (this.roomRef && this.isHost) {
+            try {
+                await this.roomRef.update({
+                    status: "closed",
+                    closedAt: firebase.database.ServerValue.TIMESTAMP
                 });
+            } catch (error) {
+                this.reportError(error);
             }
-
-            this.roomId = null;
-            this.roomCode = null;
-            this.isHost = false;
-            this.connected = false;
-            this.playerColor = null;
-            this.opponent = null;
-
-            return true;
-
-        } catch (error) {
-            return this.reportError(error.message);
         }
+
+        this.roomRef = null;
+        this.roomCode = null;
+        this.roomData = null;
+        this.isHost = false;
+        this.playerColor = null;
+
+        return true;
     }
 
-    /* REMOVE LISTENERS */
-    removeListeners() {
-        this.listeners.forEach(item => {
-            item.reference.off(
-                item.event,
-                item.callback
-            );
-        });
-
-        this.listeners = [];
+    getRoomCode() {
+        return this.roomCode;
     }
 
-    /* CONNECTION STATE */
-    async checkConnection() {
-        if (!this.database) return false;
-
-        try {
-            const snapshot = await this.database.ref(".info/connected")
-                .once("value");
-
-            this.connected = snapshot.val() === true;
-
-            return this.connected;
-
-        } catch (error) {
-            return false;
-        }
+    getPlayerColor() {
+        return this.playerColor;
     }
 
-    /* ERROR HANDLER */
-    reportError(message) {
-        console.error("APPARA ONLINE:", message);
+    getOpponentName() {
+        if (!this.roomData) return "Opponent";
+
+        return this.isHost
+            ? (this.roomData.guestName || "Waiting for opponent...")
+            : (this.roomData.hostName || "Opponent");
+    }
+
+    reportError(error) {
+        console.error("[APPARA ONLINE]", error);
 
         if (typeof this.onError === "function") {
-            this.onError(message);
+            this.onError(error);
         }
-
-        return {
-            success: false,
-            error: message
-        };
     }
 
-    /* DISCONNECT */
-    async disconnect() {
-        await this.leaveRoom();
+    destroy() {
+        this.stopRoomListener();
 
-        this.removeListeners();
-
-        if (this.auth && this.user) {
-            try {
-                await this.auth.signOut();
-            } catch (error) {
-                console.error("Sign out error:", error);
-            }
+        if (this.database && this.connectionListener) {
+            this.database.ref(".info/connected")
+                .off("value", this.connectionListener);
         }
 
-        this.user = null;
+        this.connectionListener = null;
         this.connected = false;
     }
-
 }
 
-/* GLOBAL ONLINE SERVICE */
 window.apparaOnline = new ApparaChessOnline();
 
-/* PART 12 END */
+/* =========================================
+   PART 21 END
+========================================= */
