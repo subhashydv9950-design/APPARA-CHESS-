@@ -1,486 +1,408 @@
+
 /* =========================================================
    APPARA CHESS — COMPUTER AI ENGINE
-   PART 12 — js/ai.js
+   PART 21A — INTEGRATION FIX
+   File: js/ai.js
    ========================================================= */
 
-(function () {
-  "use strict";
+window.APPARA_AI = (function () {
+    "use strict";
 
-  const AI = {
-    difficulty: "medium",
-    isThinking: false,
-    searchToken: 0,
+    let difficulty = "medium";
+    let stopped = false;
 
-    pieceValues: {
-      p: 100,
-      n: 320,
-      b: 330,
-      r: 500,
-      q: 900,
-      k: 20000
-    },
+    const PIECE_VALUES = {
+        p: 100,
+        n: 320,
+        b: 335,
+        r: 500,
+        q: 900,
+        k: 20000
+    };
 
-    difficultySettings: {
-      easy: {
-        depth: 1,
-        randomFactor: 0.35
-      },
-      medium: {
-        depth: 2,
-        randomFactor: 0.08
-      },
-      hard: {
-        depth: 3,
-        randomFactor: 0
-      },
-      expert: {
-        depth: 3,
-        randomFactor: 0
-      }
-    },
-
-    /* ---------- INITIALIZATION ---------- */
-
-    init(options = {}) {
-      this.setDifficulty(
-        options.difficulty || "medium"
-      );
-
-      return true;
-    },
-
-    setDifficulty(level) {
-      const allowed = [
-        "easy",
-        "medium",
-        "hard",
-        "expert"
-      ];
-
-      this.difficulty = allowed.includes(level)
-        ? level
-        : "medium";
-
-      return this.difficulty;
-    },
-
-    getDifficulty() {
-      return this.difficulty;
-    },
-
-    /* ---------- ENGINE ACCESS ---------- */
-
-    getGame() {
-      if (!window.APPARA_ENGINE) return null;
-
-      return window.APPARA_ENGINE.getGame();
-    },
-
-    getSettings() {
-      return (
-        this.difficultySettings[this.difficulty] ||
-        this.difficultySettings.medium
-      );
-    },
-
-    /* ---------- PIECE SQUARE VALUE ---------- */
-
-    getPositionBonus(piece, row, col) {
-      const centerDistance =
-        Math.abs(3.5 - row) +
-        Math.abs(3.5 - col);
-
-      const centerBonus = Math.max(
-        0,
-        7 - centerDistance
-      );
-
-      switch (piece.type) {
-        case "p":
-          return piece.color === "w"
-            ? (6 - row) * 5
-            : (row - 1) * 5;
-
-        case "n":
-          return centerBonus * 7;
-
-        case "b":
-          return centerBonus * 4;
-
-        case "r":
-          return centerBonus * 2;
-
-        case "q":
-          return centerBonus * 2;
-
-        case "k":
-          return -centerBonus * 3;
-
-        default:
-          return 0;
-      }
-    },
-
-    /* ---------- BOARD EVALUATION ---------- */
-
-    evaluateBoard(game) {
-      const board = game.board();
-
-      let score = 0;
-
-      for (let row = 0; row < 8; row++) {
-        for (let col = 0; col < 8; col++) {
-          const piece = board[row][col];
-
-          if (!piece) continue;
-
-          const value = this.pieceValues[piece.type] || 0;
-
-          const positionBonus = this.getPositionBonus(
-            piece,
-            row,
-            col
-          );
-
-          const total = value + positionBonus;
-
-          score += piece.color === "w"
-            ? total
-            : -total;
+    const LEVELS = {
+        easy: {
+            depth: 1,
+            randomFactor: 35
+        },
+        medium: {
+            depth: 2,
+            randomFactor: 12
+        },
+        hard: {
+            depth: 3,
+            randomFactor: 3
+        },
+        expert: {
+            depth: 3,
+            randomFactor: 0
         }
-      }
+    };
 
-      return score;
-    },
+    function getGame() {
+        if (
+            !window.APPARA_ENGINE ||
+            typeof APPARA_ENGINE.getGame !== "function"
+        ) {
+            return null;
+        }
 
-    /* ---------- MOVE ORDERING ---------- */
+        return APPARA_ENGINE.getGame();
+    }
 
-    orderMoves(moves) {
-      return [...moves].sort((a, b) => {
-        const scoreA = this.getMoveOrderScore(a);
-        const scoreB = this.getMoveOrderScore(b);
+    function init() {
+        stopped = false;
 
-        return scoreB - scoreA;
-      });
-    },
+        if (
+            window.APPARA_CONFIG &&
+            APPARA_CONFIG.defaults &&
+            APPARA_CONFIG.defaults.difficulty
+        ) {
+            difficulty = APPARA_CONFIG.defaults.difficulty;
+        }
 
-    getMoveOrderScore(move) {
-      let score = 0;
+        return true;
+    }
 
-      if (move.captured) {
-        const capturedValue =
-          this.pieceValues[move.captured] || 0;
+    function setDifficulty(level) {
+        const allowed = Object.keys(LEVELS);
 
-        const movingValue =
-          this.pieceValues[move.piece] || 0;
+        if (allowed.includes(level)) {
+            difficulty = level;
+        } else {
+            difficulty = "medium";
+        }
 
-        score += 1000 + capturedValue - movingValue * 0.1;
-      }
+        return difficulty;
+    }
 
-      if (move.promotion) {
-        score += 800 + (
-          this.pieceValues[move.promotion] || 0
+    function getDifficulty() {
+        return difficulty;
+    }
+
+    function getSettings() {
+        return {
+            difficulty: difficulty,
+            depth: LEVELS[difficulty].depth,
+            randomFactor: LEVELS[difficulty].randomFactor
+        };
+    }
+
+    function getPositionBonus(piece, row, col) {
+        const centerDistance =
+            Math.abs(3.5 - row) + Math.abs(3.5 - col);
+
+        const centerBonus = Math.max(
+            0,
+            7 - centerDistance
         );
-      }
 
-      if (move.flags && move.flags.includes("k")) {
-        score += 30;
-      }
+        switch (piece.type) {
+            case "p":
+                return piece.color === "w"
+                    ? (6 - row) * 5
+                    : (row - 1) * 5;
 
-      if (move.flags && move.flags.includes("q")) {
-        score += 30;
-      }
+            case "n":
+                return centerBonus * 7;
 
-      return score;
-    },
+            case "b":
+                return centerBonus * 4;
 
-    /* ---------- MINIMAX SEARCH ---------- */
+            case "r":
+                return centerBonus * 2;
 
-    minimax(game, depth, alpha, beta, maximizingPlayer) {
-      if (game.in_checkmate()) {
-        return maximizingPlayer ? -100000 : 100000;
-      }
+            case "q":
+                return centerBonus * 2;
 
-      if (
-        game.in_draw() ||
-        game.in_stalemate() ||
-        game.in_threefold_repetition() ||
-        game.insufficient_material()
-      ) {
-        return 0;
-      }
+            case "k":
+                return -centerBonus * 3;
 
-      if (depth <= 0 || game.game_over()) {
-        const evaluation = this.evaluateBoard(game);
+            default:
+                return 0;
+        }
+    }
 
-        return maximizingPlayer
-          ? evaluation
-          : -evaluation;
-      }
+    function evaluateBoard(game) {
+        if (!game) return 0;
 
-      const moves = this.orderMoves(
-        game.moves({ verbose: true })
-      );
+        if (game.in_checkmate()) {
+            return game.turn() === "w" ? -100000 : 100000;
+        }
 
-      if (moves.length === 0) {
-        return this.evaluateBoard(game);
-      }
+        if (
+            game.in_draw() ||
+            game.in_stalemate() ||
+            game.insufficient_material()
+        ) {
+            return 0;
+        }
 
-      if (maximizingPlayer) {
+        const board = game.board();
+        let score = 0;
+
+        for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+                const piece = board[row][col];
+
+                if (!piece) continue;
+
+                const value = PIECE_VALUES[piece.type] || 0;
+                const bonus = getPositionBonus(
+                    piece,
+                    row,
+                    col
+                );
+
+                const total = value + bonus;
+
+                score += piece.color === "w"
+                    ? total
+                    : -total;
+            }
+        }
+
+        return score;
+    }
+
+    function orderMoves(moves) {
+        return moves.slice().sort(function (a, b) {
+            return getMoveOrderScore(b) -
+                getMoveOrderScore(a);
+        });
+    }
+
+    function getMoveOrderScore(move) {
+        let score = 0;
+
+        if (move.captured) {
+            score +=
+                (PIECE_VALUES[move.captured] || 0) * 10 -
+                (PIECE_VALUES[move.piece] || 0);
+        }
+
+        if (move.promotion) {
+            score += PIECE_VALUES[move.promotion] || 0;
+        }
+
+        if (move.flags && move.flags.includes("k")) {
+            score += 30;
+        }
+
+        if (move.flags && move.flags.includes("q")) {
+            score += 30;
+        }
+
+        return score;
+    }
+
+    /*
+       Negamax:
+       Positive score = advantage for the side whose turn it is.
+       This keeps white/black evaluation consistent.
+    */
+    function minimax(
+        game,
+        depth,
+        alpha,
+        beta,
+        colorMultiplier
+    ) {
+        if (stopped) return 0;
+
+        if (depth <= 0 || game.game_over()) {
+            return colorMultiplier * evaluateBoard(game);
+        }
+
+        const moves = orderMoves(
+            game.moves({ verbose: true })
+        );
+
+        if (!moves.length) {
+            return colorMultiplier * evaluateBoard(game);
+        }
+
         let bestScore = -Infinity;
 
-        for (const move of moves) {
-          game.move({
+        for (let i = 0; i < moves.length; i++) {
+            if (stopped) break;
+
+            const move = moves[i];
+
+            const played = game.move({
+                from: move.from,
+                to: move.to,
+                promotion: move.promotion || "q"
+            });
+
+            if (!played) continue;
+
+            const score = -minimax(
+                game,
+                depth - 1,
+                -beta,
+                -alpha,
+                -colorMultiplier
+            );
+
+            game.undo();
+
+            if (score > bestScore) {
+                bestScore = score;
+            }
+
+            alpha = Math.max(alpha, score);
+
+            if (alpha >= beta) {
+                break;
+            }
+        }
+
+        return bestScore === -Infinity ? 0 : bestScore;
+    }
+
+    function getBestMove(color) {
+        const game = getGame();
+
+        if (!game || game.game_over()) {
+            return null;
+        }
+
+        const currentColor = color || game.turn();
+
+        if (game.turn() !== currentColor) {
+            return null;
+        }
+
+        stopped = false;
+
+        const settings = LEVELS[difficulty];
+        const moves = orderMoves(
+            game.moves({ verbose: true })
+        );
+
+        if (!moves.length) return null;
+
+        let bestMove = null;
+        let bestScore = -Infinity;
+        const candidates = [];
+
+        for (let i = 0; i < moves.length; i++) {
+            if (stopped) break;
+
+            const move = moves[i];
+
+            const played = game.move({
+                from: move.from,
+                to: move.to,
+                promotion: move.promotion || "q"
+            });
+
+            if (!played) continue;
+
+            const score = -minimax(
+                game,
+                settings.depth - 1,
+                -Infinity,
+                Infinity,
+                currentColor === "w" ? -1 : 1
+            );
+
+            game.undo();
+
+            const adjustedScore =
+                score + (
+                    Math.random() * settings.randomFactor
+                );
+
+            candidates.push({
+                move: move,
+                score: adjustedScore
+            });
+
+            if (adjustedScore > bestScore) {
+                bestScore = adjustedScore;
+                bestMove = move;
+            }
+        }
+
+        if (!bestMove && candidates.length) {
+            bestMove = candidates[0].move;
+        }
+
+        return bestMove ? {
+            from: bestMove.from,
+            to: bestMove.to,
+            promotion: bestMove.promotion || "q"
+        } : null;
+    }
+
+    function playMove(move) {
+        const game = getGame();
+
+        if (!game || !move || game.game_over()) {
+            return null;
+        }
+
+        const result = game.move({
             from: move.from,
             to: move.to,
             promotion: move.promotion || "q"
-          });
-
-          const score = this.minimax(
-            game,
-            depth - 1,
-            alpha,
-            beta,
-            false
-          );
-
-          game.undo();
-
-          bestScore = Math.max(bestScore, score);
-          alpha = Math.max(alpha, bestScore);
-
-          if (beta <= alpha) break;
-        }
-
-        return bestScore;
-      }
-
-      let bestScore = Infinity;
-
-      for (const move of moves) {
-        game.move({
-          from: move.from,
-          to: move.to,
-          promotion: move.promotion || "q"
         });
 
-        const score = this.minimax(
-          game,
-          depth - 1,
-          alpha,
-          beta,
-          true
-        );
-
-        game.undo();
-
-        bestScore = Math.min(bestScore, score);
-        beta = Math.min(beta, bestScore);
-
-        if (beta <= alpha) break;
-      }
-
-      return bestScore;
-    },
-
-    /* ---------- BEST MOVE ---------- */
-
-    getBestMove(options = {}) {
-      const game = this.getGame();
-
-      if (!game || game.game_over()) {
-        return null;
-      }
-
-      const color = options.color || game.turn();
-      const currentTurn = game.turn();
-
-      if (color !== currentTurn) {
-        return null;
-      }
-
-      const settings = this.getSettings();
-
-      const depth = Number.isInteger(options.depth)
-        ? Math.max(1, Math.min(4, options.depth))
-        : settings.depth;
-
-      const moves = this.orderMoves(
-        game.moves({ verbose: true })
-      );
-
-      if (!moves.length) return null;
-
-      const evaluatedMoves = [];
-
-      for (const move of moves) {
-        game.move({
-          from: move.from,
-          to: move.to,
-          promotion: move.promotion || "q"
-        });
-
-        const score = this.minimax(
-          game,
-          depth - 1,
-          -Infinity,
-          Infinity,
-          color === "b"
-        );
-
-        game.undo();
-
-        const adjustedScore = color === "w"
-          ? score
-          : -score;
-
-        evaluatedMoves.push({
-          move: {
-            from: move.from,
-            to: move.to,
-            promotion: move.promotion || "q",
-            san: move.san
-          },
-          score: adjustedScore
-        });
-      }
-
-      evaluatedMoves.sort(
-        (a, b) => b.score - a.score
-      );
-
-      const randomFactor = settings.randomFactor;
-
-      if (
-        randomFactor > 0 &&
-        evaluatedMoves.length > 1 &&
-        Math.random() < randomFactor
-      ) {
-        const candidates = evaluatedMoves.slice(
-          0,
-          Math.min(3, evaluatedMoves.length)
-        );
-
-        return candidates[
-          Math.floor(Math.random() * candidates.length)
-        ].move;
-      }
-
-      return evaluatedMoves[0].move;
-    },
-
-    /* ---------- PLAY BEST MOVE ---------- */
-
-    playMove(options = {}) {
-      const engine = window.APPARA_ENGINE;
-
-      if (!engine || this.isThinking) {
-        return false;
-      }
-
-      const move = this.getBestMove(options);
-
-      if (!move) return false;
-
-      const result = engine.move(move);
-
-      if (!result) return false;
-
-      if (window.APPARA_BOARD) {
-        window.APPARA_BOARD.setLastMove(
-          result.from,
-          result.to
-        );
-
-        window.APPARA_BOARD.refresh();
-      }
-
-      return result;
-    },
-
-    /* ---------- ASYNC COMPUTER TURN ---------- */
-
-    async playTurn(options = {}) {
-      if (this.isThinking) return false;
-
-      const engine = window.APPARA_ENGINE;
-
-      if (!engine || engine.isGameOver()) {
-        return false;
-      }
-
-      const expectedColor = options.color || engine.turn();
-
-      if (engine.turn() !== expectedColor) {
-        return false;
-      }
-
-      this.isThinking = true;
-
-      const currentToken = ++this.searchToken;
-
-      try {
-        await new Promise((resolve) => {
-          window.setTimeout(resolve, 120);
-        });
-
-        if (currentToken !== this.searchToken) {
-          return false;
-        }
-
-        const move = this.getBestMove({
-          color: expectedColor,
-          depth: options.depth
-        });
-
-        if (!move || currentToken !== this.searchToken) {
-          return false;
-        }
-
-        const result = engine.move(move);
-
-        if (!result) return false;
+        if (!result) return null;
 
         if (window.APPARA_BOARD) {
-          window.APPARA_BOARD.setLastMove(
-            result.from,
-            result.to
-          );
-
-          window.APPARA_BOARD.refresh();
+            APPARA_BOARD.refresh();
         }
 
         return result;
-      } catch (error) {
-        console.error("APPARA AI: Computer move failed.", error);
-        return false;
-      } finally {
-        this.isThinking = false;
-      }
-    },
-
-    /* ---------- CANCEL THINKING ---------- */
-
-    stop() {
-      this.searchToken++;
-      this.isThinking = false;
-
-      return true;
-    },
-
-    /* ---------- RESET ---------- */
-
-    reset() {
-      this.stop();
-      return true;
     }
-  };
 
-  window.APPARA_AI = AI;
+    function playTurn(color) {
+        const game = getGame();
 
+        if (!game || game.game_over()) {
+            return null;
+        }
+
+        const move = getBestMove(color);
+
+        if (!move || stopped) {
+            return null;
+        }
+
+        return playMove(move);
+    }
+
+    function stop() {
+        stopped = true;
+    }
+
+    function reset() {
+        stopped = false;
+    }
+
+    return {
+        init: init,
+        setDifficulty: setDifficulty,
+        getDifficulty: getDifficulty,
+        getSettings: getSettings,
+        getGame: getGame,
+        getPositionBonus: getPositionBonus,
+        evaluateBoard: evaluateBoard,
+        orderMoves: orderMoves,
+        getMoveOrderScore: getMoveOrderScore,
+        minimax: minimax,
+        getBestMove: getBestMove,
+        playMove: playMove,
+        playTurn: playTurn,
+        stop: stop,
+        reset: reset
+    };
 })();
 
 /* =========================================================
-   APPARA CHESS — COMPUTER AI ENGINE
-   PART 12 END
+   APPARA CHESS — PART 21A END
+   FILE END: js/ai.js
    ========================================================= */
