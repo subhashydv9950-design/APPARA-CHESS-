@@ -1,0 +1,321 @@
+/* =========================================
+   APPARA CHESS — CHESSBOARD STYLES
+   PART 03 START
+========================================= */
+
+:root {
+  --board-light: #eee7ff;
+  --board-dark: #7653a8;
+  --board-border: #a78bfa;
+  --board-highlight: rgba(250, 204, 21, 0.48);
+  --board-last-move: rgba(34, 211, 238, 0.28);
+  --board-selected: rgba(250, 204, 21, 0.55);
+  --board-legal: rgba(34, 197, 94, 0.55);
+}
+
+/* BOARD WRAPPER */
+.board-wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 680px;
+  margin-inline: auto;
+  padding: 10px;
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  border-radius: 17px;
+  background: linear-gradient(145deg, #30204c, #151323);
+  box-shadow:
+    0 15px 45px rgba(0, 0, 0, 0.35),
+    0 0 25px rgba(139, 92, 246, 0.12);
+}
+
+#chess-board,
+.chess-board {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-rows: repeat(8, minmax(0, 1fr));
+  overflow: hidden;
+  border: 2px solid var(--board-border);
+  border-radius: 5px;
+  background: var(--board-dark);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* BOARD SQUARES */
+.square {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.square.light {
+  background: var(--board-light);
+}
+
+.square.dark {
+  background: var(--board-dark);
+}
+
+.square:hover {
+  filter: brightness(1.08);
+}
+
+.square.selected {
+  background: var(--board-selected) !important;
+}
+
+.square.last-move {
+  background-image: linear-gradient(
+    var(--board-last-move),
+    var(--board-last-move)
+  );
+}
+
+.square.check {
+  background-image: radial-gradient(
+    circle,
+    rgba(239, 68, 68, 0.85),
+    rgba(239, 68, 68, 0.15) 72%
+  );
+}
+
+.square.legal-move::after {
+  position: absolute;
+  width: 25%;
+  height: 25%;
+  border-radius: 50%;
+  background: var(--board-legal);
+  content: "";
+  pointer-events: none;
+}
+
+.square.legal-capture::after {
+  position: absolute;
+  inset: 3px;
+  border: 5px solid var(--board-legal);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+}
+
+/* CHESS PIECES */
+.chess-piece,
+.piece {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  width: 91%;
+  height: 91%;
+  align-items: center;
+  justify-content: center;
+  font-family:
+    "Segoe UI Symbol",
+    "Noto Sans Symbols 2",
+    "Arial Unicode MS",
+    sans-serif;
+  font-size: clamp(23px, 6.2vw, 55px);
+  line-height: 1;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.16s ease, filter 0.16s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chess-piece:hover,
+.piece:hover {
+  transform: scale(1.07);
+}
+
+.chess-piece:active,
+.piece:active {
+  cursor: grabbing;
+}
+
+.piece-white,
+.chess-piece.white {
+  color: #fff;
+  text-shadow:
+    0 2px 2px rgba(0, 0, 0, 0.85),
+    0 0 2px #222,
+    1px 0 #777,
+    -1px 0 #777;
+}
+
+.piece-black,
+.chess-piece.black {
+  color: #242033;
+  text-shadow:
+    0 1px 1px rgba(255, 255, 255, 0.55),
+    0 0 2px #fff;
+}
+
+/* COORDINATES */
+.file-coordinates,
+.rank-coordinates {
+  display: flex;
+  color: #d8c8ff;
+  font-family: "Orbitron", sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+#file-coordinates-top,
+#file-coordinates-bottom {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  width: 100%;
+  padding: 4px 0;
+  text-align: center;
+}
+
+#rank-coordinates-left,
+#rank-coordinates-right {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  padding: 0 5px;
+  text-align: center;
+}
+
+.board-with-coordinates {
+  display: flex;
+  align-items: stretch;
+}
+
+.board-center {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+/* BOARD FLIP */
+#chess-board.flipped {
+  transform: rotate(180deg);
+}
+
+#chess-board.flipped .square {
+  transform: rotate(180deg);
+}
+
+#chess-board.flipped .chess-piece,
+#chess-board.flipped .piece {
+  transform: rotate(180deg);
+}
+
+/* PIECE DRAGGING */
+.square.drag-over {
+  outline: 3px solid rgba(34, 211, 238, 0.85);
+  outline-offset: -3px;
+}
+
+.chess-piece.dragging,
+.piece.dragging {
+  opacity: 0.45;
+  transform: scale(1.15);
+}
+
+/* PROMOTION PANEL */
+.promotion-panel {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  gap: 5px;
+  padding: 8px;
+  border: 1px solid var(--board-border);
+  border-radius: 12px;
+  background: #201832;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+
+.promotion-option {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: white;
+  font-size: 36px;
+  cursor: pointer;
+}
+
+.promotion-option:hover {
+  background: rgba(167, 139, 250, 0.2);
+}
+
+/* BOARD THEMES */
+#chess-board.theme-classic {
+  --board-light: #f0d9b5;
+  --board-dark: #b58863;
+}
+
+#chess-board.theme-blue {
+  --board-light: #dceeff;
+  --board-dark: #527da8;
+}
+
+#chess-board.theme-green {
+  --board-light: #eeeed2;
+  --board-dark: #769656;
+}
+
+#chess-board.theme-purple {
+  --board-light: #eee7ff;
+  --board-dark: #7653a8;
+}
+
+#chess-board.theme-dark {
+  --board-light: #b8b8c8;
+  --board-dark: #45445b;
+}
+
+/* BOARD RESPONSIVE */
+@media (max-width: 520px) {
+  .board-wrapper {
+    padding: 5px;
+    border-radius: 10px;
+  }
+
+  #chess-board {
+    border-width: 1px;
+  }
+
+  .file-coordinates,
+  .rank-coordinates {
+    font-size: 8px;
+  }
+
+  #rank-coordinates-left,
+  #rank-coordinates-right {
+    padding-inline: 3px;
+  }
+
+  .chess-piece,
+  .piece {
+    font-size: clamp(21px, 8vw, 39px);
+  }
+
+  .promotion-option {
+    width: 40px;
+    height: 40px;
+    font-size: 30px;
+  }
+}
+
+/* =========================================
+   APPARA CHESS — BOARD STYLES
+   PART 03 END
+========================================= */
