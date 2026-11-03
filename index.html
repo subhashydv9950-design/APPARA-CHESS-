@@ -1,0 +1,453 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <meta name="theme-color" content="#100b20">
+
+    <meta name="description"
+          content="APPARA CHESS - Premium Online and Offline Chess Game">
+
+    <title>APPARA CHESS</title>
+
+    <!-- APP ICON -->
+    <link rel="icon" href="assets/images/icon.png">
+
+    <!-- FONTS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap"
+          rel="stylesheet">
+
+    <!-- CSS FILES -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/board.css">
+    <link rel="stylesheet" href="css/animations.css">
+    <link rel="stylesheet" href="css/responsive.css">
+
+    <!-- CHESS RULES ENGINE -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"
+            defer></script>
+
+    <!-- MAIN JAVASCRIPT -->
+    <script src="js/config.js" defer></script>
+    <script src="js/chess-engine.js" defer></script>
+    <script src="js/board.js" defer></script>
+    <script src="js/timer.js" defer></script>
+    <script src="js/sound.js" defer></script>
+    <script src="js/ai.js" defer></script>
+    <script src="js/online.js" defer></script>
+    <script src="js/multiplayer.js" defer></script>
+    <script src="js/game.js" defer></script>
+    <script src="js/profile.js" defer></script>
+    <script src="js/tournament.js" defer></script>
+    <script src="js/settings.js" defer></script>
+    <script src="js/app.js" defer></script>
+
+</head>
+
+<body>
+
+    <!-- APP LOADING SCREEN -->
+    <div id="loading-screen">
+
+        <div class="loading-logo">♟</div>
+
+        <h1>APPARA CHESS</h1>
+
+        <p>THE ART OF STRATEGY</p>
+
+        <div class="loading-bar">
+            <div class="loading-progress"></div>
+        </div>
+
+        <span>INITIALIZING CHESS WORLD...</span>
+
+    </div>
+
+
+    <!-- MAIN APP -->
+    <main id="app" class="app-container">
+
+        <!-- BACKGROUND EFFECTS -->
+        <div class="background-effects">
+            <div class="glow glow-one"></div>
+            <div class="glow glow-two"></div>
+            <div class="particles" id="particles"></div>
+        </div>
+
+
+        <!-- TOP NAVIGATION -->
+        <header class="top-header">
+
+            <div class="brand">
+
+                <div class="brand-icon">♟</div>
+
+                <div class="brand-text">
+                    <h1>APPARA</h1>
+                    <span>CHESS</span>
+                </div>
+
+            </div>
+
+
+            <div class="header-actions">
+
+                <button id="music-toggle"
+                        class="icon-button"
+                        aria-label="Toggle music">
+                    ♫
+                </button>
+
+                <button id="sound-toggle"
+                        class="icon-button"
+                        aria-label="Toggle sound">
+                    🔊
+                </button>
+
+                <button id="profile-button"
+                        class="profile-button">
+                    <span>👤</span>
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <!-- PAGE CONTENT -->
+        <section id="main-content">
+
+            <!-- HOME PAGE -->
+            <section id="home-page" class="page active">
+
+                <div class="hero-section">
+
+                    <div class="hero-content">
+
+                        <span class="hero-tag">
+                            ♛ ENTER THE WORLD OF CHESS
+                        </span>
+
+                        <h2>
+                            MASTER YOUR
+                            <span>STRATEGY.</span>
+                        </h2>
+
+                        <p>
+                            Challenge your mind.
+                            Defeat your opponents.
+                            Become a Chess Legend.
+                        </p>
+
+                    </div>
+
+                    <div class="hero-chess-piece">
+                        ♛
+                    </div>
+
+                </div>
+
+
+                <!-- GAME MODES -->
+                <div class="section-heading">
+
+                    <h2>PLAY CHESS</h2>
+
+                    <span>Choose Your Game Mode</span>
+
+                </div>
+
+
+                <div class="game-mode-grid">
+
+                    <button class="mode-card"
+                            data-mode="offline">
+
+                        <div class="mode-icon">♟</div>
+
+                        <h3>OFFLINE</h3>
+
+                        <p>Play with a Friend</p>
+
+                        <span>2 PLAYERS</span>
+
+                    </button>
+
+
+                    <button class="mode-card"
+                            data-mode="computer">
+
+                        <div class="mode-icon">🤖</div>
+
+                        <h3>COMPUTER AI</h3>
+
+                        <p>Challenge Artificial Intelligence</p>
+
+                        <span>AI BATTLE</span>
+
+                    </button>
+
+
+                    <button class="mode-card"
+                            data-mode="online">
+
+                        <div class="mode-icon">🌐</div>
+
+                        <h3>ONLINE</h3>
+
+                        <p>Play with the World</p>
+
+                        <span>MULTIPLAYER</span>
+
+                    </button>
+
+
+                    <button class="mode-card"
+                            data-mode="training">
+
+                        <div class="mode-icon">🎯</div>
+
+                        <h3>TRAINING</h3>
+
+                        <p>Improve Your Chess Skills</p>
+
+                        <span>LEARN & PRACTICE</span>
+
+                    </button>
+
+                </div>
+
+
+                <!-- EXTRA FEATURES -->
+                <div class="feature-grid">
+
+                    <button class="feature-card"
+                            data-page="tournament">
+                        🏆
+                        <span>Tournaments</span>
+                    </button>
+
+                    <button class="feature-card"
+                            data-page="puzzle">
+                        🧩
+                        <span>Chess Puzzle</span>
+                    </button>
+
+                    <button class="feature-card"
+                            data-page="leaderboard">
+                        👑
+                        <span>Leaderboard</span>
+                    </button>
+
+                    <button class="feature-card"
+                            data-page="statistics">
+                        📊
+                        <span>Statistics</span>
+                    </button>
+
+                </div>
+
+            </section>
+
+
+            <!-- GAME PAGE -->
+            <section id="game-page" class="page">
+
+                <div class="game-topbar">
+
+                    <button id="back-home">← BACK</button>
+
+                    <h2 id="game-title">CHESS MATCH</h2>
+
+                    <button id="game-menu">⋮</button>
+
+                </div>
+
+
+                <!-- OPPONENT -->
+                <div class="player-panel opponent-panel">
+
+                    <div class="player-avatar">♟</div>
+
+                    <div class="player-details">
+                        <h3 id="opponent-name">Opponent</h3>
+                        <span id="opponent-rating">Rating: 1200</span>
+                    </div>
+
+                    <div class="chess-clock"
+                         id="opponent-clock">
+                        10:00
+                    </div>
+
+                </div>
+
+
+                <!-- CHESS BOARD -->
+                <div class="board-container">
+
+                    <div class="board-coordinates"
+                         id="board-coordinates">
+
+                    </div>
+
+                    <div id="chess-board"
+                         class="chess-board">
+
+                    </div>
+
+                </div>
+
+
+                <!-- CURRENT PLAYER -->
+                <div class="player-panel current-panel">
+
+                    <div class="player-avatar">♛</div>
+
+                    <div class="player-details">
+                        <h3 id="player-name">You</h3>
+                        <span id="player-rating">Rating: 1000</span>
+                    </div>
+
+                    <div class="chess-clock"
+                         id="player-clock">
+                        10:00
+                    </div>
+
+                </div>
+
+
+                <!-- GAME CONTROLS -->
+                <div class="game-controls">
+
+                    <button id="undo-move">↶ Undo</button>
+
+                    <button id="flip-board">⇅ Flip</button>
+
+                    <button id="draw-game">½ Draw</button>
+
+                    <button id="resign-game">⚑ Resign</button>
+
+                </div>
+
+
+                <!-- MOVE HISTORY -->
+                <div class="move-history">
+
+                    <h3>MOVE HISTORY</h3>
+
+                    <div id="move-list">
+                        No moves yet
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- PROFILE PAGE -->
+            <section id="profile-page" class="page">
+
+                <h2>PLAYER PROFILE</h2>
+
+                <div id="profile-content"></div>
+
+            </section>
+
+
+            <!-- SETTINGS PAGE -->
+            <section id="settings-page" class="page">
+
+                <h2>GAME SETTINGS</h2>
+
+                <div id="settings-content"></div>
+
+            </section>
+
+
+            <!-- TOURNAMENT PAGE -->
+            <section id="tournament-page" class="page">
+
+                <h2>CHESS TOURNAMENTS</h2>
+
+                <div id="tournament-content"></div>
+
+            </section>
+
+
+            <!-- ABOUT PAGE -->
+            <section id="about-page" class="page">
+
+                <h2>ABOUT APPARA CHESS</h2>
+
+                <div id="about-content"></div>
+
+            </section>
+
+        </section>
+
+
+        <!-- BOTTOM NAVIGATION -->
+        <nav class="bottom-navigation">
+
+            <button class="nav-item active"
+                    data-page="home">
+                <span>⌂</span>
+                <small>Home</small>
+            </button>
+
+            <button class="nav-item"
+                    data-page="play">
+                <span>♟</span>
+                <small>Play</small>
+            </button>
+
+            <button class="nav-item"
+                    data-page="tournament">
+                <span>🏆</span>
+                <small>Events</small>
+            </button>
+
+            <button class="nav-item"
+                    data-page="profile">
+                <span>👤</span>
+                <small>Profile</small>
+            </button>
+
+            <button class="nav-item"
+                    data-page="settings">
+                <span>⚙</span>
+                <small>Settings</small>
+            </button>
+
+        </nav>
+
+
+        <!-- GLOBAL MODAL -->
+        <div id="modal-container"
+             class="modal-container">
+
+            <div class="modal-box">
+
+                <button id="modal-close">✕</button>
+
+                <div id="modal-content"></div>
+
+            </div>
+
+        </div>
+
+
+        <!-- NOTIFICATIONS -->
+        <div id="notification-container"></div>
+
+    </main>
+
+</body>
+                      </html>
+                      
