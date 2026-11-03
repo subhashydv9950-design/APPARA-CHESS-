@@ -1,369 +1,508 @@
 
 /* =========================================================
    APPARA CHESS — PUZZLE SYSTEM
-   PART 16 — js/puzzles.js
+   PART 21C — PUZZLE VALIDATION & BOARD SYNC FIX
+   File: js/puzzles.js
    ========================================================= */
 
 window.APPARA_PUZZLES = (function () {
-  "use strict";
+    "use strict";
 
-  const puzzles = [
-    {
-      id: 1,
-      title: "Mate in One",
-      level: "Easy",
-      rating: 800,
-      fen: "6k1/5ppp/8/8/8/8/5PPP/6K1 w - - 0 1",
-      solution: [],
-      description: "Find the best move."
-    },
-    {
-      id: 2,
-      title: "Queen Attack",
-      level: "Easy",
-      rating: 900,
-      fen: "4k3/8/8/8/8/8/4Q3/4K3 w - - 0 1",
-      solution: [],
-      description: "Practice queen movement."
-    },
-    {
-      id: 3,
-      title: "Knight Practice",
-      level: "Medium",
-      rating: 1100,
-      fen: "4k3/8/8/3n4/8/8/8/4K3 w - - 0 1",
-      solution: [],
-      description: "Explore knight tactics."
-    }
-  ];
+    const STORAGE_KEY = "appara_chess_puzzles_v1";
 
-  let currentPuzzle = null;
-  let currentIndex = 0;
-  let solved = [];
-  let active = false;
-  let moveCount = 0;
-  let puzzleGame = null;
+    let initialized = false;
+    let currentPuzzle = null;
+    let puzzleIndex = 0;
+    let solvedCount = 0;
+    let attempts = 0;
+    let isActive = false;
+    let isSolved = false;
+    let isProcessing = false;
 
-  const STORAGE_KEY = "appara_chess_puzzles_v1";
+    /*
+     * Puzzle solution format:
+     * Each move uses UCI notation:
+     * e.g. g6g7
+     */
 
-  function loadProgress() {
-    try {
-      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-      solved = Array.isArray(data.solved) ? data.solved : [];
-    } catch (error) {
-      solved = [];
-    }
-  }
+    const PUZZLES = [
+        {
+            id: "AP-P001",
+            title: "Queen's Final Strike",
+            level: "Beginner",
+            difficulty: 1,
+            description: "Find the winning queen move.",
+            fen: "7k/6pp/5KQ1/8/8/8/8/8 w - - 0 1",
+            solution: [
+                "g6g7"
+            ],
+            successMessage: "Brilliant! Checkmate!",
+            hint: "Look for a queen move that attacks the black king."
+        }
+    ];
 
-  function saveProgress() {
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ solved: solved })
-      );
-    } catch (error) {
-      console.warn("Puzzle progress could not be saved.", error);
-    }
-  }
-
-  function getSolvedCount() {
-    return solved.length;
-  }
-
-  function getPuzzleList() {
-    return puzzles.map(function (puzzle) {
-      return {
-        id: puzzle.id,
-        title: puzzle.title,
-        level: puzzle.level,
-        rating: puzzle.rating,
-        solved: solved.includes(puzzle.id)
-      };
-    });
-  }
-
-  function getPuzzle(id) {
-    return puzzles.find(function (puzzle) {
-      return puzzle.id === Number(id);
-    }) || null;
-  }
-
-  function getContainer() {
-    return document.getElementById("puzzle-container");
-  }
-
-  function notify(message, type) {
-    if (window.APPARA_APP &&
-        typeof window.APPARA_APP.notify === "function") {
-      window.APPARA_APP.notify(message, type || "info");
-    } else {
-      console.info("[APPARA PUZZLES]", message);
-    }
-  }
-
-  function renderProgress() {
-    const count = document.getElementById("puzzles-solved");
-    if (count) count.textContent = String(getSolvedCount());
-
-    const level = document.getElementById("puzzle-level");
-    if (level) {
-      level.textContent = getSolvedCount() + " / " + puzzles.length;
-    }
-  }
-
-  function renderPuzzleList() {
-    const container = getContainer();
-    if (!container) return;
-
-    container.innerHTML = "";
-
-    puzzles.forEach(function (puzzle) {
-      const card = document.createElement("button");
-      card.type = "button";
-      card.className = "puzzle-card";
-
-      const title = document.createElement("strong");
-      title.textContent = puzzle.title;
-
-      const info = document.createElement("span");
-      info.textContent = puzzle.level + " • " + puzzle.rating + " rating";
-
-      const status = document.createElement("span");
-      status.textContent = solved.includes(puzzle.id)
-        ? "✓ Solved"
-        : "Play Puzzle";
-
-      card.appendChild(title);
-      card.appendChild(info);
-      card.appendChild(status);
-
-      card.addEventListener("click", function () {
-        start(puzzle.id);
-      });
-
-      container.appendChild(card);
-    });
-  }
-
-  function start(id) {
-    const puzzle = getPuzzle(id);
-
-    if (!puzzle) {
-      notify("Puzzle not found.", "error");
-      return false;
+    function getEngine() {
+        return window.APPARA_ENGINE || null;
     }
 
-    if (typeof window.Chess !== "function") {
-      notify("Chess engine is not available.", "error");
-      return false;
+    function getGame() {
+        return getEngine() ? getEngine().getGame() : null;
     }
 
-    try {
-      puzzleGame = new window.Chess(puzzle.fen);
-    } catch (error) {
-      notify("Puzzle position could not be loaded.", "error");
-      return false;
+    function getElement(id) {
+        return document.getElementById(id);
     }
 
-    currentPuzzle = puzzle;
-    currentIndex = puzzles.indexOf(puzzle);
-    moveCount = 0;
-    active = true;
-
-    if (window.APPARA_ENGINE) {
-      window.APPARA_ENGINE.load(puzzle.fen);
+    function notify(message, type) {
+        if (
+            window.APPARA_APP &&
+            typeof APPARA_APP.notify === "function"
+        ) {
+            APPARA_APP.notify(message, type || "info");
+        }
     }
 
-    if (window.APPARA_BOARD) {
-      window.APPARA_BOARD.setMoveHandler(handleMove);
-      window.APPARA_BOARD.clearSelection();
-      window.APPARA_BOARD.setLastMove(null);
-      window.APPARA_BOARD.render();
-      window.APPARA_BOARD.setLegalMoves([]);
+    function loadSolvedCount() {
+        try {
+            const saved = JSON.parse(
+                localStorage.getItem(STORAGE_KEY) || "{}"
+            );
+
+            solvedCount = Number(saved.solvedCount) || 0;
+        } catch (error) {
+            solvedCount = 0;
+        }
+
+        updateSolvedDisplay();
     }
 
-    renderActivePuzzle();
-
-    notify("Puzzle started. Find the best move!", "success");
-    return true;
-  }
-
-  function renderActivePuzzle() {
-    const container = getContainer();
-    if (!container || !currentPuzzle) return;
-
-    container.innerHTML = "";
-
-    const panel = document.createElement("div");
-    panel.className = "active-puzzle";
-
-    const heading = document.createElement("h3");
-    heading.textContent = currentPuzzle.title;
-
-    const description = document.createElement("p");
-    description.textContent = currentPuzzle.description;
-
-    const level = document.createElement("span");
-    level.textContent =
-      currentPuzzle.level + " • " + currentPuzzle.rating;
-
-    const status = document.createElement("p");
-    status.id = "puzzle-status";
-    status.textContent = "Your turn. Find the best move.";
-
-    const backButton = document.createElement("button");
-    backButton.type = "button";
-    backButton.textContent = "Back to Puzzles";
-    backButton.addEventListener("click", function () {
-      stop();
-    });
-
-    panel.appendChild(heading);
-    panel.appendChild(description);
-    panel.appendChild(level);
-    panel.appendChild(status);
-    panel.appendChild(backButton);
-
-    container.appendChild(panel);
-  }
-
-  function setPuzzleStatus(message) {
-    const status = document.getElementById("puzzle-status");
-    if (status) status.textContent = message;
-  }
-
-  function handleMove(from, to, promotion) {
-    if (!active || !puzzleGame) return false;
-
-    const move = puzzleGame.move({
-      from: from,
-      to: to,
-      promotion: promotion || "q"
-    });
-
-    if (!move) {
-      return false;
+    function saveProgress() {
+        try {
+            localStorage.setItem(
+                STORAGE_KEY,
+                JSON.stringify({
+                    solvedCount: solvedCount,
+                    lastSolved: currentPuzzle
+                        ? currentPuzzle.id
+                        : null
+                })
+            );
+        } catch (error) {
+            console.warn(
+                "[APPARA PUZZLES] Progress could not be saved."
+            );
+        }
     }
 
-    moveCount += 1;
+    function init() {
+        loadSolvedCount();
+        bindEvents();
 
-    if (window.APPARA_BOARD) {
-      window.APPARA_BOARD.setLastMove({
-        from: from,
-        to: to
-      });
-      window.APPARA_BOARD.refresh();
+        initialized = true;
+        return true;
     }
 
-    if (puzzleGame.game_over()) {
-      if (puzzleGame.in_checkmate()) {
-        completePuzzle();
-      } else {
-        setPuzzleStatus("Position finished. Try another puzzle.");
-        active = false;
-      }
-      return true;
+    function bindEvents() {
+        const startButton = getElement("start-puzzle-btn");
+
+        if (startButton && !startButton.dataset.puzzleBound) {
+            startButton.dataset.puzzleBound = "true";
+
+            startButton.addEventListener("click", function () {
+                startPuzzle();
+            });
+        }
     }
 
-    setPuzzleStatus("Move played. Continue analyzing the position.");
-
-    return true;
-  }
-
-  function completePuzzle() {
-    if (!currentPuzzle) return;
-
-    active = false;
-
-    if (!solved.includes(currentPuzzle.id)) {
-      solved.push(currentPuzzle.id);
-      saveProgress();
+    function getPuzzleList() {
+        return PUZZLES.map(function (puzzle) {
+            return {
+                id: puzzle.id,
+                title: puzzle.title,
+                level: puzzle.level,
+                difficulty: puzzle.difficulty,
+                description: puzzle.description
+            };
+        });
     }
 
-    renderProgress();
-    renderPuzzleList();
-
-    notify("Puzzle completed!", "success");
-
-    setPuzzleStatus("Puzzle completed successfully!");
-  }
-
-  function nextPuzzle() {
-    if (!puzzles.length) return false;
-
-    const nextIndex = (currentIndex + 1) % puzzles.length;
-    return start(puzzles[nextIndex].id);
-  }
-
-  function stop() {
-    active = false;
-    currentPuzzle = null;
-    puzzleGame = null;
-    moveCount = 0;
-
-    if (window.APPARA_BOARD) {
-      window.APPARA_BOARD.setMoveHandler(null);
-      window.APPARA_BOARD.clearSelection();
+    function getPuzzle(id) {
+        return PUZZLES.find(function (puzzle) {
+            return puzzle.id === id;
+        }) || null;
     }
 
-    if (window.APPARA_ENGINE) {
-      window.APPARA_ENGINE.reset();
+    function choosePuzzle() {
+        if (!PUZZLES.length) return null;
+
+        if (PUZZLES.length === 1) {
+            puzzleIndex = 0;
+            return PUZZLES[0];
+        }
+
+        const nextIndex = puzzleIndex % PUZZLES.length;
+        puzzleIndex++;
+
+        return PUZZLES[nextIndex];
     }
 
-    renderPuzzleList();
-    renderProgress();
-  }
+    function startPuzzle(id) {
+        const engine = getEngine();
 
-  function init() {
-    loadProgress();
-    renderProgress();
-    renderPuzzleList();
+        if (!engine) {
+            notify("Chess engine उपलब्ध नहीं है।", "error");
+            return false;
+        }
 
-    const startButton = document.getElementById("start-puzzle-btn");
+        const puzzle = id
+            ? getPuzzle(id)
+            : choosePuzzle();
 
-    if (startButton && !startButton.dataset.puzzleBound) {
-      startButton.dataset.puzzleBound = "true";
+        if (!puzzle) {
+            notify("कोई Puzzle उपलब्ध नहीं है।", "error");
+            return false;
+        }
 
-      startButton.addEventListener("click", function () {
-        const next = puzzles.find(function (puzzle) {
-          return !solved.includes(puzzle.id);
+        stop();
+
+        if (!engine.load(puzzle.fen)) {
+            notify("Puzzle position load नहीं हो सकी।", "error");
+            return false;
+        }
+
+        currentPuzzle = puzzle;
+        attempts = 0;
+        isActive = true;
+        isSolved = false;
+        isProcessing = false;
+
+        if (window.APPARA_BOARD) {
+            APPARA_BOARD.setOrientation(
+                getGame().turn()
+            );
+
+            APPARA_BOARD.setMoveHandler(handleMove);
+            APPARA_BOARD.refresh();
+        }
+
+        updatePuzzleDisplay();
+        renderPuzzle();
+
+        notify("Puzzle शुरू हो गया है। सही चाल खोजें!", "success");
+
+        return true;
+    }
+
+    function normalizeMove(move) {
+        if (!move) return "";
+
+        return (
+            String(move.from || "") +
+            String(move.to || "") +
+            String(move.promotion || "")
+        ).toLowerCase();
+    }
+
+    function getExpectedMove() {
+        if (
+            !currentPuzzle ||
+            !Array.isArray(currentPuzzle.solution)
+        ) {
+            return null;
+        }
+
+        return currentPuzzle.solution[0] || null;
+    }
+
+    function handleMove(move) {
+        if (
+            !isActive ||
+            isSolved ||
+            isProcessing ||
+            !currentPuzzle
+        ) {
+            return false;
+        }
+
+        const engine = getEngine();
+        const game = getGame();
+
+        if (!engine || !game || game.game_over()) {
+            return false;
+        }
+
+        const expectedMove = getExpectedMove();
+
+        if (!expectedMove) {
+            notify("इस Puzzle का solution उपलब्ध नहीं है।", "error");
+            return false;
+        }
+
+        const submitted = normalizeMove(move);
+
+        if (submitted !== expectedMove.toLowerCase()) {
+            attempts++;
+
+            notify(
+                "यह सही चाल नहीं है। फिर कोशिश करें!",
+                "warning"
+            );
+
+            updatePuzzleDisplay();
+
+            if (window.APPARA_BOARD) {
+                APPARA_BOARD.clearSelection();
+                APPARA_BOARD.refresh();
+            }
+
+            return false;
+        }
+
+        isProcessing = true;
+
+        const result = engine.move({
+            from: move.from,
+            to: move.to,
+            promotion: move.promotion || "q"
         });
 
-        start(next ? next.id : puzzles[0].id);
-      });
+        if (!result) {
+            isProcessing = false;
+            return false;
+        }
+
+        if (window.APPARA_BOARD) {
+            APPARA_BOARD.clearSelection();
+            APPARA_BOARD.refresh();
+        }
+
+        const completed = game.game_over();
+
+        if (completed) {
+            completePuzzle();
+        } else {
+            /*
+             * Current puzzle has one verified solution move.
+             * Do not pretend an unconfigured opponent reply exists.
+             */
+            completePuzzle();
+        }
+
+        isProcessing = false;
+        return result;
     }
 
-    return true;
-  }
+    function completePuzzle() {
+        if (isSolved) return false;
 
-  function getState() {
+        isSolved = true;
+        isActive = false;
+
+        solvedCount++;
+
+        saveProgress();
+        updateSolvedDisplay();
+
+        if (window.APPARA_SOUND) {
+            APPARA_SOUND.checkmate();
+        }
+
+        notify(
+            currentPuzzle.successMessage ||
+            "Puzzle Solved!",
+            "success"
+        );
+
+        renderPuzzle();
+
+        if (window.APPARA_BOARD) {
+            APPARA_BOARD.setMoveHandler(null);
+            APPARA_BOARD.refresh();
+        }
+
+        return true;
+    }
+
+    function showHint() {
+        if (!currentPuzzle || !isActive) {
+            notify("पहले Puzzle शुरू करें।", "info");
+            return false;
+        }
+
+        notify(
+            "Hint: " + currentPuzzle.hint,
+            "info"
+        );
+
+        return true;
+    }
+
+    function stop() {
+        isActive = false;
+        isSolved = false;
+        isProcessing = false;
+        attempts = 0;
+
+        if (window.APPARA_BOARD) {
+            APPARA_BOARD.setMoveHandler(null);
+            APPARA_BOARD.clearSelection();
+        }
+
+        return true;
+    }
+
+    function nextPuzzle() {
+        stop();
+        return startPuzzle();
+    }
+
+    function updateSolvedDisplay() {
+        const element = getElement("puzzles-solved");
+
+        if (element) {
+            element.textContent = String(solvedCount);
+        }
+    }
+
+    function updatePuzzleDisplay() {
+        const levelElement = getElement("puzzle-level");
+
+        if (levelElement && currentPuzzle) {
+            levelElement.textContent =
+                currentPuzzle.level;
+        }
+    }
+
+    function renderPuzzle() {
+        const container = getElement("puzzle-container");
+
+        if (!container || !currentPuzzle) return;
+
+        const title = currentPuzzle.title;
+        const description = currentPuzzle.description;
+
+        container.innerHTML = `
+            <div class="puzzle-info">
+                <div class="puzzle-info-top">
+                    <span class="puzzle-level-badge">
+                        ${escapeHTML(currentPuzzle.level)}
+                    </span>
+                    <span class="puzzle-id">
+                        ${escapeHTML(currentPuzzle.id)}
+                    </span>
+                </div>
+
+                <h3>${escapeHTML(title)}</h3>
+
+                <p>${escapeHTML(description)}</p>
+
+                <div class="puzzle-attempts">
+                    Attempts: ${attempts}
+                </div>
+
+                ${
+                    isSolved
+                    ? `
+                        <div class="puzzle-success">
+                            <span>✓</span>
+                            <strong>Puzzle Solved!</strong>
+                            <p>${escapeHTML(
+                                currentPuzzle.successMessage
+                            )}</p>
+                        </div>
+                    `
+                    : `
+                        <div class="puzzle-actions">
+                            <button
+                                type="button"
+                                class="btn btn-secondary"
+                                id="puzzle-hint-btn"
+                            >
+                                Show Hint
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn btn-primary"
+                                id="puzzle-next-btn"
+                            >
+                                Next Puzzle
+                            </button>
+                        </div>
+                    `
+                }
+            </div>
+        `;
+
+        const hintButton = getElement("puzzle-hint-btn");
+        const nextButton = getElement("puzzle-next-btn");
+
+        if (hintButton) {
+            hintButton.addEventListener("click", showHint);
+        }
+
+        if (nextButton) {
+            nextButton.addEventListener("click", nextPuzzle);
+        }
+    }
+
+    function escapeHTML(value) {
+        return String(value).replace(
+            /[&<>"']/g,
+            function (character) {
+                return {
+                    "&": "&amp;",
+                    "<": "&lt;",
+                    ">": "&gt;",
+                    '"': "&quot;",
+                    "'": "&#39;"
+                }[character];
+            }
+        );
+    }
+
+    function getSolvedCount() {
+        return solvedCount;
+    }
+
+    function getState() {
+        return {
+            initialized: initialized,
+            active: isActive,
+            solved: isSolved,
+            processing: isProcessing,
+            attempts: attempts,
+            solvedCount: solvedCount,
+            currentPuzzle: currentPuzzle
+                ? currentPuzzle.id
+                : null
+        };
+    }
+
+    function destroy() {
+        stop();
+        initialized = false;
+        return true;
+    }
+
     return {
-      active: active,
-      currentPuzzle: currentPuzzle ? currentPuzzle.id : null,
-      moveCount: moveCount,
-      solved: solved.slice(),
-      total: puzzles.length
+        init: init,
+        start: startPuzzle,
+        startPuzzle: startPuzzle,
+        stop: stop,
+        nextPuzzle: nextPuzzle,
+        showHint: showHint,
+        handleMove: handleMove,
+        getPuzzle: getPuzzle,
+        getPuzzleList: getPuzzleList,
+        getSolvedCount: getSolvedCount,
+        getState: getState,
+        destroy: destroy
     };
-  }
-
-  function destroy() {
-    stop();
-  }
-
-  return {
-    init: init,
-    start: start,
-    stop: stop,
-    nextPuzzle: nextPuzzle,
-    getPuzzle: getPuzzle,
-    getPuzzleList: getPuzzleList,
-    getSolvedCount: getSolvedCount,
-    getState: getState,
-    destroy: destroy
-  };
 })();
 
 /* =========================================================
-   APPARA CHESS — PUZZLE SYSTEM
-   PART 16 END
+   APPARA CHESS — PART 21C END
+   FILE END: js/puzzles.js
    ========================================================= */
+           
