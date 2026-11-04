@@ -1964,7 +1964,17 @@ select:focus-visible {
     outline: 2px solid var(--primary, #9b5cff);
     outline-offset: 2px;
 }
+/* APPARA CHESS — LOADING SCREEN FIX */
 
+.loading-screen.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.app-container.ready {
+    opacity: 1;
+}
 /* =====================================================
    APPARA CHESS — CSS FILE COMPLETE
    PART 3/3 END
