@@ -1,12 +1,15 @@
 /* =========================================================
    APPARA CHESS — CHESS CLOCK CONTROLLER
-   PART 10 — js/timer.js
-   ========================================================= */
+   Complete replacement: js/timer.js
+========================================================= */
 
 (function () {
   "use strict";
 
   const Timer = {
+
+    /* ---------- CLOCK STATE ---------- */
+
     whiteTime: 600,
     blackTime: 600,
 
@@ -14,6 +17,7 @@
     increment: 0,
 
     activeColor: null,
+
     isRunning: false,
     isPaused: false,
     isExpired: false,
@@ -33,63 +37,82 @@
     /* ---------- INITIALIZATION ---------- */
 
     init(options = {}) {
-      this.elements.white = document.getElementById("white-clock");
-      this.elements.black = document.getElementById("black-clock");
 
-      this.onTick = typeof options.onTick === "function"
-        ? options.onTick
-        : null;
+      this.stop();
 
-      this.onTimeout = typeof options.onTimeout === "function"
-        ? options.onTimeout
-        : null;
+      this.elements.white =
+        document.getElementById("white-clock");
 
-      this.onTurnChange = typeof options.onTurnChange === "function"
-        ? options.onTurnChange
-        : null;
+      this.elements.black =
+        document.getElementById("black-clock");
+
+      this.onTick =
+        typeof options.onTick === "function"
+          ? options.onTick
+          : null;
+
+      this.onTimeout =
+        typeof options.onTimeout === "function"
+          ? options.onTimeout
+          : null;
+
+      this.onTurnChange =
+        typeof options.onTurnChange === "function"
+          ? options.onTurnChange
+          : null;
 
       const minutes = Number(options.minutes);
 
-      if (Number.isFinite(minutes) && minutes > 0) {
-        this.initialTime = Math.floor(minutes * 60);
-      } else {
-        this.initialTime = 600;
-      }
+      this.initialTime =
+        Number.isFinite(minutes) && minutes > 0
+          ? Math.floor(minutes * 60)
+          : 600;
 
       const increment = Number(options.increment);
 
-      this.increment = Number.isFinite(increment) && increment >= 0
-        ? Math.floor(increment)
-        : 0;
+      this.increment =
+        Number.isFinite(increment) && increment >= 0
+          ? Math.floor(increment)
+          : 0;
 
       this.reset();
 
       return true;
     },
 
-    /* ---------- RESET CLOCK ---------- */
+    /* ---------- RESET ---------- */
 
     reset(options = {}) {
-      this.stop();
 
-      if (typeof options.minutes === "number" && options.minutes > 0) {
-        this.initialTime = Math.floor(options.minutes * 60);
+      this.stopInterval();
+
+      if (
+        Number.isFinite(Number(options.minutes)) &&
+        Number(options.minutes) > 0
+      ) {
+        this.initialTime =
+          Math.floor(Number(options.minutes) * 60);
       }
 
       if (
-        typeof options.increment === "number" &&
-        options.increment >= 0
+        options.increment !== undefined &&
+        Number.isFinite(Number(options.increment)) &&
+        Number(options.increment) >= 0
       ) {
-        this.increment = Math.floor(options.increment);
+        this.increment =
+          Math.floor(Number(options.increment));
       }
 
       this.whiteTime = this.initialTime;
       this.blackTime = this.initialTime;
 
       this.activeColor = null;
+
       this.isRunning = false;
       this.isPaused = false;
       this.isExpired = false;
+
+      this.lastTick = 0;
 
       this.render();
 
@@ -99,6 +122,7 @@
     /* ---------- START CLOCK ---------- */
 
     start(color = "white") {
+
       if (this.isExpired) return false;
 
       if (color !== "white" && color !== "black") {
@@ -108,8 +132,10 @@
       this.stopInterval();
 
       this.activeColor = color;
+
       this.isRunning = true;
       this.isPaused = false;
+
       this.lastTick = Date.now();
 
       this.startInterval();
@@ -119,10 +145,15 @@
     },
 
     startInterval() {
+
       this.stopInterval();
 
-      if (!this.isRunning || this.isPaused || this.isExpired) {
-        return;
+      if (
+        !this.isRunning ||
+        this.isPaused ||
+        this.isExpired
+      ) {
+        return false;
       }
 
       this.lastTick = Date.now();
@@ -130,9 +161,12 @@
       this.intervalId = window.setInterval(() => {
         this.tick();
       }, 100);
+
+      return true;
     },
 
     stopInterval() {
+
       if (this.intervalId !== null) {
         window.clearInterval(this.intervalId);
         this.intervalId = null;
@@ -142,19 +176,35 @@
     /* ---------- CLOCK TICK ---------- */
 
     tick() {
-      if (!this.isRunning || this.isPaused || this.isExpired) {
-        return;
+
+      if (
+        !this.isRunning ||
+        this.isPaused ||
+        this.isExpired ||
+        !this.activeColor
+      ) {
+        return false;
       }
 
       const now = Date.now();
-      const elapsed = Math.max(0, (now - this.lastTick) / 1000);
+
+      const elapsed = Math.max(
+        0,
+        (now - this.lastTick) / 1000
+      );
 
       this.lastTick = now;
 
       if (this.activeColor === "white") {
-        this.whiteTime = Math.max(0, this.whiteTime - elapsed);
-      } else if (this.activeColor === "black") {
-        this.blackTime = Math.max(0, this.blackTime - elapsed);
+        this.whiteTime = Math.max(
+          0,
+          this.whiteTime - elapsed
+        );
+      } else {
+        this.blackTime = Math.max(
+          0,
+          this.blackTime - elapsed
+        );
       }
 
       if (
@@ -163,31 +213,63 @@
       ) {
         this.whiteTime = 0;
         this.handleTimeout("white");
-      } else if (
+        return false;
+      }
+
+      if (
         this.activeColor === "black" &&
         this.blackTime <= 0
       ) {
         this.blackTime = 0;
         this.handleTimeout("black");
+        return false;
       }
 
       this.render();
 
       if (this.onTick) {
-        this.onTick(this.getTimes(), this.activeColor);
+        this.onTick(
+          this.getTimes(),
+          this.activeColor
+        );
       }
+
+      return true;
     },
 
     /* ---------- SWITCH TURN ---------- */
 
     switchTurn(nextColor) {
+
       if (this.isExpired) return false;
 
-      if (nextColor !== "white" && nextColor !== "black") {
+      /*
+       * If no color is provided, switch automatically.
+       * This supports multiplayer.js switchTurn() calls.
+       */
+
+      if (
+        nextColor !== "white" &&
+        nextColor !== "black"
+      ) {
+        if (this.activeColor === "white") {
+          nextColor = "black";
+        } else if (this.activeColor === "black") {
+          nextColor = "white";
+        } else {
+          nextColor = "white";
+        }
+      }
+
+      if (
+        nextColor !== "white" &&
+        nextColor !== "black"
+      ) {
         return false;
       }
 
       if (this.isRunning && !this.isPaused) {
+
         this.tick();
 
         if (this.isExpired) return false;
@@ -208,16 +290,24 @@
       this.render();
 
       if (this.onTurnChange) {
-        this.onTurnChange(nextColor, this.getTimes());
+        this.onTurnChange(
+          nextColor,
+          this.getTimes()
+        );
       }
 
       return true;
     },
 
-    /* ---------- PAUSE AND RESUME ---------- */
+    /* ---------- PAUSE ---------- */
 
     pause() {
-      if (!this.isRunning || this.isPaused || this.isExpired) {
+
+      if (
+        !this.isRunning ||
+        this.isPaused ||
+        this.isExpired
+      ) {
         return false;
       }
 
@@ -226,14 +316,22 @@
       if (this.isExpired) return false;
 
       this.isPaused = true;
+
       this.stopInterval();
       this.render();
 
       return true;
     },
 
+    /* ---------- RESUME ---------- */
+
     resume() {
-      if (!this.isRunning || !this.isPaused || this.isExpired) {
+
+      if (
+        !this.isRunning ||
+        !this.isPaused ||
+        this.isExpired
+      ) {
         return false;
       }
 
@@ -246,9 +344,10 @@
       return true;
     },
 
-    /* ---------- STOP CLOCK ---------- */
+    /* ---------- STOP ---------- */
 
     stop() {
+
       this.stopInterval();
 
       this.isRunning = false;
@@ -263,13 +362,16 @@
     /* ---------- TIMEOUT ---------- */
 
     handleTimeout(color) {
-      if (this.isExpired) return;
+
+      if (this.isExpired) return false;
 
       this.isExpired = true;
+
       this.isRunning = false;
       this.isPaused = false;
 
       this.stopInterval();
+
       this.activeColor = null;
 
       this.render();
@@ -280,8 +382,19 @@
         times: this.getTimes()
       };
 
+      /*
+       * Game Controller expects the expired color string.
+       */
+
       if (this.onTimeout) {
-        this.onTimeout(result);
+        try {
+          this.onTimeout(color, result);
+        } catch (error) {
+          console.error(
+            "APPARA TIMER: Timeout callback failed.",
+            error
+          );
+        }
       }
 
       document.dispatchEvent(
@@ -289,11 +402,14 @@
           detail: result
         })
       );
+
+      return true;
     },
 
     /* ---------- FORMAT TIME ---------- */
 
     formatTime(seconds) {
+
       const safeSeconds = Math.max(
         0,
         Math.ceil(Number(seconds) || 0)
@@ -309,14 +425,17 @@
       );
     },
 
-    /* ---------- UPDATE CLOCK DISPLAY ---------- */
+    /* ---------- RENDER ---------- */
 
     render() {
+
       this.renderClock("white");
       this.renderClock("black");
+
     },
 
     renderClock(color) {
+
       const element = this.elements[color];
 
       if (!element) return;
@@ -353,18 +472,26 @@
         "aria-label",
         color + " clock: " + this.formatTime(time)
       );
+
     },
 
     /* ---------- SET TIME ---------- */
 
     setTime(color, seconds) {
-      if (color !== "white" && color !== "black") {
+
+      if (
+        color !== "white" &&
+        color !== "black"
+      ) {
         return false;
       }
 
       const value = Number(seconds);
 
-      if (!Number.isFinite(value) || value < 0) {
+      if (
+        !Number.isFinite(value) ||
+        value < 0
+      ) {
         return false;
       }
 
@@ -390,13 +517,20 @@
     /* ---------- ADD TIME ---------- */
 
     addTime(color, seconds) {
-      if (color !== "white" && color !== "black") {
+
+      if (
+        color !== "white" &&
+        color !== "black"
+      ) {
         return false;
       }
 
       const value = Number(seconds);
 
-      if (!Number.isFinite(value) || value <= 0) {
+      if (
+        !Number.isFinite(value) ||
+        value <= 0
+      ) {
         return false;
       }
 
@@ -411,19 +545,24 @@
       return true;
     },
 
-    /* ---------- GET CLOCK DATA ---------- */
+    /* ---------- GET TIMES ---------- */
 
     getTimes() {
+
       return {
         white: this.whiteTime,
         black: this.blackTime,
+
         whiteFormatted: this.formatTime(this.whiteTime),
         blackFormatted: this.formatTime(this.blackTime),
+
         activeColor: this.activeColor,
+
         isRunning: this.isRunning,
         isPaused: this.isPaused,
         isExpired: this.isExpired
       };
+
     },
 
     getActiveColor() {
@@ -431,13 +570,19 @@
     },
 
     isActive() {
-      return this.isRunning && !this.isPaused && !this.isExpired;
+      return (
+        this.isRunning &&
+        !this.isPaused &&
+        !this.isExpired
+      );
     },
 
     /* ---------- CLEANUP ---------- */
 
     destroy() {
+
       this.stop();
+
       this.onTick = null;
       this.onTimeout = null;
       this.onTurnChange = null;
@@ -447,6 +592,7 @@
 
       return true;
     }
+
   };
 
   window.APPARA_TIMER = Timer;
@@ -454,6 +600,5 @@
 })();
 
 /* =========================================================
-   APPARA CHESS — CHESS CLOCK CONTROLLER
-   PART 10 END
-   ========================================================= */
+   END OF APPARA CHESS TIMER CONTROLLER
+========================================================= */
