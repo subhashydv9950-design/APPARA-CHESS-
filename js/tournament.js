@@ -1,1352 +1,1071 @@
-
 /* =========================================================
-   APPARA CHESS
-   PART 21D — TOURNAMENT SYSTEM
-   PART 1/3
-   File: js/tournament.js
-   ========================================================= */
+   APPARA CHESS — PART 21N
+   TOURNAMENT CONTROLLER
+   FILE: js/tournament.js
+   PART 1/3 — STATE & TOURNAMENT CREATION
+========================================================= */
 
 window.APPARA_TOURNAMENT = (function () {
-    "use strict";
+  "use strict";
 
-    const STORAGE_KEY = "appara_chess_tournaments_v1";
+  const STORAGE_KEY = "appara_chess_tournaments_v1";
 
-    let tournaments = [];
-    let activeTournamentId = null;
-    let initialized = false;
+  const state = {
+    initialized: false,
+    tournaments: [],
+    activeTournamentId: null,
+    selectedTournament: null,
+    elements: {}
+  };
 
-    function createId() {
-        return "APT-" +
-            Date.now().toString(36).toUpperCase() +
-            "-" +
-            Math.random().toString(36).slice(2, 7).toUpperCase();
+  const FORMATS = {
+    knockout: "Knockout",
+    roundrobin: "Round Robin",
+    swiss: "Swiss System"
+  };
+
+  const STATUS = {
+    upcoming: "Upcoming",
+    ongoing: "Ongoing",
+    completed: "Completed"
+  };
+
+  function notify(message, type) {
+    if (
+      window.APPARA_APP &&
+      typeof window.APPARA_APP.showNotification === "function"
+    ) {
+      window.APPARA_APP.showNotification(message, type || "info");
+    }
+  }
+
+  function createId() {
+    return "APT-" +
+      Date.now().toString(36).toUpperCase() +
+      "-" +
+      Math.floor(Math.random() * 10000).toString(36).toUpperCase();
+  }
+
+  function getPlayer() {
+    if (
+      window.APPARA_PROFILE &&
+      typeof window.APPARA_PROFILE.getProfile === "function"
+    ) {
+      return window.APPARA_PROFILE.getProfile();
     }
 
-    function getProfile() {
-        if (
-            window.APPARA_PROFILE &&
-            typeof APPARA_PROFILE.getProfile === "function"
-        ) {
-            return APPARA_PROFILE.getProfile();
-        }
+    return {
+      id: "LOCAL-PLAYER",
+      name: "Guest Player",
+      rating: 1000,
+      avatar: "♟"
+    };
+  }
 
-        return {
-            id: "LOCAL-PLAYER",
-            name: "Guest Player",
-            rating: 1000
-        };
+  function normalizeTournament(item) {
+    if (!item || typeof item !== "object") {
+      return null;
     }
 
-    function getPlayerId() {
-        const profile = getProfile();
+    const capacity = Math.max(
+      2,
+      Math.min(64, Number(item.capacity) || 8)
+    );
 
-        return String(
-            profile.id ||
-            profile.playerId ||
-            "LOCAL-PLAYER"
-        );
+    return {
+      id: String(item.id || createId()),
+      name: String(item.name || "Chess Tournament").slice(0, 40),
+      format: Object.prototype.hasOwnProperty.call(
+        FORMATS,
+        item.format
+      ) ? item.format : "knockout",
+
+      capacity,
+      status: Object.prototype.hasOwnProperty.call(
+        STATUS,
+        item.status
+      ) ? item.status : "upcoming",
+
+      createdAt: Number(item.createdAt) || Date.now(),
+      startAt: Number(item.startAt) || null,
+      players: Array.isArray(item.players)
+        ? item.players.slice(0, capacity)
+        : [],
+
+      rounds: Array.isArray(item.rounds)
+        ? item.rounds
+        : [],
+
+      winnerId: item.winnerId || null,
+      winnerName: item.winnerName || null,
+      creatorId: item.creatorId || null
+    };
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(state.tournaments)
+      );
+
+      return true;
+    } catch (error) {
+      console.error("APPARA TOURNAMENT SAVE ERROR:", error);
+      return false;
+    }
+  }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+
+      state.tournaments = Array.isArray(parsed)
+        ? parsed.map(normalizeTournament).filter(Boolean)
+        : [];
+
+      return true;
+    } catch (error) {
+      console.error("APPARA TOURNAMENT LOAD ERROR:", error);
+      state.tournaments = [];
+      return false;
+    }
+  }
+
+  function getTournament(id) {
+    const tournament = state.tournaments.find(function (item) {
+      return item.id === id;
+    });
+
+    return tournament ? { ...tournament } : null;
+  }
+
+  function getAllTournaments() {
+    return state.tournaments.map(function (item) {
+      return { ...item };
+    });
+  }
+
+  function validateTournamentData(data) {
+    if (!data || typeof data !== "object") {
+      return "Invalid tournament details.";
     }
 
-    function getPlayerName() {
-        return String(
-            getProfile().name || "Guest Player"
-        );
+    const name = String(data.name || "").trim();
+
+    if (name.length < 3) {
+      return "Tournament name must have at least 3 characters.";
     }
 
-    function notify(message, type) {
-        if (
-            window.APPARA_APP &&
-            typeof APPARA_APP.notify === "function"
-        ) {
-            APPARA_APP.notify(message, type || "info");
-        }
+    if (name.length > 40) {
+      return "Tournament name is too long.";
     }
 
-    function save() {
-        try {
-            localStorage.setItem(
-                STORAGE_KEY,
-                JSON.stringify(tournaments)
-            );
-
-            return true;
-        } catch (error) {
-            console.error(
-                "[APPARA TOURNAMENT] Save failed:",
-                error
-            );
-
-            return false;
-        }
+    if (!Object.prototype.hasOwnProperty.call(FORMATS, data.format)) {
+      return "Please select a valid tournament format.";
     }
 
-    function load() {
-        try {
-            const saved = JSON.parse(
-                localStorage.getItem(STORAGE_KEY) || "[]"
-            );
+    const capacity = Number(data.capacity);
 
-            tournaments = Array.isArray(saved)
-                ? saved
-                : [];
-        } catch (error) {
-            tournaments = [];
-        }
-
-        return tournaments;
+    if (
+      !Number.isInteger(capacity) ||
+      capacity < 2 ||
+      capacity > 64
+    ) {
+      return "Tournament capacity must be between 2 and 64.";
     }
 
-    function init() {
-        load();
-        bindEvents();
-        render();
+    return null;
+  }
 
-        initialized = true;
-        return true;
+  function createTournament(data) {
+    const error = validateTournamentData(data);
+
+    if (error) {
+      notify(error, "error");
+      return null;
     }
 
-    function bindEvents() {
-        const button = document.getElementById(
-            "create-tournament-btn"
-        );
+    const player = getPlayer();
 
-        if (!button || button.dataset.tournamentBound) {
-            return;
-        }
+    const tournament = normalizeTournament({
+      id: createId(),
+      name: String(data.name).trim(),
+      format: data.format,
+      capacity: Number(data.capacity),
+      status: "upcoming",
+      createdAt: Date.now(),
+      startAt: null,
 
-        button.dataset.tournamentBound = "true";
+      creatorId: player.id,
 
-        button.addEventListener("click", function () {
-            const name = document.getElementById(
-                "tournament-name"
-            );
+      players: [{
+        id: player.id,
+        name: player.name,
+        rating: player.rating,
+        avatar: player.avatar,
+        joinedAt: Date.now()
+      }],
 
-            const format = document.getElementById(
-                "tournament-format"
-            );
+      rounds: [],
+      winnerId: null,
+      winnerName: null
+    });
 
-            const capacity = document.getElementById(
-                "tournament-capacity"
-            );
+    state.tournaments.unshift(tournament);
+    state.activeTournamentId = tournament.id;
 
-            createTournament({
-                name: name ? name.value : "",
-                format: format ? format.value : "knockout",
-                capacity: capacity
-                    ? Number(capacity.value)
-                    : 8
-            });
-        });
+    save();
+    render();
+
+    notify("Tournament created successfully!", "success");
+
+    return { ...tournament };
+  }
+
+  function deleteTournament(id) {
+    const index = state.tournaments.findIndex(function (item) {
+      return item.id === id;
+    });
+
+    if (index === -1) return false;
+
+    const player = getPlayer();
+    const tournament = state.tournaments[index];
+
+    if (tournament.creatorId !== player.id) {
+      notify("Only the tournament creator can delete it.", "error");
+      return false;
     }
 
-    function normalizeFormat(format) {
-        const allowed = [
-            "knockout",
-            "roundrobin",
-            "swiss"
-        ];
-
-        return allowed.includes(format)
-            ? format
-            : "knockout";
+    if (tournament.status === "ongoing") {
+      notify("An ongoing tournament cannot be deleted.", "warning");
+      return false;
     }
 
-    function createTournament(options) {
-        options = options || {};
+    state.tournaments.splice(index, 1);
 
-        const name = String(
-            options.name || ""
-        ).trim();
-
-        if (!name) {
-            notify("Tournament का नाम लिखें।", "warning");
-            return null;
-        }
-
-        const capacity = Math.max(
-            2,
-            Math.min(
-                64,
-                Math.floor(Number(options.capacity) || 8)
-            )
-        );
-
-        const format = normalizeFormat(options.format);
-        const profile = getProfile();
-
-        const player = {
-            id: getPlayerId(),
-            name: getPlayerName(),
-            rating: Number(profile.rating) || 1000,
-            score: 0,
-            wins: 0,
-            draws: 0,
-            losses: 0
-        };
-
-        const tournament = {
-            id: createId(),
-            name: name,
-            format: format,
-            capacity: capacity,
-            status: "registration",
-            players: [player],
-            rounds: [],
-            currentRound: 0,
-            champion: null,
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-        };
-
-        tournaments.unshift(tournament);
-        activeTournamentId = tournament.id;
-
-        save();
-        render();
-
-        notify("Tournament बनाया गया।", "success");
-
-        return tournament;
+    if (state.activeTournamentId === id) {
+      state.activeTournamentId = null;
     }
 
-    function getTournament(id) {
-        return tournaments.find(function (item) {
-            return item.id === id;
-        }) || null;
+    save();
+    render();
+
+    notify("Tournament deleted.", "success");
+
+    return true;
+  }
+
+  /* =======================================================
+     PART 1/3 END
+     CONTINUE DIRECTLY WITH PART 2/3 BELOW
+  ======================================================= */
+
+            /* =========================================================
+   APPARA CHESS — PART 21N
+   PART 2/3 — REGISTRATION, START & MATCH GENERATION
+========================================================= */
+
+  function joinTournament(id) {
+    const tournament = state.tournaments.find(function (item) {
+      return item.id === id;
+    });
+
+    if (!tournament) {
+      notify("Tournament not found.", "error");
+      return false;
     }
 
-    function getActiveTournament() {
-        return getTournament(activeTournamentId);
+    if (tournament.status !== "upcoming") {
+      notify("Registration is closed.", "warning");
+      return false;
     }
 
-    function joinTournament(id) {
-        const tournament = getTournament(id);
+    const player = getPlayer();
 
-        if (!tournament) {
-            notify("Tournament नहीं मिला।", "error");
-            return false;
-        }
+    const alreadyJoined = tournament.players.some(function (item) {
+      return item.id === player.id;
+    });
 
-        if (tournament.status !== "registration") {
-            notify("Registration बंद हो चुका है।", "warning");
-            return false;
-        }
-
-        if (
-            tournament.players.length >=
-            tournament.capacity
-        ) {
-            notify("Tournament भर चुका है।", "warning");
-            return false;
-        }
-
-        const playerId = getPlayerId();
-
-        if (tournament.players.some(function (player) {
-            return player.id === playerId;
-        })) {
-            notify("आप पहले से शामिल हैं।", "info");
-            return false;
-        }
-
-        const profile = getProfile();
-
-        tournament.players.push({
-            id: playerId,
-            name: getPlayerName(),
-            rating: Number(profile.rating) || 1000,
-            score: 0,
-            wins: 0,
-            draws: 0,
-            losses: 0
-        });
-
-        tournament.updatedAt = Date.now();
-
-        save();
-        render();
-
-        notify(
-            "आप Tournament में शामिल हो गए।",
-            "success"
-        );
-
-        return true;
+    if (alreadyJoined) {
+      notify("You have already joined this tournament.", "info");
+      return false;
     }
 
-    function startTournament(id) {
-        const tournament = getTournament(
-            id || activeTournamentId
-        );
-
-        if (!tournament) return false;
-
-        if (tournament.status !== "registration") {
-            notify(
-                "Tournament पहले ही शुरू हो चुका है।",
-                "warning"
-            );
-            return false;
-        }
-
-        if (tournament.players.length < 2) {
-            notify(
-                "कम से कम 2 खिलाड़ी जरूरी हैं।",
-                "warning"
-            );
-            return false;
-        }
-
-        tournament.status = "active";
-        tournament.currentRound = 1;
-
-        if (tournament.format === "knockout") {
-            generateKnockoutRound(tournament);
-        } else if (tournament.format === "roundrobin") {
-            tournament.rounds =
-                generateRoundRobinRounds(
-                    tournament.players
-                );
-
-            tournament.currentRound = 1;
-        } else {
-            generateSwissRound(tournament);
-        }
-
-        tournament.updatedAt = Date.now();
-
-        save();
-        render();
-
-        notify(
-            "Tournament शुरू हो गया।",
-            "success"
-        );
-
-        return true;
+    if (tournament.players.length >= tournament.capacity) {
+      notify("Tournament is full.", "warning");
+      return false;
     }
 
-    function createMatch(
+    tournament.players.push({
+      id: player.id,
+      name: player.name,
+      rating: player.rating,
+      avatar: player.avatar,
+      joinedAt: Date.now()
+    });
+
+    save();
+    render();
+
+    notify("You joined the tournament.", "success");
+
+    return true;
+  }
+
+  function leaveTournament(id) {
+    const tournament = state.tournaments.find(function (item) {
+      return item.id === id;
+    });
+
+    if (!tournament || tournament.status !== "upcoming") {
+      return false;
+    }
+
+    const player = getPlayer();
+
+    if (tournament.creatorId === player.id) {
+      notify("The creator cannot leave their own tournament.", "warning");
+      return false;
+    }
+
+    const index = tournament.players.findIndex(function (item) {
+      return item.id === player.id;
+    });
+
+    if (index === -1) return false;
+
+    tournament.players.splice(index, 1);
+
+    save();
+    render();
+
+    notify("You left the tournament.", "info");
+
+    return true;
+  }
+
+  function shufflePlayers(players) {
+    const result = players.slice();
+
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+
+    return result;
+  }
+
+  function createMatch(playerA, playerB, roundNumber, matchNumber) {
+    return {
+      id: "MATCH-" + roundNumber + "-" + matchNumber,
+      round: roundNumber,
+      player1: playerA ? playerA.id : null,
+      player1Name: playerA ? playerA.name : "BYE",
+      player2: playerB ? playerB.id : null,
+      player2Name: playerB ? playerB.name : "BYE",
+      winnerId: null,
+      status: playerA && playerB ? "pending" : "completed",
+      result: null,
+      createdAt: Date.now()
+    };
+  }
+
+  function generateKnockoutRound(players, roundNumber) {
+    const shuffled = shufflePlayers(players);
+    const matches = [];
+
+    for (let i = 0; i < shuffled.length; i += 2) {
+      const playerA = shuffled[i];
+      const playerB = shuffled[i + 1] || null;
+
+      const match = createMatch(
         playerA,
         playerB,
         roundNumber,
-        index
+        matches.length + 1
+      );
+
+      if (!playerB) {
+        match.winnerId = playerA.id;
+        match.result = "bye";
+      }
+
+      matches.push(match);
+    }
+
+    return matches;
+  }
+
+  function generateRoundRobinRound(players, roundNumber) {
+    const list = players.slice();
+
+    if (list.length % 2 !== 0) {
+      list.push(null);
+    }
+
+    const matches = [];
+
+    for (let i = 0; i < list.length / 2; i++) {
+      const playerA = list[i];
+      const playerB = list[list.length - 1 - i];
+
+      if (!playerA || !playerB) continue;
+
+      matches.push(
+        createMatch(
+          playerA,
+          playerB,
+          roundNumber,
+          matches.length + 1
+        )
+      );
+    }
+
+    return matches;
+  }
+
+  function generateSwissRound(players, roundNumber) {
+    const sorted = players.slice().sort(function (a, b) {
+      return (Number(b.rating) || 1000) -
+        (Number(a.rating) || 1000);
+    });
+
+    return generateRoundRobinRound(sorted, roundNumber);
+  }
+
+  function startTournament(id) {
+    const tournament = state.tournaments.find(function (item) {
+      return item.id === id;
+    });
+
+    if (!tournament) {
+      notify("Tournament not found.", "error");
+      return false;
+    }
+
+    const player = getPlayer();
+
+    if (tournament.creatorId !== player.id) {
+      notify("Only the creator can start this tournament.", "error");
+      return false;
+    }
+
+    if (tournament.status !== "upcoming") {
+      notify("This tournament has already started.", "warning");
+      return false;
+    }
+
+    if (tournament.players.length < 2) {
+      notify("At least 2 players are required.", "warning");
+      return false;
+    }
+
+    if (tournament.players.length > tournament.capacity) {
+      notify("Tournament capacity exceeded.", "error");
+      return false;
+    }
+
+    const players = tournament.players.slice();
+
+    let matches;
+
+    if (tournament.format === "knockout") {
+      matches = generateKnockoutRound(players, 1);
+    } else if (tournament.format === "roundrobin") {
+      matches = generateRoundRobinRound(players, 1);
+    } else {
+      matches = generateSwissRound(players, 1);
+    }
+
+    tournament.rounds = [{
+      number: 1,
+      matches: matches
+    }];
+
+    tournament.status = "ongoing";
+    tournament.startAt = Date.now();
+
+    save();
+    render();
+
+    notify("Tournament started!", "success");
+
+    return true;
+  }
+
+  function getCurrentRound(tournament) {
+    if (!tournament || !Array.isArray(tournament.rounds)) {
+      return null;
+    }
+
+    return tournament.rounds.length
+      ? tournament.rounds[tournament.rounds.length - 1]
+      : null;
+  }
+
+  function getMatch(id, matchId) {
+    const tournament = state.tournaments.find(function (item) {
+      return item.id === id;
+    });
+
+    if (!tournament) return null;
+
+    for (const round of tournament.rounds) {
+      const match = round.matches.find(function (item) {
+        return item.id === matchId;
+      });
+
+      if (match) return match;
+    }
+
+    return null;
+  }
+
+  /* =======================================================
+     PART 2/3 END
+     CONTINUE DIRECTLY WITH PART 3/3 BELOW
+  ======================================================= */
+
+              /* =========================================================
+   APPARA CHESS — PART 21N
+   PART 3/3 — RESULTS, WINNER, UI & PUBLIC API
+========================================================= */
+
+  function reportMatchResult(tournamentId, matchId, winnerId) {
+    const tournament = state.tournaments.find(function (item) {
+      return item.id === tournamentId;
+    });
+
+    if (!tournament || tournament.status !== "ongoing") {
+      return false;
+    }
+
+    const player = getPlayer();
+
+    if (tournament.creatorId !== player.id) {
+      notify("Only the tournament creator can record results.", "error");
+      return false;
+    }
+
+    const match = getMatch(tournamentId, matchId);
+
+    if (!match || match.status !== "pending") {
+      notify("Match is not available.", "warning");
+      return false;
+    }
+
+    const validWinner =
+      winnerId === match.player1 ||
+      winnerId === match.player2;
+
+    if (!validWinner) {
+      notify("Invalid match winner.", "error");
+      return false;
+    }
+
+    match.winnerId = winnerId;
+    match.result = "completed";
+    match.status = "completed";
+    match.finishedAt = Date.now();
+
+    save();
+    render();
+
+    notify("Match result saved.", "success");
+
+    return true;
+  }
+
+  function advanceKnockoutRound(tournamentId) {
+    const tournament = state.tournaments.find(function (item) {
+      return item.id === tournamentId;
+    });
+
+    if (
+      !tournament ||
+      tournament.status !== "ongoing" ||
+      tournament.format !== "knockout"
     ) {
-        return {
-            id: createId(),
-            round: roundNumber,
-            index: index,
-            white: playerA ? playerA.id : null,
-            black: playerB ? playerB.id : null,
-            whiteName: playerA ? playerA.name : "BYE",
-            blackName: playerB ? playerB.name : "BYE",
-            result: playerA && !playerB ? "1-0" : null,
-            winner: playerA && !playerB
-                ? playerA.id
-                : null,
-            completed: Boolean(playerA && !playerB),
-            bye: Boolean(playerA && !playerB)
-        };
+      return false;
     }
 
-    /* =====================================================
-       PART 21D — PART 1/3 END
-       CONTINUE IN SAME FILE WITH PART 2/3
-       ===================================================== */
-           
-/* =========================================================
-   APPARA CHESS
-   PART 21D — TOURNAMENT SYSTEM
-   PART 2/3
-   ========================================================= */
+    const currentRound = getCurrentRound(tournament);
 
-    function generateKnockoutRound(tournament) {
-        const previousRound =
-            tournament.rounds[
-                tournament.rounds.length - 1
-            ];
-
-        let players;
-
-        if (!previousRound) {
-            players = tournament.players.slice();
-        } else {
-            players = previousRound.matches
-                .filter(function (match) {
-                    return match.completed && match.winner;
-                })
-                .map(function (match) {
-                    return tournament.players.find(
-                        function (player) {
-                            return player.id === match.winner;
-                        }
-                    );
-                })
-                .filter(Boolean);
-        }
-
-        if (players.length <= 1) {
-            tournament.status = "completed";
-            tournament.champion = players[0]
-                ? players[0].id
-                : null;
-            return;
-        }
-
-        shuffle(players);
-
-        const matches = [];
-
-        for (let i = 0; i < players.length; i += 2) {
-            matches.push(
-                createMatch(
-                    players[i],
-                    players[i + 1] || null,
-                    tournament.rounds.length + 1,
-                    matches.length + 1
-                )
-            );
-        }
-
-        const round = {
-            number: tournament.rounds.length + 1,
-            matches: matches,
-            completed: matches.every(function (match) {
-                return match.completed;
-            })
-        };
-
-        tournament.rounds.push(round);
-        tournament.currentRound = round.number;
-
-        if (round.completed) {
-            advanceKnockout(tournament);
-        }
+    if (!currentRound || currentRound.matches.some(function (match) {
+      return match.status !== "completed";
+    })) {
+      notify("Complete all matches in this round first.", "warning");
+      return false;
     }
 
-    function advanceKnockout(tournament) {
-        const round =
-            tournament.rounds[
-                tournament.rounds.length - 1
-            ];
-
-        if (
-            !round ||
-            !round.matches.every(function (match) {
-                return match.completed;
-            })
-        ) {
-            return false;
-        }
-
-        const winners = round.matches
-            .map(function (match) {
-                return tournament.players.find(
-                    function (player) {
-                        return player.id === match.winner;
-                    }
-                );
-            })
-            .filter(Boolean);
-
-        if (winners.length === 1) {
-            tournament.status = "completed";
-            tournament.champion = winners[0].id;
-            return true;
-        }
-
-        if (winners.length > 1) {
-            generateKnockoutRound(tournament);
-        }
-
-        return true;
-    }
-
-    function generateRoundRobinRounds(players) {
-        const list = players.slice();
-
-        if (list.length % 2 !== 0) {
-            list.push(null);
-        }
-
-        const count = list.length;
-        const totalRounds = count - 1;
-        const half = count / 2;
-        const rotation = list.slice();
-        const rounds = [];
-
-        for (
-            let roundIndex = 0;
-            roundIndex < totalRounds;
-            roundIndex++
-        ) {
-            const matches = [];
-
-            for (let i = 0; i < half; i++) {
-                const first = rotation[i];
-                const second = rotation[count - 1 - i];
-
-                if (first && second) {
-                    const white = roundIndex % 2 === 0
-                        ? first
-                        : second;
-
-                    const black = roundIndex % 2 === 0
-                        ? second
-                        : first;
-
-                    matches.push(
-                        createMatch(
-                            white,
-                            black,
-                            roundIndex + 1,
-                            matches.length + 1
-                        )
-                    );
-                } else if (first || second) {
-                    matches.push(
-                        createMatch(
-                            first || second,
-                            null,
-                            roundIndex + 1,
-                            matches.length + 1
-                        )
-                    );
-                }
-            }
-
-            rounds.push({
-                number: roundIndex + 1,
-                matches: matches,
-                completed: matches.every(function (match) {
-                    return match.completed;
-                })
-            });
-
-            /* First player fixed, remaining players rotate. */
-            const fixed = rotation[0];
-            const remaining = rotation.slice(1);
-
-            remaining.unshift(remaining.pop());
-
-            rotation.splice(
-                0,
-                rotation.length,
-                fixed
-            );
-
-            rotation.push.apply(rotation, remaining);
-        }
-
-        return rounds;
-    }
-
-    function hasPlayed(
-        tournament,
-        playerA,
-        playerB
-    ) {
-        return tournament.rounds.some(function (round) {
-            return round.matches.some(function (match) {
-                return (
-                    (
-                        match.white === playerA &&
-                        match.black === playerB
-                    ) ||
-                    (
-                        match.white === playerB &&
-                        match.black === playerA
-                    )
-                );
-            });
+    const winners = currentRound.matches
+      .map(function (match) {
+        return tournament.players.find(function (player) {
+          return player.id === match.winnerId;
         });
+      })
+      .filter(Boolean);
+
+    if (winners.length === 1) {
+      tournament.status = "completed";
+      tournament.winnerId = winners[0].id;
+      tournament.winnerName = winners[0].name;
+
+      save();
+      render();
+
+      notify("Tournament champion: " + winners[0].name, "success");
+
+      return true;
     }
 
-    function generateSwissRound(tournament) {
-        const players = tournament.players.slice().sort(
-            function (a, b) {
-                return (
-                    b.score - a.score ||
-                    b.rating - a.rating
-                );
-            }
-        );
+    if (winners.length < 2) {
+      return false;
+    }
 
-        const matches = [];
-        const paired = new Set();
+    const nextRoundNumber = currentRound.number + 1;
 
-        for (let i = 0; i < players.length; i++) {
-            const player = players[i];
+    tournament.rounds.push({
+      number: nextRoundNumber,
+      matches: generateKnockoutRound(
+        winners,
+        nextRoundNumber
+      )
+    });
 
-            if (paired.has(player.id)) continue;
+    save();
+    render();
 
-            let opponent = null;
+    notify("Next knockout round generated.", "success");
 
-            /* First preference: opponent not played before. */
-            for (
-                let j = i + 1;
-                j < players.length;
-                j++
-            ) {
-                const candidate = players[j];
+    return true;
+  }
 
-                if (
-                    paired.has(candidate.id) ||
-                    hasPlayed(
-                        tournament,
-                        player.id,
-                        candidate.id
-                    )
-                ) {
-                    continue;
-                }
+  function finishTournament(tournamentId) {
+    const tournament = state.tournaments.find(function (item) {
+      return item.id === tournamentId;
+    });
 
-                opponent = candidate;
-                break;
-            }
+    if (!tournament || tournament.status !== "ongoing") {
+      return false;
+    }
 
-            /* Fallback if no fresh opponent exists. */
-            if (!opponent) {
-                for (
-                    let j = i + 1;
-                    j < players.length;
-                    j++
-                ) {
-                    if (!paired.has(players[j].id)) {
-                        opponent = players[j];
-                        break;
-                    }
-                }
-            }
+    const player = getPlayer();
 
-            if (opponent) {
-                paired.add(player.id);
-                paired.add(opponent.id);
+    if (tournament.creatorId !== player.id) {
+      notify("Only the creator can finish the tournament.", "error");
+      return false;
+    }
 
-                matches.push(
-                    createMatch(
-                        player,
-                        opponent,
-                        tournament.currentRound,
-                        matches.length + 1
-                    )
-                );
-            } else {
-                paired.add(player.id);
+    const round = getCurrentRound(tournament);
 
-                matches.push(
-                    createMatch(
-                        player,
-                        null,
-                        tournament.currentRound,
-                        matches.length + 1
-                    )
-                );
+    if (!round || round.matches.some(function (match) {
+      return match.status !== "completed";
+    })) {
+      notify("Finish all current round matches first.", "warning");
+      return false;
+    }
 
-                player.score += 1;
-            }
-        }
-
-        tournament.rounds.push({
-            number: tournament.currentRound,
-            matches: matches,
-            completed: matches.every(function (match) {
-                return match.completed;
-            })
+    const winners = round.matches
+      .map(function (match) {
+        return tournament.players.find(function (item) {
+          return item.id === match.winnerId;
         });
+      })
+      .filter(Boolean);
+
+    if (tournament.format === "knockout") {
+      return advanceKnockoutRound(tournamentId);
     }
 
-    function recordMatchResult(
-        tournamentId,
-        matchId,
-        result
-    ) {
-        const tournament = getTournament(tournamentId);
-
-        if (
-            !tournament ||
-            tournament.status !== "active"
-        ) {
-            return false;
-        }
-
-        const normalizedResult = String(
-            result || ""
-        ).trim();
-
-        if (
-            !["1-0", "0-1", "1/2-1/2"].includes(
-                normalizedResult
-            )
-        ) {
-            notify("Invalid match result.", "error");
-            return false;
-        }
-
-        let foundMatch = null;
-        let foundRound = null;
-
-        tournament.rounds.forEach(function (round) {
-            round.matches.forEach(function (match) {
-                if (match.id === matchId) {
-                    foundMatch = match;
-                    foundRound = round;
-                }
-            });
-        });
-
-        if (!foundMatch || !foundRound) {
-            notify("Match नहीं मिला।", "error");
-            return false;
-        }
-
-        if (foundMatch.completed) {
-            notify(
-                "इस Match का result पहले दर्ज हो चुका है।",
-                "warning"
-            );
-            return false;
-        }
-
-        foundMatch.result = normalizedResult;
-        foundMatch.completed = true;
-
-        const whitePlayer = tournament.players.find(
-            function (player) {
-                return player.id === foundMatch.white;
-            }
-        );
-
-        const blackPlayer = tournament.players.find(
-            function (player) {
-                return player.id === foundMatch.black;
-            }
-        );
-
-        if (normalizedResult === "1-0") {
-            foundMatch.winner = foundMatch.white;
-
-            if (whitePlayer) {
-                whitePlayer.score += 1;
-                whitePlayer.wins++;
-            }
-
-            if (blackPlayer) {
-                blackPlayer.losses++;
-            }
-        } else if (normalizedResult === "0-1") {
-            foundMatch.winner = foundMatch.black;
-
-            if (blackPlayer) {
-                blackPlayer.score += 1;
-                blackPlayer.wins++;
-            }
-
-            if (whitePlayer) {
-                whitePlayer.losses++;
-            }
-        } else {
-            foundMatch.winner = null;
-
-            if (whitePlayer) {
-                whitePlayer.score += 0.5;
-                whitePlayer.draws++;
-            }
-
-            if (blackPlayer) {
-                blackPlayer.score += 0.5;
-                blackPlayer.draws++;
-            }
-        }
-
-        foundRound.completed =
-            foundRound.matches.every(function (match) {
-                return match.completed;
-            });
-
-        if (foundRound.completed) {
-            advanceTournament(tournament);
-        }
-
-        tournament.updatedAt = Date.now();
-
-        save();
-        render();
-
-        return true;
+    if (winners.length === 0) {
+      notify("No tournament winner could be determined.", "warning");
+      return false;
     }
 
-    function advanceTournament(tournament) {
-        if (tournament.status !== "active") {
-            return false;
-        }
+    const champion = winners[0];
 
-        if (tournament.format === "knockout") {
-            return advanceKnockout(tournament);
-        }
+    tournament.status = "completed";
+    tournament.winnerId = champion.id;
+    tournament.winnerName = champion.name;
 
-        const currentRound =
-            tournament.rounds[
-                tournament.rounds.length - 1
-            ];
+    save();
+    render();
 
-        if (
-            !currentRound ||
-            !currentRound.completed
-        ) {
-            return false;
-        }
+    notify("Tournament completed.", "success");
 
-        if (tournament.format === "roundrobin") {
-            const allComplete =
-                tournament.rounds.every(
-                    function (round) {
-                        return round.completed;
-                    }
-                );
+    return true;
+  }
 
-            if (allComplete) {
-                tournament.status = "completed";
-                return true;
-            }
+  function selectTournament(id) {
+    const tournament = getTournament(id);
 
-            return false;
-        }
+    if (!tournament) return false;
 
-        if (tournament.format === "swiss") {
-            const maxRounds = Math.ceil(
-                Math.log2(tournament.players.length)
-            ) + 1;
+    state.activeTournamentId = id;
+    state.selectedTournament = tournament;
 
-            if (
-                tournament.currentRound >= maxRounds
-            ) {
-                tournament.status = "completed";
-                return true;
-            }
+    renderDetails(tournament);
 
-            tournament.currentRound++;
+    return true;
+  }
 
-            generateSwissRound(tournament);
-            return true;
-        }
-
-        return false;
-    }
-
-/* =========================================================
-   PART 21D — PART 2/3 END
-   CONTINUE IN SAME FILE WITH PART 3/3
-   ========================================================= */
-         
-/* =========================================================
-   APPARA CHESS
-   PART 21D — TOURNAMENT SYSTEM
-   PART 3/3
-   ========================================================= */
-
-    function getStandings(tournamentId) {
-        const tournament = getTournament(tournamentId);
-
-        if (!tournament) return [];
-
-        return tournament.players
-            .slice()
-            .sort(function (a, b) {
-                return (
-                    b.score - a.score ||
-                    b.wins - a.wins ||
-                    b.rating - a.rating ||
-                    a.name.localeCompare(b.name)
-                );
-            })
-            .map(function (player, index) {
-                return {
-                    rank: index + 1,
-                    id: player.id,
-                    name: player.name,
-                    avatar: player.avatar || "♟",
-                    rating: player.rating,
-                    score: player.score,
-                    wins: player.wins,
-                    draws: player.draws,
-                    losses: player.losses
-                };
-            });
-    }
-
-    function getTournamentMatches(tournamentId) {
-        const tournament = getTournament(tournamentId);
-
-        if (!tournament) return [];
-
-        return tournament.rounds.reduce(
-            function (allMatches, round) {
-                round.matches.forEach(function (match) {
-                    allMatches.push({
-                        id: match.id,
-                        round: round.number,
-                        white: match.white,
-                        black: match.black,
-                        result: match.result || null,
-                        winner: match.winner || null,
-                        completed: Boolean(match.completed)
-                    });
-                });
-
-                return allMatches;
-            },
-            []
-        );
-    }
-
-    function getPlayerById(tournament, playerId) {
-        if (!tournament) return null;
-
-        return tournament.players.find(
-            function (player) {
-                return player.id === playerId;
-            }
-        ) || null;
-    }
-
-    function getMatchPlayerName(tournament, playerId) {
-        const player = getPlayerById(
-            tournament,
-            playerId
-        );
-
-        return player ? player.name : "BYE";
-    }
-
-    function getStatusLabel(status) {
-        const labels = {
-            upcoming: "Upcoming",
-            waiting: "Waiting",
-            active: "Live",
-            completed: "Completed",
-            cancelled: "Cancelled"
-        };
-
-        return labels[status] || "Unknown";
-    }
-
-    function getFormatLabel(format) {
-        const labels = {
-            knockout: "Knockout",
-            roundrobin: "Round Robin",
-            swiss: "Swiss System"
-        };
-
-        return labels[format] || format;
-    }
-
-    function escapeHTML(value) {
-        return String(value == null ? "" : value)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
-
-    function render() {
-        renderTournamentList();
-
-        if (activeTournamentId) {
-            renderTournamentDetails(activeTournamentId);
-        }
-    }
-
-    function renderTournamentList() {
-        const container = document.getElementById(
-            "tournament-list"
-        );
-
-        if (!container) return;
-
-        if (!tournaments.length) {
-            container.innerHTML =
-                '<div class="empty-state">' +
-                    '<div class="empty-state-icon">🏆</div>' +
-                    '<h3>No tournaments yet</h3>' +
-                    '<p>Create a tournament to get started.</p>' +
-                '</div>';
-
-            return;
-        }
-
-        container.innerHTML = tournaments
-            .slice()
-            .sort(function (a, b) {
-                return (b.updatedAt || b.createdAt || 0) -
-                    (a.updatedAt || a.createdAt || 0);
-            })
-            .map(function (tournament) {
-                const isActive =
-                    tournament.id === activeTournamentId;
-
-                return (
-                    '<button type="button" ' +
-                        'class="tournament-card' +
-                        (isActive ? ' active' : '') + '" ' +
-                        'data-tournament-open="' +
-                            escapeHTML(tournament.id) + '">' +
-
-                        '<div class="tournament-card-top">' +
-                            '<span class="tournament-card-icon">🏆</span>' +
-                            '<span class="tournament-status ' +
-                                escapeHTML(tournament.status) + '">' +
-                                escapeHTML(
-                                    getStatusLabel(tournament.status)
-                                ) +
-                            '</span>' +
-                        '</div>' +
-
-                        '<h3>' +
-                            escapeHTML(tournament.name) +
-                        '</h3>' +
-
-                        '<div class="tournament-card-meta">' +
-                            '<span>' +
-                                escapeHTML(
-                                    getFormatLabel(tournament.format)
-                                ) +
-                            '</span>' +
-                            '<span>' +
-                                tournament.players.length +
-                                ' Players' +
-                            '</span>' +
-                        '</div>' +
-
-                        '<div class="tournament-card-footer">' +
-                            '<span>Round ' +
-                                (tournament.currentRound || 0) +
-                            '</span>' +
-                            '<span>View details →</span>' +
-                        '</div>' +
-
-                    '</button>'
-                );
-            })
-            .join("");
-
-        container
-            .querySelectorAll("[data-tournament-open]")
-            .forEach(function (button) {
-                button.addEventListener("click", function () {
-                    const id = button.getAttribute(
-                        "data-tournament-open"
-                    );
-
-                    activeTournamentId = id;
-                    render();
-                });
-            });
-    }
-
-    function renderTournamentDetails(tournamentId) {
-        const container = document.getElementById(
-            "tournament-details"
-        );
-
-        if (!container) return;
-
-        const tournament = getTournament(tournamentId);
-
-        if (!tournament) {
-            container.innerHTML = "";
-            return;
-        }
-
-        const standings = getStandings(tournamentId);
-
-        const roundsHTML = tournament.rounds
-            .map(function (round) {
-                const matchesHTML = round.matches
-                    .map(function (match) {
-                        const whiteName = getMatchPlayerName(
-                            tournament,
-                            match.white
-                        );
-
-                        const blackName = getMatchPlayerName(
-                            tournament,
-                            match.black
-                        );
-
-                        return (
-                            '<div class="tournament-match">' +
-
-                                '<div class="tournament-match-players">' +
-                                    '<span>' +
-                                        escapeHTML(whiteName) +
-                                    '</span>' +
-                                    '<strong>' +
-                                        escapeHTML(
-                                            match.result || "VS"
-                                        ) +
-                                    '</strong>' +
-                                    '<span>' +
-                                        escapeHTML(blackName) +
-                                    '</span>' +
-                                '</div>' +
-
-                                '<div class="tournament-match-status">' +
-                                    (
-                                        match.completed
-                                            ? '<span class="match-completed">Completed</span>'
-                                            : '<span class="match-pending">Pending</span>'
-                                    ) +
-                                '</div>' +
-
-                                (
-                                    tournament.status === "active" &&
-                                    !match.completed &&
-                                    match.black
-                                        ? (
-                                            '<div class="match-result-actions">' +
-                                                '<button type="button" ' +
-                                                    'data-match-result="1-0" ' +
-                                                    'data-match-id="' +
-                                                        escapeHTML(match.id) + '">' +
-                                                    '1-0' +
-                                                '</button>' +
-
-                                                '<button type="button" ' +
-                                                    'data-match-result="1/2-1/2" ' +
-                                                    'data-match-id="' +
-                                                        escapeHTML(match.id) + '">' +
-                                                    'Draw' +
-                                                '</button>' +
-
-                                                '<button type="button" ' +
-                                                    'data-match-result="0-1" ' +
-                                                    'data-match-id="' +
-                                                        escapeHTML(match.id) + '">' +
-                                                    '0-1' +
-                                                '</button>' +
-                                            '</div>'
-                                        )
-                                        : ""
-                                ) +
-
-                            '</div>'
-                        );
-                    })
-                    .join("");
-
-                return (
-                    '<section class="tournament-round">' +
-                        '<h4>Round ' + round.number + '</h4>' +
-                        matchesHTML +
-                    '</section>'
-                );
-            })
-            .join("");
-
-        const standingsHTML = standings
-            .map(function (player) {
-                return (
-                    '<tr>' +
-                        '<td>' + player.rank + '</td>' +
-                        '<td>' +
-                            escapeHTML(player.avatar) + ' ' +
-                            escapeHTML(player.name) +
-                        '</td>' +
-                        '<td>' + player.rating + '</td>' +
-                        '<td>' + player.score + '</td>' +
-                        '<td>' + player.wins + '</td>' +
-                        '<td>' + player.draws + '</td>' +
-                        '<td>' + player.losses + '</td>' +
-                    '</tr>'
-                );
-            })
-            .join("");
-
-        const champion = tournament.champion
-            ? getPlayerById(
-                tournament,
-                tournament.champion
-            )
-            : null;
-
-        container.innerHTML =
-            '<div class="tournament-details-header">' +
-                '<div>' +
-                    '<span class="tournament-status ' +
-                        escapeHTML(tournament.status) + '">' +
-                        escapeHTML(
-                            getStatusLabel(tournament.status)
-                        ) +
-                    '</span>' +
-                    '<h3>' +
-                        escapeHTML(tournament.name) +
-                    '</h3>' +
-                    '<p>' +
-                        escapeHTML(
-                            getFormatLabel(tournament.format)
-                        ) +
-                        ' · ' +
-                        tournament.players.length +
-                        ' Players' +
-                    '</p>' +
-                '</div>' +
-            '</div>' +
-
-            (
-                champion
-                    ? (
-                        '<div class="tournament-champion">' +
-                            '<span>🏆 Champion</span>' +
-                            '<strong>' +
-                                escapeHTML(champion.name) +
-                            '</strong>' +
-                        '</div>'
-                    )
-                    : ""
-            ) +
-
-            '<div class="tournament-standings">' +
-                '<h4>Leaderboard</h4>' +
-                '<div class="tournament-table-wrap">' +
-                    '<table class="tournament-table">' +
-                        '<thead>' +
-                            '<tr>' +
-                                '<th>#</th>' +
-                                '<th>Player</th>' +
-                                '<th>Rating</th>' +
-                                '<th>Pts</th>' +
-                                '<th>W</th>' +
-                                '<th>D</th>' +
-                                '<th>L</th>' +
-                            '</tr>' +
-                        '</thead>' +
-                        '<tbody>' +
-                            standingsHTML +
-                        '</tbody>' +
-                    '</table>' +
-                '</div>' +
-            '</div>' +
-
-            '<div class="tournament-rounds">' +
-                '<h4>Matches</h4>' +
-                (
-                    roundsHTML ||
-                    '<p>No matches generated yet.</p>'
-                ) +
-            '</div>';
-
-        container
-            .querySelectorAll("[data-match-result]")
-            .forEach(function (button) {
-                button.addEventListener("click", function () {
-                    const matchId = button.getAttribute(
-                        "data-match-id"
-                    );
-
-                    const result = button.getAttribute(
-                        "data-match-result"
-                    );
-
-                    recordMatchResult(
-                        tournamentId,
-                        matchId,
-                        result
-                    );
-                });
-            });
-    }
-
-    function shuffle(items) {
-        for (let i = items.length - 1; i > 0; i--) {
-            const j = Math.floor(
-                Math.random() * (i + 1)
-            );
-
-            const temp = items[i];
-            items[i] = items[j];
-            items[j] = temp;
-        }
-
-        return items;
-    }
-
-    function cancelTournament(tournamentId) {
-        const tournament = getTournament(tournamentId);
-
-        if (
-            !tournament ||
-            tournament.status === "completed"
-        ) {
-            return false;
-        }
-
-        tournament.status = "cancelled";
-        tournament.updatedAt = Date.now();
-
-        save();
-        render();
-
-        notify("Tournament cancelled.", "warning");
-
-        return true;
-    }
-
-    function getTournamentList() {
-        return tournaments.map(function (tournament) {
-            return {
-                id: tournament.id,
-                name: tournament.name,
-                format: tournament.format,
-                status: tournament.status,
-                currentRound: tournament.currentRound,
-                playerCount: tournament.players.length,
-                createdAt: tournament.createdAt,
-                updatedAt: tournament.updatedAt
-            };
-        });
-    }
-
-    function getState() {
-        return {
-            initialized: initialized,
-            activeTournamentId: activeTournamentId,
-            tournamentCount: tournaments.length,
-            tournaments: getTournamentList()
-        };
-    }
-
-    function destroy() {
-        tournaments = [];
-        activeTournamentId = null;
-        initialized = false;
-    }
-
-    /* Public tournament API */
-    return {
-        init: init,
-        createTournament: createTournament,
-        getTournament: getTournament,
-        getActiveTournament: getActiveTournament,
-        joinTournament: joinTournament,
-        startTournament: startTournament,
-
-        recordMatchResult: recordMatchResult,
-        getStandings: getStandings,
-        getTournamentMatches: getTournamentMatches,
-        getTournamentList: getTournamentList,
-
-        cancelTournament: cancelTournament,
-        render: render,
-        getState: getState,
-        destroy: destroy
+  function cacheElements() {
+    state.elements = {
+      name: document.getElementById("tournament-name"),
+      format: document.getElementById("tournament-format"),
+      capacity: document.getElementById("tournament-capacity"),
+      createButton: document.getElementById("create-tournament-btn"),
+      list: document.getElementById("tournament-list"),
+      details: document.getElementById("tournament-details")
     };
+  }
+
+  function renderTournamentItem(tournament) {
+    const item = document.createElement("div");
+    item.className = "tournament-item";
+
+    const title = document.createElement("h3");
+    title.textContent = tournament.name;
+
+    const format = document.createElement("p");
+    format.textContent =
+      FORMATS[tournament.format] +
+      " · " +
+      tournament.players.length +
+      "/" +
+      tournament.capacity +
+      " players";
+
+    const status = document.createElement("span");
+    status.className = "tournament-status " + tournament.status;
+    status.textContent = STATUS[tournament.status];
+
+    const openButton = document.createElement("button");
+    openButton.type = "button";
+    openButton.className = "btn btn-secondary";
+    openButton.textContent = "View Tournament";
+
+    openButton.addEventListener("click", function () {
+      selectTournament(tournament.id);
+    });
+
+    item.appendChild(title);
+    item.appendChild(format);
+    item.appendChild(status);
+    item.appendChild(openButton);
+
+    return item;
+  }
+
+  function renderDetails(tournament) {
+    const container = state.elements.details;
+
+    if (!container || !tournament) return;
+
+    container.replaceChildren();
+
+    const title = document.createElement("h3");
+    title.textContent = tournament.name;
+
+    const summary = document.createElement("p");
+    summary.textContent =
+      "Format: " + FORMATS[tournament.format] +
+      " | Status: " + STATUS[tournament.status] +
+      " | Players: " + tournament.players.length +
+      "/" + tournament.capacity;
+
+    const playersTitle = document.createElement("h4");
+    playersTitle.textContent = "Registered Players";
+
+    const playersList = document.createElement("div");
+    playersList.className = "tournament-players";
+
+    tournament.players.forEach(function (player) {
+      const row = document.createElement("div");
+      row.className = "tournament-player";
+
+      const name = document.createElement("span");
+      name.textContent =
+        (player.avatar || "♟") + " " + player.name;
+
+      const rating = document.createElement("small");
+      rating.textContent =
+        "Rating: " + (Number(player.rating) || 1000);
+
+      row.appendChild(name);
+      row.appendChild(rating);
+      playersList.appendChild(row);
+    });
+
+    container.appendChild(title);
+    container.appendChild(summary);
+    container.appendChild(playersTitle);
+    container.appendChild(playersList);
+
+    if (tournament.winnerName) {
+      const winner = document.createElement("h3");
+      winner.textContent =
+        "🏆 Champion: " + tournament.winnerName;
+
+      container.appendChild(winner);
+    }
+
+    renderRounds(tournament, container);
+
+    const player = getPlayer();
+    const isCreator = tournament.creatorId === player.id;
+    const isJoined = tournament.players.some(function (item) {
+      return item.id === player.id;
+    });
+
+    if (tournament.status === "upcoming") {
+      const action = document.createElement("button");
+      action.type = "button";
+      action.className = "btn btn-primary";
+
+      if (isJoined && !isCreator) {
+        action.textContent = "Leave Tournament";
+        action.addEventListener("click", function () {
+          leaveTournament(tournament.id);
+        });
+      } else if (!isJoined) {
+        action.textContent = "Join Tournament";
+        action.addEventListener("click", function () {
+          joinTournament(tournament.id);
+        });
+      } else {
+        action.textContent = "Start Tournament";
+        action.addEventListener("click", function () {
+          startTournament(tournament.id);
+        });
+      }
+
+      container.appendChild(action);
+    }
+
+    if (
+      tournament.status === "ongoing" &&
+      isCreator
+    ) {
+      const advance = document.createElement("button");
+      advance.type = "button";
+      advance.className = "btn btn-primary";
+      advance.textContent =
+        tournament.format === "knockout"
+          ? "Advance Round"
+          : "Finish Tournament";
+
+      advance.addEventListener("click", function () {
+        finishTournament(tournament.id);
+      });
+
+      container.appendChild(advance);
+    }
+  }
+
+  function renderRounds(tournament, container) {
+    if (!tournament.rounds.length) return;
+
+    const heading = document.createElement("h4");
+    heading.textContent = "Tournament Matches";
+
+    container.appendChild(heading);
+
+    tournament.rounds.forEach(function (round) {
+      const roundHeading = document.createElement("h5");
+      roundHeading.textContent = "Round " + round.number;
+      container.appendChild(roundHeading);
+
+      round.matches.forEach(function (match) {
+        const row = document.createElement("div");
+        row.className = "tournament-match";
+
+        const names = document.createElement("span");
+        names.textContent =
+          match.player1Name +
+          " vs " +
+          match.player2Name;
+
+        const result = document.createElement("span");
+        result.textContent = match.status === "completed"
+          ? match.winnerId
+            ? "Winner: " +
+              (match.player1 === match.winnerId
+                ? match.player1Name
+                : match.player2Name)
+            : "Completed"
+          : "Pending";
+
+        row.appendChild(names);
+        row.appendChild(result);
+
+        if (
+          match.status === "pending" &&
+          tournament.creatorId === getPlayer().id
+        ) {
+          const resultButton = document.createElement("button");
+          resultButton.type = "button";
+          resultButton.textContent = "Record Result";
+
+          resultButton.addEventListener("click", function () {
+            const choice = window.prompt(
+              "Enter winner player ID:\n" +
+              match.player1Name + ": " + match.player1 + "\n" +
+              match.player2Name + ": " + match.player2
+            );
+
+            if (choice) {
+              reportMatchResult(
+                tournament.id,
+                match.id,
+                choice.trim()
+              );
+            }
+          });
+
+          row.appendChild(resultButton);
+        }
+
+        container.appendChild(row);
+      });
+    });
+  }
+
+  function render() {
+    const list = state.elements.list;
+
+    if (!list) return;
+
+    list.replaceChildren();
+
+    if (state.tournaments.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.textContent = "No tournaments created yet.";
+
+      list.appendChild(empty);
+      return;
+    }
+
+    state.tournaments.forEach(function (tournament) {
+      list.appendChild(renderTournamentItem(tournament));
+    });
+
+    if (state.activeTournamentId) {
+      const selected = getTournament(state.activeTournamentId);
+
+      if (selected) {
+        renderDetails(selected);
+      }
+    }
+  }
+
+  function bindEvents() {
+    const button = state.elements.createButton;
+
+    if (!button || button.dataset.tournamentBound === "true") {
+      return;
+    }
+
+    button.addEventListener("click", function () {
+      const data = {
+        name: state.elements.name
+          ? state.elements.name.value
+          : "",
+
+        format: state.elements.format
+          ? state.elements.format.value
+          : "knockout",
+
+        capacity: state.elements.capacity
+          ? state.elements.capacity.value
+          : 8
+      };
+
+      const created = createTournament(data);
+
+      if (created) {
+        if (state.elements.name) {
+          state.elements.name.value = "";
+        }
+
+        selectTournament(created.id);
+      }
+    });
+
+    button.dataset.tournamentBound = "true";
+  }
+
+  function init() {
+    if (state.initialized) {
+      render();
+      return true;
+    }
+
+    cacheElements();
+    load();
+    bindEvents();
+    render();
+
+    state.initialized = true;
+
+    return true;
+  }
+
+  function destroy() {
+    const button = state.elements.createButton;
+
+    if (button && button.dataset.tournamentBound === "true") {
+      button.replaceWith(button.cloneNode(true));
+    }
+
+    state.initialized = false;
+    state.elements = {};
+
+    return true;
+  }
+
+  return {
+    init,
+    destroy,
+
+    createTournament,
+    deleteTournament,
+    getTournament,
+    getAllTournaments,
+    selectTournament,
+
+    joinTournament,
+    leaveTournament,
+    startTournament,
+
+    getCurrentRound,
+    getMatch,
+    reportMatchResult,
+    advanceKnockoutRound,
+    finishTournament,
+
+    render,
+    renderDetails,
+
+    getFormats: function () {
+      return { ...FORMATS };
+    },
+
+    getStatuses: function () {
+      return { ...STATUS };
+    }
+  };
 
 })();
 
 /* =========================================================
-   APPARA CHESS — PART 21D COMPLETE
-   TOURNAMENT SYSTEM FILE END
-   ========================================================= */
-                         
+   APPARA CHESS — TOURNAMENT CONTROLLER
+   PART 21N COMPLETE
+   FILE: js/tournament.js
+========================================================= */              
