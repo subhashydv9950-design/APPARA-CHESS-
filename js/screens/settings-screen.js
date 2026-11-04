@@ -1,10 +1,24 @@
 /* =========================================================
    APPARA CHESS
-   FILE 63: js/screens/settings-screen.js
-   Settings Screen
+   CORRECTION 11A — PART 1/2
+   FILE: js/screens/settings-screen.js
    ========================================================= */
 
 import { escapeHTML } from "../core/dom-utils.js";
+
+const THEME_MAP = {
+  royal: "royal-purple",
+  dark: "midnight-black",
+  gold: "royal-gold",
+  light: "classic-wood"
+};
+
+const REVERSE_THEME_MAP = {
+  "royal-purple": "royal",
+  "midnight-black": "dark",
+  "royal-gold": "gold",
+  "classic-wood": "light"
+};
 
 export class SettingsScreen {
   constructor(options = {}) {
@@ -12,45 +26,39 @@ export class SettingsScreen {
     this.navigation = options.navigation || null;
     this.modalManager = options.modalManager || null;
     this.eventBus = options.eventBus || null;
-
     this.container = options.container || null;
+
     this.settings = {};
     this.loading = false;
     this.destroyed = false;
-    this.saving = false;
     this.message = "";
 
     this.defaults = {
       musicEnabled: true,
       soundEffectsEnabled: true,
-      masterVolume: 75,
-      musicVolume: 60,
+      masterVolume: 80,
+      musicVolume: 50,
       effectsVolume: 80,
-
       graphicsQuality: "high",
       shadowsEnabled: true,
       reflectionsEnabled: true,
       particlesEnabled: true,
       animationsEnabled: true,
       cameraEffectsEnabled: true,
-
       boardCoordinates: true,
       legalMoveHints: true,
       confirmBeforeResign: true,
       confirmBeforeDraw: true,
       autoQueen: false,
       moveAnimationSpeed: "normal",
-
       showOnlineStatus: true,
       friendRequests: "everyone",
       gameInvites: "friends",
       chatMode: "preset",
-
       notificationsEnabled: true,
       friendNotifications: true,
       tournamentNotifications: true,
       rewardNotifications: true,
-
       reducedMotion: false,
       language: "en",
       theme: "royal"
@@ -71,10 +79,8 @@ export class SettingsScreen {
 
     this.container.innerHTML = `
       <section class="settings-screen screen">
-
         <header class="screen-header settings-header">
-          <button class="icon-button"
-            data-action="back"
+          <button class="icon-button" data-action="back"
             aria-label="Go back">←</button>
 
           <div class="screen-heading">
@@ -82,8 +88,7 @@ export class SettingsScreen {
             <h1>Settings</h1>
           </div>
 
-          <button class="icon-button"
-            data-action="reset"
+          <button class="icon-button" data-action="reset"
             aria-label="Reset settings">↺</button>
         </header>
 
@@ -93,7 +98,6 @@ export class SettingsScreen {
             <p>Loading settings...</p>
           </div>
         </div>
-
       </section>
     `;
 
@@ -101,8 +105,75 @@ export class SettingsScreen {
     this.container.addEventListener("change", this.boundChange);
 
     await this.loadSettings();
-
     return this;
+  }
+
+  readServiceSettings() {
+    const raw = this.settingsService?.getAll?.() || {};
+
+    const audio = raw.audio || {};
+    const graphics = raw.graphics || {};
+    const controls = raw.controls || {};
+    const gameplay = raw.gameplay || {};
+    const privacy = raw.privacy || {};
+    const notifications = raw.notifications || {};
+
+    return {
+      musicEnabled: audio.musicEnabled ?? true,
+      soundEffectsEnabled: audio.soundEnabled ?? true,
+
+      masterVolume: Math.round(
+        (audio.masterVolume ?? 0.8) * 100
+      ),
+
+      musicVolume: Math.round(
+        (audio.musicVolume ?? 0.5) * 100
+      ),
+
+      effectsVolume: Math.round(
+        (audio.effectsVolume ?? 0.8) * 100
+      ),
+
+      graphicsQuality: graphics.quality || "high",
+      shadowsEnabled: graphics.shadows ?? true,
+      reflectionsEnabled: graphics.reflections ?? true,
+      particlesEnabled: graphics.particles ?? true,
+      animationsEnabled: controls.showLastMove ?? true,
+      cameraEffectsEnabled: graphics.antialias ?? true,
+
+      boardCoordinates: controls.boardCoordinates ?? true,
+      legalMoveHints: controls.legalMoveHints ?? true,
+      confirmBeforeResign: gameplay.confirmResign ?? true,
+      confirmBeforeDraw: gameplay.confirmDraw ?? true,
+      autoQueen: controls.autoQueenPromotion ?? false,
+      moveAnimationSpeed: "normal",
+
+      showOnlineStatus: privacy.showOnlineStatus ?? true,
+
+      friendRequests:
+        privacy.allowFriendRequests === false
+          ? "nobody" : "everyone",
+
+      gameInvites:
+        privacy.allowGameInvites === false
+          ? "nobody" : "friends",
+
+      chatMode: "preset",
+
+      notificationsEnabled: true,
+      friendNotifications:
+        notifications.friendRequests ?? true,
+
+      tournamentNotifications:
+        notifications.tournamentUpdates ?? true,
+
+      rewardNotifications:
+        notifications.dailyRewards ?? true,
+
+      reducedMotion: graphics.reducedMotion ?? false,
+      language: raw.language || "en",
+      theme: REVERSE_THEME_MAP[raw.theme] || "royal"
+    };
   }
 
   async loadSettings() {
@@ -111,25 +182,16 @@ export class SettingsScreen {
     this.loading = true;
 
     try {
-      let savedSettings = {};
-
-      if (
-        this.settingsService &&
-        typeof this.settingsService.getAll === "function"
-      ) {
-        savedSettings = await this.settingsService.getAll() || {};
-      } else if (
-        this.settingsService &&
-        typeof this.settingsService.get === "function"
-      ) {
-        const result = await this.settingsService.get();
-        savedSettings = result || {};
+      if (this.settingsService?.initialize) {
+        await this.settingsService.initialize();
       }
 
       this.settings = {
         ...this.defaults,
-        ...savedSettings
+        ...this.readServiceSettings()
       };
+
+      this.applyAllLocalSettings();
 
       if (!this.destroyed) {
         this.render();
@@ -149,8 +211,9 @@ export class SettingsScreen {
   }
 
   render() {
-    const content =
-      this.container?.querySelector("[data-settings-content]");
+    const content = this.container?.querySelector(
+      "[data-settings-content]"
+    );
 
     if (!content) return;
 
@@ -162,22 +225,15 @@ export class SettingsScreen {
       ` : ""}
 
       ${this.renderAudioSection()}
-
       ${this.renderGraphicsSection()}
-
       ${this.renderGameplaySection()}
-
       ${this.renderPrivacySection()}
-
       ${this.renderNotificationSection()}
-
       ${this.renderAccessibilitySection()}
-
       ${this.renderGeneralSection()}
 
       <section class="settings-footer">
-        <button class="secondary-button"
-          data-action="reset">
+        <button class="secondary-button" data-action="reset">
           Reset All Settings
         </button>
 
@@ -187,16 +243,27 @@ export class SettingsScreen {
     `;
   }
 
+  sectionHeading(icon, title, description) {
+    return `
+      <div class="settings-section-heading">
+        <span class="settings-section-icon">${icon}</span>
+
+        <div>
+          <h3>${title}</h3>
+          <p>${description}</p>
+        </div>
+      </div>
+    `;
+  }
+
   renderAudioSection() {
     return `
       <section class="settings-section">
-        <div class="settings-section-heading">
-          <span class="settings-section-icon">♫</span>
-          <div>
-            <h3>Audio & Music</h3>
-            <p>Control your game sound experience</p>
-          </div>
-        </div>
+        ${this.sectionHeading(
+          "♫",
+          "Audio & Music",
+          "Control your game sound experience"
+        )}
 
         ${this.renderToggle(
           "musicEnabled",
@@ -210,26 +277,9 @@ export class SettingsScreen {
           "Piece movement, capture and game sounds"
         )}
 
-        ${this.renderSlider(
-          "masterVolume",
-          "Master Volume",
-          0,
-          100
-        )}
-
-        ${this.renderSlider(
-          "musicVolume",
-          "Music Volume",
-          0,
-          100
-        )}
-
-        ${this.renderSlider(
-          "effectsVolume",
-          "Effects Volume",
-          0,
-          100
-        )}
+        ${this.renderSlider("masterVolume", "Master Volume")}
+        ${this.renderSlider("musicVolume", "Music Volume")}
+        ${this.renderSlider("effectsVolume", "Effects Volume")}
       </section>
     `;
   }
@@ -237,29 +287,22 @@ export class SettingsScreen {
   renderGraphicsSection() {
     return `
       <section class="settings-section">
-        <div class="settings-section-heading">
-          <span class="settings-section-icon">✧</span>
-          <div>
-            <h3>Graphics & Visuals</h3>
-            <p>Customize the 3D chess experience</p>
-          </div>
-        </div>
+        ${this.sectionHeading(
+          "✧",
+          "Graphics & Visuals",
+          "Customize the 3D chess experience"
+        )}
 
-        <div class="settings-control-row">
-          <div class="settings-control-info">
-            <strong>Graphics Quality</strong>
-            <small>Choose visual performance level</small>
-          </div>
-
-          <select data-setting="graphicsQuality">
-            ${this.renderOptions([
-              ["low", "Low"],
-              ["medium", "Medium"],
-              ["high", "High"],
-              ["ultra", "Ultra"]
-            ], this.settings.graphicsQuality)}
-          </select>
-        </div>
+        ${this.renderSelect(
+          "graphicsQuality",
+          "Graphics Quality",
+          [
+            ["low", "Low"],
+            ["medium", "Medium"],
+            ["high", "High"],
+            ["ultra", "Ultra"]
+          ]
+        )}
 
         ${this.renderToggle(
           "shadowsEnabled",
@@ -297,13 +340,11 @@ export class SettingsScreen {
   renderGameplaySection() {
     return `
       <section class="settings-section">
-        <div class="settings-section-heading">
-          <span class="settings-section-icon">♟</span>
-          <div>
-            <h3>Gameplay</h3>
-            <p>Configure your chess preferences</p>
-          </div>
-        </div>
+        ${this.sectionHeading(
+          "♟",
+          "Gameplay",
+          "Configure your chess preferences"
+        )}
 
         ${this.renderToggle(
           "boardCoordinates",
@@ -335,34 +376,32 @@ export class SettingsScreen {
           "Automatically promote to a queen"
         )}
 
-        <div class="settings-control-row">
-          <div class="settings-control-info">
-            <strong>Move Animation Speed</strong>
-            <small>Control piece movement speed</small>
-          </div>
-
-          <select data-setting="moveAnimationSpeed">
-            ${this.renderOptions([
-              ["slow", "Slow"],
-              ["normal", "Normal"],
-              ["fast", "Fast"]
-            ], this.settings.moveAnimationSpeed)}
-          </select>
-        </div>
+        ${this.renderSelect(
+          "moveAnimationSpeed",
+          "Move Animation Speed",
+          [
+            ["slow", "Slow"],
+            ["normal", "Normal"],
+            ["fast", "Fast"]
+          ]
+        )}
       </section>
     `;
   }
 
+/* =========================================================
+   CORRECTION 11A COMPLETE
+   FILE NOT COMPLETE YET
+   NEXT: CORRECTION 11B — PART 2/2
+   ========================================================= */
   renderPrivacySection() {
     return `
       <section class="settings-section">
-        <div class="settings-section-heading">
-          <span class="settings-section-icon">◇</span>
-          <div>
-            <h3>Privacy & Online</h3>
-            <p>Manage your online visibility</p>
-          </div>
-        </div>
+        ${this.sectionHeading(
+          "◇",
+          "Privacy & Online",
+          "Manage your online visibility"
+        )}
 
         ${this.renderToggle(
           "showOnlineStatus",
@@ -370,50 +409,35 @@ export class SettingsScreen {
           "Let friends see when you are online"
         )}
 
-        <div class="settings-control-row">
-          <div class="settings-control-info">
-            <strong>Friend Requests</strong>
-            <small>Who can send you requests</small>
-          </div>
+        ${this.renderSelect(
+          "friendRequests",
+          "Friend Requests",
+          [
+            ["everyone", "Everyone"],
+            ["friends_of_friends", "Friends of Friends"],
+            ["nobody", "Nobody"]
+          ]
+        )}
 
-          <select data-setting="friendRequests">
-            ${this.renderOptions([
-              ["everyone", "Everyone"],
-              ["friends_of_friends", "Friends of Friends"],
-              ["nobody", "Nobody"]
-            ], this.settings.friendRequests)}
-          </select>
-        </div>
+        ${this.renderSelect(
+          "gameInvites",
+          "Game Invitations",
+          [
+            ["everyone", "Everyone"],
+            ["friends", "Friends Only"],
+            ["nobody", "Nobody"]
+          ]
+        )}
 
-        <div class="settings-control-row">
-          <div class="settings-control-info">
-            <strong>Game Invitations</strong>
-            <small>Who can invite you to play</small>
-          </div>
-
-          <select data-setting="gameInvites">
-            ${this.renderOptions([
-              ["everyone", "Everyone"],
-              ["friends", "Friends Only"],
-              ["nobody", "Nobody"]
-            ], this.settings.gameInvites)}
-          </select>
-        </div>
-
-        <div class="settings-control-row">
-          <div class="settings-control-info">
-            <strong>Chat Mode</strong>
-            <small>Keep online communication safe</small>
-          </div>
-
-          <select data-setting="chatMode">
-            ${this.renderOptions([
-              ["preset", "Preset Messages Only"],
-              ["friends_only", "Friends Only"],
-              ["disabled", "Disabled"]
-            ], this.settings.chatMode)}
-          </select>
-        </div>
+        ${this.renderSelect(
+          "chatMode",
+          "Chat Mode",
+          [
+            ["preset", "Preset Messages Only"],
+            ["friends_only", "Friends Only"],
+            ["disabled", "Disabled"]
+          ]
+        )}
 
         <p class="settings-safety-note">
           APPARA CHESS uses controlled communication options.
@@ -426,13 +450,11 @@ export class SettingsScreen {
   renderNotificationSection() {
     return `
       <section class="settings-section">
-        <div class="settings-section-heading">
-          <span class="settings-section-icon">♢</span>
-          <div>
-            <h3>Notifications</h3>
-            <p>Choose which updates you receive</p>
-          </div>
-        </div>
+        ${this.sectionHeading(
+          "♢",
+          "Notifications",
+          "Choose which updates you receive"
+        )}
 
         ${this.renderToggle(
           "notificationsEnabled",
@@ -464,13 +486,11 @@ export class SettingsScreen {
   renderAccessibilitySection() {
     return `
       <section class="settings-section">
-        <div class="settings-section-heading">
-          <span class="settings-section-icon">◎</span>
-          <div>
-            <h3>Accessibility</h3>
-            <p>Make the experience comfortable</p>
-          </div>
-        </div>
+        ${this.sectionHeading(
+          "◎",
+          "Accessibility",
+          "Make the experience comfortable"
+        )}
 
         ${this.renderToggle(
           "reducedMotion",
@@ -484,58 +504,44 @@ export class SettingsScreen {
   renderGeneralSection() {
     return `
       <section class="settings-section">
-        <div class="settings-section-heading">
-          <span class="settings-section-icon">⚙</span>
-          <div>
-            <h3>General</h3>
-            <p>Language and appearance</p>
-          </div>
-        </div>
+        ${this.sectionHeading(
+          "⚙",
+          "General",
+          "Language and appearance"
+        )}
 
-        <div class="settings-control-row">
-          <div class="settings-control-info">
-            <strong>Language</strong>
-            <small>Choose app display language</small>
-          </div>
+        ${this.renderSelect(
+          "language",
+          "Language",
+          [
+            ["en", "English"],
+            ["hi", "हिन्दी"],
+            ["bn", "বাংলা"],
+            ["fr", "Français"],
+            ["de", "Deutsch"],
+            ["es", "Español"],
+            ["ja", "日本語"],
+            ["zh", "中文"],
+            ["ko", "한국어"],
+            ["ru", "Русский"]
+          ]
+        )}
 
-          <select data-setting="language">
-            ${this.renderOptions([
-              ["en", "English"],
-              ["hi", "हिन्दी"],
-              ["bn", "বাংলা"],
-              ["fr", "Français"],
-              ["de", "Deutsch"],
-              ["es", "Español"],
-              ["ja", "日本語"],
-              ["zh", "中文"],
-              ["ko", "한국어"],
-              ["ru", "Русский"]
-            ], this.settings.language)}
-          </select>
-        </div>
-
-        <div class="settings-control-row">
-          <div class="settings-control-info">
-            <strong>App Theme</strong>
-            <small>Choose the visual theme</small>
-          </div>
-
-          <select data-setting="theme">
-            ${this.renderOptions([
-              ["royal", "Royal Purple"],
-              ["dark", "Midnight Dark"],
-              ["gold", "Golden Palace"],
-              ["light", "Classic Light"]
-            ], this.settings.theme)}
-          </select>
-        </div>
+        ${this.renderSelect(
+          "theme",
+          "App Theme",
+          [
+            ["royal", "Royal Purple"],
+            ["dark", "Midnight Dark"],
+            ["gold", "Golden Palace"],
+            ["light", "Classic Light"]
+          ]
+        )}
       </section>
     `;
   }
 
   renderToggle(key, title, description) {
-    const checked = Boolean(this.settings[key]);
-
     return `
       <label class="settings-toggle-row">
         <span class="settings-control-info">
@@ -545,8 +551,8 @@ export class SettingsScreen {
 
         <input
           type="checkbox"
-          data-setting="${this.escape(key)}"
-          ${checked ? "checked" : ""}
+          data-setting="${key}"
+          ${this.settings[key] ? "checked" : ""}
         >
 
         <span class="settings-toggle-ui"></span>
@@ -554,56 +560,59 @@ export class SettingsScreen {
     `;
   }
 
-  renderSlider(key, title, min, max) {
-    const value = this.clamp(
-      this.settings[key],
-      min,
-      max
-    );
+  renderSlider(key, title) {
+    const value = this.clamp(this.settings[key], 0, 100);
 
     return `
       <div class="settings-slider-row">
         <div class="settings-slider-heading">
           <strong>${this.escape(title)}</strong>
-          <span data-value-for="${this.escape(key)}">
-            ${value}%
-          </span>
+          <span data-value-for="${key}">${value}%</span>
         </div>
 
         <input
           type="range"
-          min="${min}"
-          max="${max}"
+          min="0"
+          max="100"
           value="${value}"
-          data-setting="${this.escape(key)}"
+          data-setting="${key}"
         >
       </div>
     `;
   }
 
-  renderOptions(options, selected) {
-    return options.map(([value, label]) => `
-      <option
-        value="${this.escape(value)}"
-        ${selected === value ? "selected" : ""}
-      >
-        ${this.escape(label)}
-      </option>
-    `).join("");
+  renderSelect(key, title, options) {
+    return `
+      <div class="settings-control-row">
+        <div class="settings-control-info">
+          <strong>${this.escape(title)}</strong>
+        </div>
+
+        <select data-setting="${key}">
+          ${options.map(([value, label]) => `
+            <option
+              value="${this.escape(value)}"
+              ${this.settings[key] === value ? "selected" : ""}
+            >
+              ${this.escape(label)}
+            </option>
+          `).join("")}
+        </select>
+      </div>
+    `;
   }
 
   async handleClick(event) {
     const button = event.target.closest("[data-action]");
+
     if (!button || !this.container.contains(button)) return;
 
-    switch (button.dataset.action) {
-      case "back":
-        this.goBack();
-        break;
+    if (button.dataset.action === "back") {
+      this.goBack();
+    }
 
-      case "reset":
-        await this.resetSettings();
-        break;
+    if (button.dataset.action === "reset") {
+      await this.resetSettings();
     }
   }
 
@@ -612,7 +621,6 @@ export class SettingsScreen {
     if (!control) return;
 
     const key = control.dataset.setting;
-
     let value;
 
     if (control.type === "checkbox") {
@@ -635,79 +643,176 @@ export class SettingsScreen {
   }
 
   async updateSetting(key, value) {
-    if (!(key in this.defaults)) return false;
+    if (!Object.hasOwn(this.defaults, key)) return false;
 
-    const previousValue = this.settings[key];
+    const previous = this.settings[key];
 
     this.settings[key] = value;
     this.message = "";
 
-    this.applyLocalSetting(key, value);
-
     try {
-      const saved = await this.persistSetting(key, value);
-
-      if (!saved) {
-        throw new Error("Settings service unavailable.");
-      }
-
+      this.persistSetting(key, value);
+      this.applyLocalSetting(key, value);
       this.emitSettingChanged(key, value);
       return true;
     } catch (error) {
       console.error(`Could not save setting ${key}:`, error);
 
-      this.settings[key] = previousValue;
-      this.applyLocalSetting(key, previousValue);
+      this.settings[key] = previous;
+      this.applyLocalSetting(key, previous);
 
-      this.message = "Setting could not be saved. Previous value restored.";
+      this.message =
+        "Setting could not be saved. Previous value restored.";
+
       this.render();
-
       return false;
     }
   }
 
-  async persistSetting(key, value) {
-    if (!this.settingsService) return false;
+  persistSetting(key, value) {
+    const service = this.settingsService;
 
-    if (typeof this.settingsService.set === "function") {
-      const result = await this.settingsService.set(key, value);
-      return result !== false;
+    if (!service) {
+      throw new Error("Settings service unavailable.");
     }
 
-    if (typeof this.settingsService.update === "function") {
-      const result = await this.settingsService.update({
-        [key]: value
-      });
+    const set = (section, field, next) => {
+      service.set(section, field, next);
+    };
 
-      return result !== false;
+    switch (key) {
+      case "language":
+        service.setLanguage(value);
+        break;
+
+      case "theme":
+        service.setTheme(THEME_MAP[value] || "royal-purple");
+        break;
+
+      case "graphicsQuality":
+        service.setGraphicsQuality(value);
+        break;
+
+      case "masterVolume":
+      case "musicVolume":
+      case "effectsVolume":
+        service.setVolume(key, Number(value) / 100);
+        break;
+
+      case "musicEnabled":
+        service.setMusicEnabled(value);
+        break;
+
+      case "soundEffectsEnabled":
+        service.setSoundEnabled(value);
+        break;
+
+      case "shadowsEnabled":
+        set("graphics", "shadows", value);
+        break;
+
+      case "reflectionsEnabled":
+        set("graphics", "reflections", value);
+        break;
+
+      case "particlesEnabled":
+        set("graphics", "particles", value);
+        break;
+
+      case "cameraEffectsEnabled":
+        set("graphics", "antialias", value);
+        break;
+
+      case "reducedMotion":
+        set("graphics", "reducedMotion", value);
+        break;
+
+      case "boardCoordinates":
+      case "legalMoveHints":
+      case "autoQueen":
+        set(
+          "controls",
+          key === "autoQueen" ? "autoQueenPromotion" : key,
+          value
+        );
+        break;
+
+      case "animationsEnabled":
+        set("controls", "showLastMove", value);
+        break;
+
+      case "confirmBeforeResign":
+        set("gameplay", "confirmResign", value);
+        break;
+
+      case "confirmBeforeDraw":
+        set("gameplay", "confirmDraw", value);
+        break;
+
+      case "showOnlineStatus":
+        set("privacy", "showOnlineStatus", value);
+        break;
+
+      case "friendRequests":
+        set("privacy", "allowFriendRequests", value !== "nobody");
+        break;
+
+      case "gameInvites":
+        set("privacy", "allowGameInvites", value !== "nobody");
+        break;
+
+      case "friendNotifications":
+        set("notifications", "friendRequests", value);
+        break;
+
+      case "tournamentNotifications":
+        set("notifications", "tournamentUpdates", value);
+        break;
+
+      case "rewardNotifications":
+        set("notifications", "dailyRewards", value);
+        break;
+
+      case "notificationsEnabled":
+        service.updateSection("notifications", {
+          friendRequests: value,
+          gameInvites: value,
+          tournamentUpdates: value,
+          dailyRewards: value
+        });
+        break;
+
+      case "chatMode":
+      case "moveAnimationSpeed":
+        break;
+
+      default:
+        throw new Error(`Unsupported setting: ${key}`);
     }
-
-    return false;
   }
 
   applyLocalSetting(key, value) {
+    const root = document.documentElement;
+
     if (key === "reducedMotion") {
-      document.documentElement.classList.toggle(
-        "reduced-motion",
-        Boolean(value)
-      );
+      root.classList.toggle("reduced-motion", Boolean(value));
     }
 
     if (key === "theme") {
-      document.documentElement.dataset.theme = value;
+      root.dataset.theme = THEME_MAP[value] || "royal-purple";
     }
 
     if (key === "language") {
-      document.documentElement.lang = value;
+      root.lang = value;
     }
 
-    if (
-      key === "masterVolume" ||
-      key === "musicVolume" ||
-      key === "effectsVolume" ||
-      key === "musicEnabled" ||
-      key === "soundEffectsEnabled"
-    ) {
+    if ([
+      "masterVolume",
+      "musicVolume",
+      "effectsVolume",
+      "musicEnabled",
+      "soundEffectsEnabled"
+    ].includes(key)) {
       this.eventBus?.emit?.("settings:audio-changed", {
         musicEnabled: this.settings.musicEnabled,
         soundEffectsEnabled: this.settings.soundEffectsEnabled,
@@ -717,25 +822,28 @@ export class SettingsScreen {
       });
     }
 
-    if (
-      key === "graphicsQuality" ||
-      key === "shadowsEnabled" ||
-      key === "reflectionsEnabled" ||
-      key === "particlesEnabled" ||
-      key === "animationsEnabled" ||
-      key === "cameraEffectsEnabled"
-    ) {
+    if ([
+      "graphicsQuality",
+      "shadowsEnabled",
+      "reflectionsEnabled",
+      "particlesEnabled",
+      "animationsEnabled",
+      "cameraEffectsEnabled"
+    ].includes(key)) {
       this.eventBus?.emit?.("settings:graphics-changed", {
         ...this.settings
       });
     }
   }
 
+  applyAllLocalSettings() {
+    for (const [key, value] of Object.entries(this.settings)) {
+      this.applyLocalSetting(key, value);
+    }
+  }
+
   emitSettingChanged(key, value) {
-    this.eventBus?.emit?.("settings:changed", {
-      key,
-      value
-    });
+    this.eventBus?.emit?.("settings:changed", { key, value });
   }
 
   async resetSettings() {
@@ -743,63 +851,42 @@ export class SettingsScreen {
 
     if (!confirmed) return;
 
-    const previousSettings = { ...this.settings };
-    this.settings = { ...this.defaults };
+    const previous = { ...this.settings };
 
     try {
-      if (
-        this.settingsService &&
-        typeof this.settingsService.reset === "function"
-      ) {
-        const result = await this.settingsService.reset();
+      this.settingsService.reset();
 
-        if (result === false) {
-          throw new Error("Reset failed.");
-        }
-      } else if (
-        this.settingsService &&
-        typeof this.settingsService.set === "function"
-      ) {
-        for (const [key, value] of Object.entries(this.defaults)) {
-          await this.settingsService.set(key, value);
-        }
-      } else {
-        throw new Error("Settings service unavailable.");
-      }
-
+      this.settings = { ...this.defaults };
       this.message = "Settings restored to defaults.";
 
-      for (const [key, value] of Object.entries(this.settings)) {
-        this.applyLocalSetting(key, value);
-      }
-
+      this.applyAllLocalSettings();
       this.render();
-      this.eventBus?.emit?.("settings:reset", { ...this.settings });
+
+      this.eventBus?.emit?.("settings:reset", {
+        ...this.settings
+      });
     } catch (error) {
       console.error("Settings reset failed:", error);
 
-      this.settings = previousSettings;
+      this.settings = previous;
       this.message = "Could not reset settings. Please try again.";
+
       this.render();
     }
   }
 
   async confirmReset() {
-    if (
-      this.modalManager &&
-      typeof this.modalManager.confirm === "function"
-    ) {
-      return Boolean(
-        await this.modalManager.confirm({
-          title: "Reset Settings?",
-          message: "All preferences will return to their default values.",
-          confirmText: "Reset",
-          cancelText: "Cancel"
-        })
-      );
+    if (typeof this.modalManager?.confirm !== "function") {
+      return false;
     }
 
-    return false;
+    return Boolean(await this.modalManager.confirm({
+      title: "Reset Settings?",
+      message:
+        "All preferences will return to their default values.",
+      confirmText: "Reset",
+      cancelText: "Cancel"
+    }));
   }
 
   clamp(value, min, max) {
@@ -811,31 +898,17 @@ export class SettingsScreen {
   }
 
   escape(value) {
-    if (typeof escapeHTML === "function") {
-      return escapeHTML(String(value ?? ""));
-    }
-
-    const element = document.createElement("span");
-    element.textContent = String(value ?? "");
-    return element.innerHTML;
+    return escapeHTML(String(value ?? ""));
   }
 
   goBack() {
-    if (
-      this.navigation &&
-      typeof this.navigation.back === "function"
-    ) {
+    if (typeof this.navigation?.back === "function") {
       this.navigation.back();
-      return;
-    }
-
-    if (
-      this.navigation &&
-      typeof this.navigation.navigate === "function"
-    ) {
-      this.navigation.navigate("home");
+    } else {
+      this.navigation?.navigate?.("home");
     }
   }
+
   destroy() {
     this.destroyed = true;
 
@@ -862,4 +935,7 @@ export function createSettingsScreen(options = {}) {
   return new SettingsScreen(options);
 }
 
-/* ================= FILE 63 END ================= */
+/* =========================================================
+   CORRECTION 11B COMPLETE
+   FULL FILE COMPLETE — CORRECTION NUMBER 11
+   ========================================================= */
