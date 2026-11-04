@@ -1,0 +1,468 @@
+/* =========================================================
+   APPARA CHESS
+   FILE 66: DESIGN TOKENS
+   Premium Royal Chess Design System
+   ========================================================= */
+
+:root {
+  /* -------------------------------------------------------
+     BRAND COLORS
+  ------------------------------------------------------- */
+
+  --color-primary: #8b5cf6;
+  --color-primary-light: #a78bfa;
+  --color-primary-dark: #5b21b6;
+
+  --color-secondary: #d4af37;
+  --color-secondary-light: #f5d76e;
+  --color-secondary-dark: #98751d;
+
+  --color-accent: #38bdf8;
+  --color-accent-light: #7dd3fc;
+
+  /* -------------------------------------------------------
+     BACKGROUND COLORS
+  ------------------------------------------------------- */
+
+  --bg-main: #080711;
+  --bg-secondary: #100d1c;
+  --bg-tertiary: #171326;
+  --bg-elevated: #211a35;
+  --bg-card: rgba(25, 19, 43, 0.88);
+  --bg-card-hover: rgba(42, 31, 67, 0.95);
+
+  --bg-overlay: rgba(3, 2, 9, 0.78);
+  --bg-glass: rgba(255, 255, 255, 0.055);
+
+  /* -------------------------------------------------------
+     TEXT COLORS
+  ------------------------------------------------------- */
+
+  --text-primary: #ffffff;
+  --text-secondary: #c5bdd9;
+  --text-muted: #9188a6;
+  --text-disabled: #625a75;
+  --text-dark: #171020;
+
+  /* -------------------------------------------------------
+     STATUS COLORS
+  ------------------------------------------------------- */
+
+  --color-success: #22c55e;
+  --color-success-light: #86efac;
+
+  --color-danger: #ef4444;
+  --color-danger-light: #fca5a5;
+
+  --color-warning: #f59e0b;
+  --color-warning-light: #fcd34d;
+
+  --color-info: #38bdf8;
+  --color-info-light: #7dd3fc;
+
+  /* -------------------------------------------------------
+     CHESS COLORS
+  ------------------------------------------------------- */
+
+  --chess-white: #f4eee2;
+  --chess-white-highlight: #fffaf0;
+  --chess-black: #30283c;
+  --chess-black-highlight: #51445f;
+
+  --chess-square-light: #e8d9bd;
+  --chess-square-dark: #74543f;
+
+  --chess-selected: rgba(250, 204, 21, 0.55);
+  --chess-legal-move: rgba(34, 197, 94, 0.42);
+  --chess-last-move: rgba(250, 204, 21, 0.28);
+  --chess-check: rgba(239, 68, 68, 0.55);
+
+  /* -------------------------------------------------------
+     METAL AND MATERIAL COLORS
+  ------------------------------------------------------- */
+
+  --material-gold: #d4af37;
+  --material-gold-light: #f9e29b;
+  --material-gold-dark: #806018;
+
+  --material-silver: #cbd5e1;
+  --material-silver-dark: #64748b;
+
+  --material-crystal: #a5f3fc;
+  --material-crystal-dark: #0891b2;
+
+  --material-wood: #754c24;
+  --material-marble: #e7e1dc;
+
+  /* -------------------------------------------------------
+     RANK COLORS
+  ------------------------------------------------------- */
+
+  --rank-bronze: #b87333;
+  --rank-silver: #c0c0c0;
+  --rank-gold: #ffd700;
+  --rank-platinum: #7dd3fc;
+  --rank-diamond: #67e8f9;
+  --rank-master: #a78bfa;
+  --rank-elite: #f472b6;
+  --rank-champion: #fb923c;
+  --rank-mythic: #e879f9;
+  --rank-royal: #f5d76e;
+
+  /* -------------------------------------------------------
+     GRADIENTS
+  ------------------------------------------------------- */
+
+  --gradient-primary:
+    linear-gradient(
+      135deg,
+      #a78bfa 0%,
+      #7c3aed 48%,
+      #4c1d95 100%
+    );
+
+  --gradient-gold:
+    linear-gradient(
+      135deg,
+      #fff0a8 0%,
+      #d4af37 45%,
+      #8a6419 100%
+    );
+
+  --gradient-dark:
+    linear-gradient(
+      145deg,
+      #171126 0%,
+      #0c0915 55%,
+      #05040a 100%
+    );
+
+  --gradient-purple-gold:
+    linear-gradient(
+      120deg,
+      #6d28d9 0%,
+      #8b5cf6 45%,
+      #d4af37 100%
+    );
+
+  --gradient-glass:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.12),
+      rgba(255, 255, 255, 0.025)
+    );
+
+  --gradient-success:
+    linear-gradient(
+      135deg,
+      #22c55e,
+      #15803d
+    );
+
+  --gradient-danger:
+    linear-gradient(
+      135deg,
+      #ef4444,
+      #991b1b
+    );
+
+  /* -------------------------------------------------------
+     TYPOGRAPHY
+  ------------------------------------------------------- */
+
+  --font-primary:
+    "Inter",
+    "Segoe UI",
+    system-ui,
+    -apple-system,
+    sans-serif;
+
+  --font-heading:
+    "Cinzel",
+    "Georgia",
+    serif;
+
+  --font-display:
+    "Playfair Display",
+    "Georgia",
+    serif;
+
+  --font-monospace:
+    "SFMono-Regular",
+    Consolas,
+    monospace;
+
+  --font-size-xs: 0.7rem;
+  --font-size-sm: 0.8rem;
+  --font-size-base: 0.95rem;
+  --font-size-md: 1.05rem;
+  --font-size-lg: 1.2rem;
+  --font-size-xl: 1.5rem;
+  --font-size-2xl: 1.9rem;
+  --font-size-3xl: 2.4rem;
+  --font-size-4xl: 3rem;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-black: 900;
+
+  --line-height-tight: 1.15;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  /* -------------------------------------------------------
+     SPACING
+  ------------------------------------------------------- */
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+
+  /* -------------------------------------------------------
+     BORDER RADIUS
+  ------------------------------------------------------- */
+
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.4rem;
+  --radius-md: 0.7rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.4rem;
+  --radius-2xl: 1.8rem;
+  --radius-3xl: 2.4rem;
+  --radius-full: 9999px;
+
+  /* -------------------------------------------------------
+     BORDERS
+  ------------------------------------------------------- */
+
+  --border-subtle:
+    1px solid rgba(255, 255, 255, 0.07);
+
+  --border-normal:
+    1px solid rgba(255, 255, 255, 0.13);
+
+  --border-primary:
+    1px solid rgba(139, 92, 246, 0.5);
+
+  --border-gold:
+    1px solid rgba(212, 175, 55, 0.55);
+
+  --border-focus:
+    2px solid var(--color-primary-light);
+
+  /* -------------------------------------------------------
+     SHADOWS
+  ------------------------------------------------------- */
+
+  --shadow-sm:
+    0 2px 8px rgba(0, 0, 0, 0.22);
+
+  --shadow-md:
+    0 8px 24px rgba(0, 0, 0, 0.32);
+
+  --shadow-lg:
+    0 16px 40px rgba(0, 0, 0, 0.42);
+
+  --shadow-xl:
+    0 24px 60px rgba(0, 0, 0, 0.55);
+
+  --shadow-purple:
+    0 0 24px rgba(139, 92, 246, 0.28);
+
+  --shadow-purple-strong:
+    0 0 35px rgba(139, 92, 246, 0.48);
+
+  --shadow-gold:
+    0 0 24px rgba(212, 175, 55, 0.25);
+
+  --shadow-gold-strong:
+    0 0 32px rgba(212, 175, 55, 0.45);
+
+  --shadow-inset:
+    inset 0 2px 8px rgba(0, 0, 0, 0.3);
+
+  /* -------------------------------------------------------
+     GLASS EFFECT
+  ------------------------------------------------------- */
+
+  --glass-background:
+    rgba(22, 17, 38, 0.68);
+
+  --glass-border:
+    rgba(255, 255, 255, 0.12);
+
+  --glass-blur: 18px;
+
+  --glass-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3);
+
+  /* -------------------------------------------------------
+     TRANSITIONS
+  ------------------------------------------------------- */
+
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 400ms ease;
+  --transition-cinematic: 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* -------------------------------------------------------
+     Z-INDEX LAYERS
+  ------------------------------------------------------- */
+
+  --z-background: -1;
+  --z-base: 1;
+  --z-content: 10;
+  --z-sticky: 50;
+  --z-dropdown: 100;
+  --z-overlay: 500;
+  --z-modal: 1000;
+  --z-toast: 1500;
+  --z-tooltip: 2000;
+
+  /* -------------------------------------------------------
+     LAYOUT
+  ------------------------------------------------------- */
+
+  --header-height: 4.5rem;
+  --bottom-nav-height: 4.5rem;
+  --sidebar-width: 17rem;
+
+  --content-max-width: 1500px;
+  --game-board-max-width: 720px;
+
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* -------------------------------------------------------
+     GAME BOARD
+  ------------------------------------------------------- */
+
+  --board-border-width: 8px;
+  --board-cell-size: 12.5%;
+
+  --board-shadow:
+    0 18px 45px rgba(0, 0, 0, 0.48),
+    0 0 25px rgba(212, 175, 55, 0.12);
+
+  --board-border-color: #c49a42;
+
+  /* -------------------------------------------------------
+     BUTTONS
+  ------------------------------------------------------- */
+
+  --button-height-sm: 2rem;
+  --button-height-md: 2.7rem;
+  --button-height-lg: 3.3rem;
+
+  --button-padding-x: 1.2rem;
+
+  /* -------------------------------------------------------
+     MOBILE BREAKPOINT REFERENCES
+  ------------------------------------------------------- */
+
+  --mobile-width: 480px;
+  --tablet-width: 768px;
+  --desktop-width: 1024px;
+  --wide-width: 1440px;
+
+  /* -------------------------------------------------------
+     MOTION
+  ------------------------------------------------------- */
+
+  --animation-duration-fast: 160ms;
+  --animation-duration-normal: 280ms;
+  --animation-duration-slow: 550ms;
+
+  --animation-easing:
+    cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* =========================================================
+   LIGHT THEME TOKENS
+   ========================================================= */
+
+[data-theme="light"] {
+  --bg-main: #f4f0fa;
+  --bg-secondary: #ebe5f4;
+  --bg-tertiary: #ffffff;
+  --bg-elevated: #ffffff;
+
+  --bg-card: rgba(255, 255, 255, 0.92);
+  --bg-card-hover: #ffffff;
+
+  --bg-overlay: rgba(25, 15, 40, 0.55);
+  --bg-glass: rgba(255, 255, 255, 0.7);
+
+  --text-primary: #21172f;
+  --text-secondary: #514663;
+  --text-muted: #756a85;
+  --text-disabled: #a49bad;
+  --text-dark: #171020;
+
+  --glass-background: rgba(255, 255, 255, 0.78);
+  --glass-border: rgba(50, 35, 75, 0.12);
+
+  --border-subtle: 1px solid rgba(35, 20, 55, 0.08);
+  --border-normal: 1px solid rgba(35, 20, 55, 0.14);
+
+  --shadow-md:
+    0 8px 24px rgba(40, 20, 60, 0.09);
+
+  --shadow-lg:
+    0 16px 40px rgba(40, 20, 60, 0.13);
+}
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 0ms;
+    --transition-normal: 0ms;
+    --transition-slow: 0ms;
+    --transition-cinematic: 0ms;
+
+    --animation-duration-fast: 0ms;
+    --animation-duration-normal: 0ms;
+    --animation-duration-slow: 0ms;
+  }
+}
+
+/* =========================================================
+   HIGH CONTRAST SUPPORT
+   ========================================================= */
+
+@media (prefers-contrast: more) {
+  :root {
+    --text-secondary: #e8e1f3;
+    --text-muted: #c4bad7;
+
+    --border-subtle:
+      1px solid rgba(255, 255, 255, 0.25);
+
+    --border-normal:
+      1px solid rgba(255, 255, 255, 0.4);
+  }
+
+  [data-theme="light"] {
+    --text-secondary: #30263d;
+    --text-muted: #4c405c;
+
+    --border-subtle:
+      1px solid rgba(20, 10, 35, 0.25);
+
+    --border-normal:
+      1px solid rgba(20, 10, 35, 0.4);
+  }
+}
