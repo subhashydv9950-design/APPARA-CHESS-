@@ -1,55 +1,82 @@
+<!-- ======================================================
+     APPARA CHESS
+     FILE 65: index.html
+     COMPLETE FILE
+====================================================== -->
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
 
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
   >
 
   <meta name="theme-color" content="#090713">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta
+    name="apple-mobile-web-app-status-bar-style"
+    content="black-translucent"
+  >
 
   <meta
     name="description"
-    content="APPARA CHESS — The Royal Chess Experience. Enter a premium 3D chess world."
+    content="APPARA CHESS — The Royal Chess Experience. Enter a premium chess world."
   >
 
   <title>APPARA CHESS — The Royal Chess Experience</title>
 
   <!-- APP ICON -->
-  <link rel="icon" href="./icons/app-icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="./icons/app-icon.svg">
+  <link
+    rel="icon"
+    href="./icons/app-icon.svg"
+    type="image/svg+xml"
+  >
+
+  <link
+    rel="apple-touch-icon"
+    href="./icons/app-icon.svg"
+  >
 
   <!-- PWA MANIFEST -->
-  <link rel="manifest" href="./manifest.json">
+  <link
+    rel="manifest"
+    href="./manifest.json"
+  >
 
-  <!-- PRECONNECT -->
+  <!-- FONT CONNECTIONS -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    rel="preconnect"
+    href="https://fonts.gstatic.com"
+    crossorigin
+  >
 
-  <!-- PREMIUM TYPOGRAPHY -->
+  <!-- PREMIUM FONTS -->
   <link
     href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap"
     rel="stylesheet"
   >
 
-  <!-- THREE.JS IMPORT MAP -->
+  <!-- MODULE IMPORT MAP -->
   <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
-      }
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+      "chess.js": "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/dist/esm/chess.js"
     }
+  }
   </script>
 
-  <!-- MAIN STYLESHEETS -->
+  <!-- MAIN STYLESHEET -->
   <link rel="stylesheet" href="./css/style.css">
+
+  <!-- SCREEN STYLESHEETS -->
   <link rel="stylesheet" href="./css/screens.css">
   <link rel="stylesheet" href="./css/chess-arena.css">
   <link rel="stylesheet" href="./css/3d-effects.css">
@@ -59,15 +86,15 @@
 
 <body>
 
-  <!-- ======================================
-       APPLICATION ROOT
-  ======================================= -->
-
+  <!-- APPLICATION ROOT -->
   <div id="app" class="app-container">
 
     <!-- LOADING SCREEN -->
-
-    <section id="loading-screen" class="loading-screen">
+    <section
+      id="loading-screen"
+      class="loading-screen"
+      aria-live="polite"
+    >
 
       <div class="loading-content">
 
@@ -91,26 +118,24 @@
 
     </section>
 
-    <!-- MAIN APPLICATION VIEW -->
-
-    <main id="app-view" class="app-view">
-
-      <!-- Screens are rendered by the application router -->
+    <!-- MAIN APPLICATION -->
+    <main
+      id="app-view"
+      class="app-view"
+    >
 
       <div id="screen-container"></div>
 
     </main>
 
-    <!-- GLOBAL MODAL ROOT -->
-
+    <!-- MODAL ROOT -->
     <div
       id="modal-root"
       class="modal-root"
       aria-live="polite"
     ></div>
 
-    <!-- GLOBAL TOAST ROOT -->
-
+    <!-- TOAST ROOT -->
     <div
       id="toast-root"
       class="toast-root"
@@ -120,27 +145,26 @@
 
   </div>
 
-  <!-- ======================================
-       APPLICATION STARTUP
-  ======================================= -->
+  <!-- MAIN APPLICATION SCRIPT -->
+  <script
+    type="module"
+    src="./js/app.js"
+  ></script>
 
-  <script type="module" src="./js/app.js"></script>
-
-  <!-- ======================================
-       SERVICE WORKER REGISTRATION
-  ======================================= -->
-
+  <!-- SERVICE WORKER -->
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
+
         navigator.serviceWorker
           .register("./sw.js")
-          .catch((error) => {
+          .catch(error => {
             console.error(
               "APPARA CHESS service worker registration failed:",
               error
             );
           });
+
       });
     }
   </script>
@@ -148,6 +172,7 @@
 </body>
 </html>
 
-<!-- ======================================
-     APPARA CHESS — FILE 80 COMPLETE
-======================================= -->
+<!-- ======================================================
+     FILE 65 COMPLETE
+     PATH: index.html
+====================================================== -->
