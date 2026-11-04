@@ -1,11 +1,14 @@
 /* =========================================================
-   APPARA CHESS — ONLINE MULTIPLAYER
+   APPARA CHESS — ONLINE MULTIPLAYER SYSTEM
    FILE: js/online.js
-   PART 1/3 — CORE, FIREBASE & ROOM CREATION
-   ========================================================= */
+   COMPLETE REBUILD — PART 1/3
+========================================================= */
 
 window.APPARA_ONLINE = (function () {
     "use strict";
+
+    const INITIAL_FEN =
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
     const state = {
         initialized: false,
@@ -19,6 +22,9 @@ window.APPARA_ONLINE = (function () {
 
         roomReference: null,
         roomListener: null,
+        connectionReference: null,
+        connectionListener: null,
+
         roomUpdateHandler: null,
 
         auth: null,
@@ -31,99 +37,22 @@ window.APPARA_ONLINE = (function () {
         lastError: null
     };
 
-    /* DOM HELPERS */
+
+    /* =====================================================
+       01. COMMON HELPERS
+    ===================================================== */
 
     function getElement(id) {
         return document.getElementById(id);
     }
 
-    function setText(id, value) {
-        const element = getElement(id);
+    function notify(message, type) {
+        const app = window.APPARA_APP;
 
-        if (element) {
-            element.textContent = String(value ?? "");
-        }
-    }
-
-    function notify(message, type = "info") {
-        if (
-            window.APPARA_APP &&
-            typeof window.APPARA_APP.notify === "function"
-        ) {
-            window.APPARA_APP.notify(message, type);
+        if (app && typeof app.notify === "function") {
+            app.notify(message, type || "info");
         } else {
             console.log("[APPARA ONLINE]", message);
-        }
-    }
-
-    /* FIREBASE */
-
-    function getFirebaseModule() {
-        return window.APPARA_FIREBASE || null;
-    }
-
-    function isFirebaseReady() {
-        const module = getFirebaseModule();
-
-        if (!module) return false;
-
-        if (
-            typeof module.isAvailable === "function" &&
-            !module.isAvailable()
-        ) {
-            return false;
-        }
-
-        if (
-            typeof module.isConfigured === "function" &&
-            !module.isConfigured()
-        ) {
-            return false;
-        }
-
-        return true;
-    }
-
-    function init() {
-        if (state.initialized) return true;
-
-        const module = getFirebaseModule();
-
-        if (!module || !isFirebaseReady()) {
-            setStatus(false, "Firebase setup required");
-            return false;
-        }
-
-        try {
-            if (typeof module.initialize === "function") {
-                module.initialize();
-            }
-
-            state.auth =
-                typeof module.getAuth === "function"
-                    ? module.getAuth()
-                    : null;
-
-            state.database =
-                typeof module.getDatabase === "function"
-                    ? module.getDatabase()
-                    : null;
-
-            if (!state.auth || !state.database) {
-                setStatus(false, "Firebase services unavailable");
-                return false;
-            }
-
-            state.initialized = true;
-
-            monitorConnection();
-            setStatus(false, "Connecting to Firebase");
-
-            return true;
-
-        } catch (error) {
-            reportError(error, "Firebase initialization failed");
-            return false;
         }
     }
 
@@ -145,47 +74,195 @@ window.APPARA_ONLINE = (function () {
         }
     }
 
-    function monitorConnection() {
-        if (!state.database) return;
+    function reportError(error, message) {
+        state.lastError = error || null;
+
+        console.error(
+            "[APPARA ONLINE]",
+            message || "Online service error",
+            error || ""
+        );
+
+        notify(
+            message || "Online service error",
+            "error"
+        );
+    }
+
+    function normalizeColor(color) {
+        const value = String(color || "").toLowerCase();
+
+        if (value === "w" || value === "white") {
+            return "white";
+        }
+
+        if (value === "b" || value === "black") {
+            return "black";
+        }
+
+        return null;
+    }
+
+    function colorToTurn(color) {
+        return normalizeColor(color) === "white" ? "w" : "b";
+    }
+
+    function getOpponentColor(color) {
+        return normalizeColor(color) === "white"
+            ? "black"
+            : "white";
+    }
+
+    function getPlayerName() {
+        const profile = window.APPARA_PROFILE;
+
+        if (profile && typeof profile.getProfile === "function") {
+            const data = profile.getProfile();
+
+            if (data && data.name) {
+                return String(data.name).trim().slice(0, 24);
+            }
+        }
+
+        const input = getElement("online-player-name");
+
+        if (input && input.value.trim()) {
+            return input.value.trim().slice(0, 24);
+        }
+
+        return "Guest Player";
+    }
+
+    function createPlayerData(color, suppliedName) {
+        return {
+            uid: state.currentUser ? state.currentUser.uid : null,
+            name: String(suppliedName || getPlayerName())
+                .trim()
+                .slice(0, 24) || "Guest Player",
+            color: normalizeColor(color),
+            online: true,
+            joinedAt: Date.now()
+        };
+    }
+
+
+    /* =====================================================
+       02. FIREBASE CONNECTION
+    ===================================================== */
+
+    function getFirebaseModule() {
+        return window.APPARA_FIREBASE || null;
+    }
+
+    function isFirebaseReady() {
+        const firebaseModule = getFirebaseModule();
+
+        if (!firebaseModule) return false;
+
+        if (
+            typeof firebaseModule.isConfigured === "function" &&
+            !firebaseModule.isConfigured()
+        ) {
+            return false;
+        }
+
+        if (
+            typeof firebaseModule.initialize === "function" &&
+            !firebaseModule.initialize()
+        ) {
+            return false;
+        }
+
+        if (
+            typeof firebaseModule.isAvailable === "function" &&
+            !firebaseModule.isAvailable()
+        ) {
+            return false;
+        }
+
+        return Boolean(
+            firebaseModule.getAuth &&
+            firebaseModule.getDatabase
+        );
+    }
+
+    function init() {
+        if (state.initialized) {
+            return Boolean(state.auth && state.database);
+        }
+
+        const firebaseModule = getFirebaseModule();
+
+        if (!firebaseModule || !isFirebaseReady()) {
+            setStatus(false, "Firebase setup required");
+            return false;
+        }
 
         try {
-            state.database
-                .ref(".info/connected")
-                .on("value", function (snapshot) {
-                    const connected = snapshot.val() === true;
+            state.auth = firebaseModule.getAuth();
+            state.database = firebaseModule.getDatabase();
 
-                    setStatus(
-                        connected,
-                        connected
-                            ? "Connected to Firebase"
-                            : "Connection unavailable"
-                    );
-                });
+            if (!state.auth || !state.database) {
+                setStatus(false, "Firebase services unavailable");
+                return false;
+            }
+
+            state.initialized = true;
+
+            monitorConnection();
+
+            setStatus(false, "Connecting to Firebase");
+
+            return true;
 
         } catch (error) {
-            reportError(error, "Connection monitoring failed");
+            reportError(error, "Firebase initialization failed");
+            return false;
         }
     }
 
-    function reportError(error, message = "Online service error") {
-        state.lastError = error || null;
+    function monitorConnection() {
+        if (!state.database) return false;
 
-        console.error("[APPARA ONLINE]", message, error || "");
+        try {
+            state.connectionReference =
+                state.database.ref(".info/connected");
 
-        setStatus(false, message);
-        notify(message, "error");
+            state.connectionListener = function (snapshot) {
+                const connected = snapshot.val() === true;
+
+                setStatus(
+                    connected,
+                    connected
+                        ? "Connected to Firebase"
+                        : "Connection unavailable"
+                );
+            };
+
+            state.connectionReference.on(
+                "value",
+                state.connectionListener
+            );
+
+            return true;
+
+        } catch (error) {
+            reportError(error, "Connection monitoring failed");
+            return false;
+        }
     }
-
-    /* AUTHENTICATION */
 
     async function ensureAuthenticated() {
         if (!init()) {
-            throw new Error("Firebase is not configured.");
+            throw new Error(
+                "Firebase setup is incomplete. Configure Firebase first."
+            );
         }
 
         if (state.auth.currentUser) {
             state.currentUser = state.auth.currentUser;
             state.authenticated = true;
+
             return state.currentUser;
         }
 
@@ -194,7 +271,10 @@ window.APPARA_ONLINE = (function () {
 
             unsubscribe = state.auth.onAuthStateChanged(
                 function (user) {
-                    if (unsubscribe) unsubscribe();
+                    if (unsubscribe) {
+                        unsubscribe();
+                        unsubscribe = null;
+                    }
 
                     if (user) {
                         state.currentUser = user;
@@ -215,7 +295,10 @@ window.APPARA_ONLINE = (function () {
                         });
                 },
                 function (error) {
-                    if (unsubscribe) unsubscribe();
+                    if (unsubscribe) {
+                        unsubscribe();
+                        unsubscribe = null;
+                    }
 
                     reportError(error, "Authentication failed");
                     reject(error);
@@ -224,45 +307,10 @@ window.APPARA_ONLINE = (function () {
         });
     }
 
-    /* PLAYER INFORMATION */
 
-    function getPlayerName() {
-        const profile = window.APPARA_PROFILE;
-
-        if (
-            profile &&
-            typeof profile.getProfile === "function"
-        ) {
-            const data = profile.getProfile();
-
-            if (data && data.name) {
-                return String(data.name).trim().slice(0, 24);
-            }
-        }
-
-        const input = getElement("online-player-name");
-
-        if (input && input.value.trim()) {
-            return input.value.trim().slice(0, 24);
-        }
-
-        return "Guest Player";
-    }
-
-    function createPlayerData(color) {
-        return {
-            uid: state.currentUser
-                ? state.currentUser.uid
-                : null,
-
-            name: getPlayerName(),
-            color: color,
-            online: true,
-            joinedAt: Date.now()
-        };
-    }
-
-    /* ROOM CODE */
+    /* =====================================================
+       03. ROOM HELPERS
+    ===================================================== */
 
     function generateRoomCode() {
         const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -278,96 +326,65 @@ window.APPARA_ONLINE = (function () {
         return code;
     }
 
+    function normalizeRoomCode(roomCode) {
+        return String(roomCode || "")
+            .trim()
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, "");
+    }
+
     function getRoomReference(roomCode) {
-        if (!state.database || !roomCode) return null;
+        if (!state.database || !roomCode) {
+            return null;
+        }
 
         return state.database
             .ref("rooms")
-            .child(String(roomCode).toUpperCase());
+            .child(normalizeRoomCode(roomCode));
     }
 
-    /* CREATE ROOM */
+    function createRoomData(roomCode) {
+        const now = Date.now();
 
-    async function createRoom() {
-        if (state.currentRoomCode) {
-            notify("You are already in a room.", "warning");
-            return false;
-        }
+        return {
+            code: roomCode,
+            status: "waiting",
 
-        try {
-            await ensureAuthenticated();
+            createdAt: now,
+            updatedAt: now,
 
-            let roomCode = null;
-            let roomRef = null;
-            let transaction = null;
+            hostUid: state.currentUser.uid,
 
-            for (let attempt = 0; attempt < 5; attempt++) {
-                roomCode = generateRoomCode();
-                roomRef = getRoomReference(roomCode);
+            players: {
+                white: createPlayerData("white"),
+                black: null
+            },
 
-                const roomData = {
-                    code: roomCode,
-                    status: "waiting",
+            fen: INITIAL_FEN,
+            turn: "w",
 
-                    createdAt: Date.now(),
-                    updatedAt: Date.now(),
+            moves: {},
 
-                    hostUid: state.currentUser.uid,
+            drawOffer: null,
 
-                    players: {
-                        white: createPlayerData("w"),
-                        black: null
-                    },
-
-                    fen: null,
-                    moves: {},
-                    turn: "w",
-
-                    result: null,
-                    reason: null
-                };
-
-                transaction = await roomRef.transaction(
-                    function (currentData) {
-                        if (currentData !== null) return;
-                        return roomData;
-                    },
-                    undefined,
-                    false
-                );
-
-                if (transaction.committed) break;
-            }
-
-            if (!transaction || !transaction.committed) {
-                throw new Error("Could not create a unique room.");
-            }
-
-            state.currentRoom = transaction.snapshot.val();
-            state.currentRoomCode = roomCode;
-            state.currentPlayerColor = "w";
-            state.roomReference = roomRef;
-            state.multiplayerConnected = false;
-
-            showCreatedRoom(roomCode);
-            listenToRoom(roomCode);
-
-            notify(
-                "Room created. Share the code with your friend.",
-                "success"
-            );
-
-            return {
-                success: true,
-                roomCode: roomCode,
-                code: roomCode
-            };
-
-        } catch (error) {
-            reportError(error, "Could not create room");
-            return false;
-        }
+            result: null,
+            reason: null
+        };
     }
+
+    function saveRoomState(room, roomCode, color, roomReference) {
+        state.currentRoom = room || null;
+        state.currentRoomCode = roomCode || null;
+        state.currentPlayerColor = normalizeColor(color);
+        state.roomReference = roomReference || null;
+
+        state.multiplayerConnected = false;
+    }
+
+
+    /* =====================================================
+       04. ROOM DISPLAY
+    ===================================================== */
 
     function showCreatedRoom(roomCode) {
         const container = getElement("created-room-container");
@@ -383,18 +400,152 @@ window.APPARA_ONLINE = (function () {
         }
     }
 
-    /* =========================================================
-       PART 1/3 END
-       PART 2/3 इसी फाइल में इसके नीचे जोड़ना है।
-       अभी Commit मत करना।
-       ========================================================= */
+    function hideCreatedRoom() {
+        const container = getElement("created-room-container");
+        const codeElement = getElement("created-room-code");
 
-           /* =========================================================
-   APPARA CHESS — ONLINE SYSTEM
+        if (container) {
+            container.classList.add("hidden");
+            container.style.display = "none";
+        }
+
+        if (codeElement) {
+            codeElement.textContent = "";
+        }
+    }
+
+    function updateRoomDisplay(room) {
+        if (!room) return;
+
+        const whitePlayer =
+            room.players && room.players.white;
+
+        const blackPlayer =
+            room.players && room.players.black;
+
+        const whiteElement = getElement("online-white-player");
+        const blackElement = getElement("online-black-player");
+
+        if (whiteElement) {
+            const name = whitePlayer
+                ? whitePlayer.name
+                : "Waiting for player...";
+
+            if (whiteElement.tagName === "INPUT") {
+                whiteElement.value = name;
+            } else {
+                whiteElement.textContent = name;
+            }
+        }
+
+        if (blackElement) {
+            const name = blackPlayer
+                ? blackPlayer.name
+                : "Waiting for player...";
+
+            if (blackElement.tagName === "INPUT") {
+                blackElement.value = name;
+            } else {
+                blackElement.textContent = name;
+            }
+        }
+    }
+
+
+    /* =====================================================
+       05. CREATE ROOM
+    ===================================================== */
+
+    async function createRoom() {
+        if (state.currentRoomCode) {
+            notify("You are already in a room.", "warning");
+            return false;
+        }
+
+        try {
+            await ensureAuthenticated();
+
+            let roomCode = null;
+            let roomReference = null;
+            let transaction = null;
+
+            for (let attempt = 0; attempt < 8; attempt++) {
+                roomCode = generateRoomCode();
+                roomReference = getRoomReference(roomCode);
+
+                if (!roomReference) {
+                    throw new Error("Room reference unavailable.");
+                }
+
+                transaction = await roomReference.transaction(
+                    function (currentRoom) {
+                        if (currentRoom !== null) {
+                            return;
+                        }
+
+                        return createRoomData(roomCode);
+                    },
+                    undefined,
+                    false
+                );
+
+                if (transaction.committed) {
+                    break;
+                }
+            }
+
+            if (!transaction || !transaction.committed) {
+                throw new Error("Could not create a unique room.");
+            }
+
+            const room = transaction.snapshot.val();
+
+            saveRoomState(
+                room,
+                roomCode,
+                "white",
+                roomReference
+            );
+
+            showCreatedRoom(roomCode);
+
+            listenToRoom(roomCode);
+
+            notify(
+                "Room created. Share the code with your friend.",
+                "success"
+            );
+
+            return {
+                success: true,
+                roomCode: roomCode,
+                code: roomCode,
+                color: "white",
+                room: room
+            };
+
+        } catch (error) {
+            reportError(error, "Could not create room");
+            return false;
+        }
+    }
+
+
+    /* =====================================================
+       PART 1/3 END
+       PART 2/3 इसी फाइल के नीचे जोड़ना है।
+       अभी Commit नहीं करना है।
+    ===================================================== */
+/* =========================================================
+   APPARA CHESS — ONLINE MULTIPLAYER SYSTEM
    PART 2/3 START
 ========================================================= */
 
-/* Copy room code */
+
+/* =====================================================
+   06. COPY ROOM CODE
+===================================================== */
+
 async function copyRoomCode() {
     const code = state.currentRoomCode;
 
@@ -408,9 +559,11 @@ async function copyRoomCode() {
             await navigator.clipboard.writeText(code);
         } else {
             const field = document.createElement("textarea");
+
             field.value = code;
             field.style.position = "fixed";
             field.style.opacity = "0";
+
             document.body.appendChild(field);
             field.select();
 
@@ -418,132 +571,142 @@ async function copyRoomCode() {
             field.remove();
 
             if (!copied) {
-                throw new Error("Copy नहीं हो पाया।");
+                throw new Error("Copy command failed.");
             }
         }
 
         notify("Room Code कॉपी हो गया: " + code, "success");
         return true;
+
     } catch (error) {
-        reportError("Room Code कॉपी नहीं हुआ", error);
+        reportError(error, "Room Code कॉपी नहीं हुआ");
         return false;
     }
 }
 
 
-/* Join an existing room */
+/* =====================================================
+   07. JOIN ROOM
+===================================================== */
+
 async function joinRoom(roomCode, playerName) {
-    if (!isFirebaseReady()) {
-        notify("Online खेलने के लिए Firebase सेटअप जरूरी है।", "error");
-        return { success: false, error: "Firebase unavailable" };
+    if (state.currentRoomCode) {
+        notify("आप पहले से एक Room में हैं।", "warning");
+        return { success: false, error: "Already in a room" };
     }
 
-    const code = String(roomCode || "")
-        .trim()
-        .toUpperCase()
-        .replace(/[^A-Z0-9]/g, "");
+    const code = normalizeRoomCode(roomCode);
 
     if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) {
-        notify("कृपया सही 6 अक्षरों वाला Room Code डालें।", "warning");
-        return { success: false, error: "Invalid room code" };
+        notify("सही 6 अक्षरों वाला Room Code डालें।", "warning");
+
+        return {
+            success: false,
+            error: "Invalid room code"
+        };
     }
 
     try {
         await ensureAuthenticated();
 
-        const roomRef = getRoomReference(code);
-        const snapshot = await roomRef.once("value");
+        const roomReference = getRoomReference(code);
 
-        if (!snapshot.exists()) {
-            notify("यह Room नहीं मिला। Room Code जाँचें।", "error");
-            return { success: false, error: "Room not found" };
+        if (!roomReference) {
+            throw new Error("Room reference unavailable.");
         }
 
-        const room = snapshot.val();
+        const transaction = await roomReference.transaction(
+            function (room) {
+                if (!room || room.status !== "waiting") {
+                    return;
+                }
 
-        if (!room || room.status !== "waiting") {
-            notify("यह Room अब Join करने के लिए उपलब्ध नहीं है।", "warning");
-            return { success: false, error: "Room unavailable" };
-        }
+                room.players = room.players || {};
 
-        if (
-            room.players &&
-            room.players.white &&
-            room.players.white.uid === state.auth.currentUser.uid
-        ) {
-            state.currentRoom = room;
-            state.currentRoomCode = code;
-            state.currentPlayerColor = "white";
-            state.roomReference = roomRef;
+                const whitePlayer = room.players.white;
 
-            listenToRoom(code);
+                /* Same player can reconnect as White */
+                if (
+                    whitePlayer &&
+                    whitePlayer.uid === state.currentUser.uid
+                ) {
+                    return room;
+                }
+
+                if (room.players.black) {
+                    return;
+                }
+
+                room.players.black = createPlayerData(
+                    "black",
+                    playerName
+                );
+
+                room.status = "playing";
+                room.updatedAt = Date.now();
+
+                if (!room.fen) {
+                    room.fen = INITIAL_FEN;
+                }
+
+                if (!room.turn) {
+                    room.turn = "w";
+                }
+
+                return room;
+            },
+            undefined,
+            false
+        );
+
+        if (!transaction.committed) {
+            notify(
+                "Room उपलब्ध नहीं है या पहले से भर चुका है।",
+                "warning"
+            );
 
             return {
-                success: true,
-                roomCode: code,
-                color: "white",
-                room: room
+                success: false,
+                error: "Room unavailable or full"
             };
         }
 
-        if (room.players && room.players.black) {
-            notify("इस Room में दोनों खिलाड़ी पहले से मौजूद हैं।", "warning");
-            return { success: false, error: "Room is full" };
-        }
+        const room = transaction.snapshot.val();
 
-        const blackPlayer = createPlayerData(playerName);
+        const color =
+            room.players &&
+            room.players.white &&
+            room.players.white.uid === state.currentUser.uid
+                ? "white"
+                : "black";
 
-        const transaction = await roomRef.transaction(function (currentRoom) {
-            if (!currentRoom || currentRoom.status !== "waiting") {
-                return;
-            }
-
-            if (
-                currentRoom.players &&
-                currentRoom.players.black
-            ) {
-                return;
-            }
-
-            currentRoom.players = currentRoom.players || {};
-            currentRoom.players.black = blackPlayer;
-            currentRoom.status = "playing";
-            currentRoom.updatedAt = Date.now();
-
-            if (!currentRoom.fen) {
-                currentRoom.fen =
-                    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-            }
-
-            return currentRoom;
-        });
-
-        if (!transaction.committed) {
-            notify("Room Join नहीं हो पाया। शायद कोई दूसरा खिलाड़ी Join कर चुका है।", "error");
-            return { success: false, error: "Join transaction failed" };
-        }
-
-        state.currentRoom = transaction.snapshot.val();
-        state.currentRoomCode = code;
-        state.currentPlayerColor = "black";
-        state.roomReference = roomRef;
-
-        setStatus("Connected — Black Player");
+        saveRoomState(
+            room,
+            code,
+            color,
+            roomReference
+        );
 
         listenToRoom(code);
+
         connectMultiplayer();
 
-        notify("आप Room में Join हो गए हैं!", "success");
+        notify(
+            color === "white"
+                ? "आप White Player के रूप में वापस आ गए हैं।"
+                : "आप Room में Black Player के रूप में Join हो गए हैं!",
+            "success"
+        );
 
         return {
             success: true,
             roomCode: code,
-            color: "black",
-            room: state.currentRoom
+            color: color,
+            room: room
         };
 
     } catch (error) {
-        reportError("Room Join करने में समस्या हुई", error);
+        reportError(error, "Room Join करने में समस्या हुई");
 
         return {
             success: false,
@@ -553,36 +716,48 @@ async function joinRoom(roomCode, playerName) {
 }
 
 
-/* Connect multiplayer controller */
+/* =====================================================
+   08. CONNECT MULTIPLAYER CONTROLLER
+===================================================== */
+
 function connectMultiplayer() {
     if (state.multiplayerConnected) {
         return true;
     }
 
-    if (!state.currentRoomCode || !state.currentPlayerColor) {
+    if (
+        !state.currentRoom ||
+        !state.currentRoomCode ||
+        !state.currentPlayerColor
+    ) {
         return false;
     }
 
-    if (!window.APPARA_MULTIPLAYER) {
+    const multiplayer = window.APPARA_MULTIPLAYER;
+
+    if (!multiplayer) {
         return false;
     }
 
     try {
-        const multiplayer = window.APPARA_MULTIPLAYER;
+        let connected = false;
 
         if (typeof multiplayer.connectOnlineRoom === "function") {
-            multiplayer.connectOnlineRoom(
+            connected = multiplayer.connectOnlineRoom(
                 state.currentRoom,
                 state.currentRoomCode,
                 state.currentPlayerColor
             );
         } else if (typeof multiplayer.startOnline === "function") {
-            multiplayer.startOnline({
+            connected = multiplayer.startOnline({
                 room: state.currentRoom,
                 roomCode: state.currentRoomCode,
-                playerColor: state.currentPlayerColor
+                playerColor: state.currentPlayerColor,
+                fen: state.currentRoom.fen || INITIAL_FEN
             });
-        } else {
+        }
+
+        if (connected === false) {
             return false;
         }
 
@@ -590,163 +765,137 @@ function connectMultiplayer() {
         return true;
 
     } catch (error) {
-        reportError("Multiplayer कनेक्शन शुरू नहीं हो पाया", error);
+        reportError(error, "Multiplayer connection failed");
         return false;
     }
 }
 
 
-/* Register room update callback */
+/* =====================================================
+   09. ROOM UPDATE CALLBACK
+===================================================== */
+
 function setRoomUpdateHandler(callback) {
     state.roomUpdateHandler =
-        typeof callback === "function" ? callback : null;
+        typeof callback === "function"
+            ? callback
+            : null;
+
+    return true;
 }
 
 
-/* Listen for live room changes */
+/* =====================================================
+   10. LISTEN TO ROOM
+===================================================== */
+
+function stopRoomListener() {
+    if (
+        state.roomReference &&
+        state.roomListener
+    ) {
+        try {
+            state.roomReference.off(
+                "value",
+                state.roomListener
+            );
+        } catch (error) {
+            console.warn(
+                "[APPARA ONLINE] Listener cleanup failed:",
+                error
+            );
+        }
+    }
+
+    state.roomListener = null;
+
+    return true;
+}
+
+
 function listenToRoom(roomCode) {
     stopRoomListener();
 
-    if (!state.database || !roomCode) {
+    const roomReference = getRoomReference(roomCode);
+
+    if (!roomReference) {
         return false;
     }
 
+    state.roomReference = roomReference;
+
+    state.roomListener = function (snapshot) {
+        if (!snapshot.exists()) {
+            notify("यह Online Room अब उपलब्ध नहीं है।", "warning");
+
+            stopRoomListener();
+            return;
+        }
+
+        const room = snapshot.val();
+
+        state.currentRoom = room;
+        state.currentRoomCode = roomCode;
+
+        updateRoomDisplay(room);
+
+        if (
+            room.status === "playing" &&
+            room.players &&
+            room.players.white &&
+            room.players.black
+        ) {
+            connectMultiplayer();
+        }
+
+        if (
+            room.status === "finished" ||
+            room.status === "cancelled"
+        ) {
+            state.multiplayerConnected = false;
+            setStatus(true, "Game Finished");
+        }
+
+        if (state.roomUpdateHandler) {
+            try {
+                state.roomUpdateHandler(room);
+            } catch (error) {
+                reportError(error, "Room update callback failed");
+            }
+        }
+    };
+
     try {
-        const roomRef = getRoomReference(roomCode);
-
-        state.roomReference = roomRef;
-
-        state.roomListener = roomRef.on(
+        roomReference.on(
             "value",
-            function (snapshot) {
-                if (!snapshot.exists()) {
-                    notify("यह Online Room अब उपलब्ध नहीं है।", "warning");
-                    stopRoomListener();
-                    return;
-                }
-
-                const room = snapshot.val();
-
-                state.currentRoom = room;
-                state.currentRoomCode = roomCode;
-
-                updateRoomDisplay(room);
-
-                if (
-                    room.status === "playing" &&
-                    room.players &&
-                    room.players.white &&
-                    room.players.black
-                ) {
-                    connectMultiplayer();
-                }
-
-                if (
-                    room.status === "finished" ||
-                    room.status === "cancelled"
-                ) {
-                    setStatus("Game Finished");
-                }
-
-                if (state.roomUpdateHandler) {
-                    try {
-                        state.roomUpdateHandler(room);
-                    } catch (callbackError) {
-                        reportError(
-                            "Room update callback में समस्या",
-                            callbackError
-                        );
-                    }
-                }
-            },
+            state.roomListener,
             function (error) {
-                reportError("Room अपडेट प्राप्त नहीं हो पाया", error);
+                reportError(error, "Room update listener failed");
             }
         );
 
         return true;
 
     } catch (error) {
-        reportError("Room Listener शुरू नहीं हो पाया", error);
+        reportError(error, "Could not start room listener");
         return false;
     }
 }
 
 
-/* Update visible room information */
-function updateRoomDisplay(room) {
-    if (!room) return;
+/* =====================================================
+   11. SEND MOVE
+===================================================== */
 
-    const whiteName =
-        room.players &&
-        room.players.white &&
-        room.players.white.name
-            ? room.players.white.name
-            : "Waiting for player...";
-
-    const blackName =
-        room.players &&
-        room.players.black &&
-        room.players.black.name
-            ? room.players.black.name
-            : "Waiting for player...";
-
-    const whiteElement = getElement("online-white-player");
-    const blackElement = getElement("online-black-player");
-
-    if (whiteElement) {
-        if ("value" in whiteElement && whiteElement.tagName === "INPUT") {
-            whiteElement.value = whiteName;
-        } else {
-            whiteElement.textContent = whiteName;
-        }
-    }
-
-    if (blackElement) {
-        if ("value" in blackElement && blackElement.tagName === "INPUT") {
-            blackElement.value = blackName;
-        } else {
-            blackElement.textContent = blackName;
-        }
-    }
-
-    const codeElement = getElement("online-room-code");
-
-    if (codeElement) {
-        codeElement.textContent = state.currentRoomCode || "";
-    }
-
-    if (room.status === "waiting") {
-        setStatus("Waiting for opponent...");
-    } else if (room.status === "playing") {
-        setStatus("Online Game Connected");
-    } else if (room.status === "finished") {
-        setStatus("Game Finished");
-    }
-}
-
-
-/* Stop listening for room changes */
-function stopRoomListener() {
-    if (state.roomReference && state.roomListener) {
-        try {
-            state.roomReference.off("value", state.roomListener);
-        } catch (error) {
-            reportError("Room Listener बंद नहीं हो पाया", error);
-        }
-    }
-
-    state.roomListener = null;
-    return true;
-}
-
-
-/* Send a chess move to Firebase */
-async function sendMove(move) {
-    if (!state.roomReference || !state.currentRoomCode) {
+async function sendMove(moveData) {
+    if (
+        !state.currentRoomCode ||
+        !state.roomReference ||
+        !state.currentPlayerColor
+    ) {
         return {
             success: false,
-            error: "No active room"
+            error: "Not connected to a room"
         };
     }
 
@@ -757,136 +906,112 @@ async function sendMove(move) {
         };
     }
 
-    if (!move || !move.from || !move.to) {
+    if (!moveData || !moveData.from || !moveData.to) {
         return {
             success: false,
-            error: "Invalid move"
-        };
-    }
-
-    if (typeof window.Chess !== "function") {
-        notify("Online Move Validation के लिए Chess Engine उपलब्ध नहीं है।", "error");
-
-        return {
-            success: false,
-            error: "Chess validation library unavailable"
+            error: "Invalid move data"
         };
     }
 
     state.submittingMove = true;
 
     try {
-        const roomSnapshot = await state.roomReference.once("value");
+        const roomReference = state.roomReference;
+        const playerColor = state.currentPlayerColor;
 
-        if (!roomSnapshot.exists()) {
-            throw new Error("Room अब मौजूद नहीं है।");
-        }
-
-        const room = roomSnapshot.val();
-
-        if (room.status !== "playing") {
-            throw new Error("यह Game अभी चाल चलने के लिए तैयार नहीं है।");
-        }
-
-        const expectedColor = state.currentPlayerColor;
-
-        if (room.turn && room.turn !== expectedColor) {
-            throw new Error("अभी आपकी बारी नहीं है।");
-        }
-
-        const currentFen =
-            room.fen ||
-            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-
-        const validator = new window.Chess(currentFen);
-
-        const moveResult = validator.move({
-            from: move.from,
-            to: move.to,
-            promotion: move.promotion || "q"
-        });
-
-        if (!moveResult) {
-            throw new Error("यह Chess Move मान्य नहीं है।");
-        }
-
-        const nextFen = validator.fen();
-        const nextTurn =
-            validator.turn() === "w" ? "white" : "black";
-
-        const moveData = {
-            from: move.from,
-            to: move.to,
-            promotion: move.promotion || null,
-            san: moveResult.san,
-            color: expectedColor,
-            timestamp: Date.now(),
-            fen: nextFen
-        };
-
-        const transaction = await state.roomReference.transaction(
-            function (currentRoom) {
-                if (!currentRoom || currentRoom.status !== "playing") {
+        const transaction = await roomReference.transaction(
+            function (room) {
+                if (!room || room.status !== "playing") {
                     return;
                 }
 
-                const roomTurn = currentRoom.turn || "white";
+                const expectedTurn = colorToTurn(playerColor);
 
-                if (roomTurn !== expectedColor) {
+                if (room.turn !== expectedTurn) {
                     return;
                 }
 
-                const latestFen =
-                    currentRoom.fen ||
-                    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+                const player =
+                    room.players &&
+                    room.players[playerColor];
 
-                if (latestFen !== currentFen) {
-                    return;
-                }
-
-                currentRoom.moves = currentRoom.moves || [];
-                currentRoom.moves.push(moveData);
-
-                currentRoom.fen = nextFen;
-                currentRoom.turn = nextTurn;
-                currentRoom.updatedAt = Date.now();
-
-                if (validator.isCheckmate()) {
-                    currentRoom.status = "finished";
-                    currentRoom.result =
-                        expectedColor === "white" ? "white" : "black";
-                    currentRoom.reason = "checkmate";
-                } else if (
-                    validator.isDraw() ||
-                    validator.isStalemate() ||
-                    validator.isThreefoldRepetition() ||
-                    validator.isInsufficientMaterial()
+                if (
+                    !player ||
+                    player.uid !== state.currentUser.uid
                 ) {
-                    currentRoom.status = "finished";
-                    currentRoom.result = "draw";
-                    currentRoom.reason = "draw";
+                    return;
                 }
 
-                return currentRoom;
-            }
+                const game = new window.Chess(
+                    room.fen || INITIAL_FEN
+                );
+
+                const move = game.move({
+                    from: String(moveData.from),
+                    to: String(moveData.to),
+                    promotion: moveData.promotion || "q"
+                });
+
+                if (!move) {
+                    return;
+                }
+
+                const moveId = String(
+                    Number(room.moveCount || 0) + 1
+                );
+
+                room.moves = room.moves || {};
+
+                room.moves[moveId] = {
+                    from: move.from,
+                    to: move.to,
+                    san: move.san,
+                    color: move.color,
+                    promotion: move.promotion || null,
+                    playerUid: state.currentUser.uid,
+                    createdAt: Date.now()
+                };
+
+                room.moveCount = Number(room.moveCount || 0) + 1;
+
+                room.fen = game.fen();
+                room.turn = game.turn();
+                room.updatedAt = Date.now();
+
+                if (game.isGameOver()) {
+                    room.status = "finished";
+
+                    room.result = game.isCheckmate()
+                        ? (game.turn() === "w" ? "black" : "white")
+                        : "draw";
+
+                    room.reason = game.isCheckmate()
+                        ? "checkmate"
+                        : "draw";
+                }
+
+                return room;
+            },
+            undefined,
+            false
         );
 
         if (!transaction.committed) {
-            throw new Error(
-                "Move सेव नहीं हुआ। Room की स्थिति बदल चुकी हो सकती है।"
-            );
+            return {
+                success: false,
+                error: "Move rejected by room state"
+            };
         }
 
         state.currentRoom = transaction.snapshot.val();
 
         return {
             success: true,
-            move: moveData,
             room: state.currentRoom
         };
 
     } catch (error) {
-        reportError("Move भेजने में समस्या हुई", error);
+        reportError(error, "Move send failed");
 
         return {
             success: false,
@@ -899,150 +1024,80 @@ async function sendMove(move) {
 }
 
 
-/* =========================================================
-   APPARA CHESS — ONLINE SYSTEM
+/* =====================================================
    PART 2/3 END
-========================================================= */
+   PART 3/3 इसी फाइल के नीचे जोड़ना है।
+   अभी Commit नहीं करना है।
+===================================================== */
 
-        /* =========================================================
-   APPARA CHESS — ONLINE SYSTEM
-   PART 3/3 START
-========================================================= */
+    // ==========================================
+// APPARA CHESS — ONLINE SYSTEM
+// PART 3/3 — DRAW, RESIGN, LEAVE & PUBLIC API
+// ==========================================
 
-/* Update player's online status */
-async function setPlayerOnline(isOnline) {
-    if (!state.roomReference || !state.currentPlayerColor) {
-        return false;
-    }
-
-    try {
-        const playerPath = "players/" + state.currentPlayerColor;
-
-        const updates = {};
-        updates[playerPath + "/online"] = Boolean(isOnline);
-        updates.updatedAt = Date.now();
-
-        await state.roomReference.update(updates);
-
-        return true;
-    } catch (error) {
-        reportError("Player status अपडेट नहीं हुआ", error);
-        return false;
-    }
-}
-
-
-/* Resign current game */
-async function resign() {
-    if (!state.roomReference || !state.currentPlayerColor) {
-        return false;
-    }
-
-    try {
-        const resigningColor = state.currentPlayerColor;
-
-        const transaction = await state.roomReference.transaction(
-            function (room) {
-                if (!room || room.status !== "playing") {
-                    return;
-                }
-
-                room.status = "finished";
-                room.result =
-                    resigningColor === "white" ? "black" : "white";
-                room.reason = "resignation";
-                room.updatedAt = Date.now();
-
-                return room;
+    async function offerDraw() {
+        try {
+            if (!state.roomRef || !state.currentUser || !state.color) {
+                return { success: false, error: "आप किसी ऑनलाइन रूम में नहीं हैं।" };
             }
-        );
 
-        if (!transaction.committed) {
-            notify("Resign Request पूरी नहीं हुई।", "warning");
-            return false;
-        }
+            let result = { success: false, error: "ड्रॉ ऑफर नहीं भेजा जा सका।" };
 
-        state.currentRoom = transaction.snapshot.val();
-        notify("आपने Game Resign कर दिया।", "info");
+            await state.roomRef.transaction(function (room) {
+                if (!room || room.status !== "playing") return;
 
-        return true;
-
-    } catch (error) {
-        reportError("Resign करने में समस्या हुई", error);
-        return false;
-    }
-}
-
-
-/* Offer a draw */
-async function offerDraw() {
-    if (!state.roomReference || !state.currentPlayerColor) {
-        return false;
-    }
-
-    try {
-        const color = state.currentPlayerColor;
-
-        const transaction = await state.roomReference.transaction(
-            function (room) {
-                if (!room || room.status !== "playing") {
+                if (room.drawOffer) {
+                    result.error = "पहले से एक ड्रॉ ऑफर मौजूद है।";
                     return;
                 }
+
+                const player = room.players && room.players[state.color];
+
+                if (!player || player.uid !== state.currentUser.uid) return;
 
                 room.drawOffer = {
-                    by: color,
-                    status: "pending",
-                    timestamp: Date.now()
+                    uid: state.currentUser.uid,
+                    color: state.color,
+                    name: player.name || "Player",
+                    createdAt: Date.now()
                 };
 
                 room.updatedAt = Date.now();
-
+                result = { success: true };
                 return room;
-            }
-        );
+            });
 
-        if (!transaction.committed) {
-            return false;
+            return result;
+        } catch (error) {
+            reportError(error, "ड्रॉ ऑफर भेजने में समस्या हुई।");
+            return { success: false, error: error.message };
         }
-
-        state.currentRoom = transaction.snapshot.val();
-        notify("Draw Offer भेज दिया गया है।", "success");
-
-        return true;
-
-    } catch (error) {
-        reportError("Draw Offer भेजने में समस्या हुई", error);
-        return false;
-    }
-}
-
-
-/* Accept or decline a draw offer */
-async function respondToDraw(accept) {
-    if (!state.roomReference || !state.currentPlayerColor) {
-        return false;
     }
 
-    try {
-        const color = state.currentPlayerColor;
+    async function respondToDraw(accept) {
+        try {
+            if (!state.roomRef || !state.currentUser) {
+                return { success: false, error: "ऑनलाइन रूम उपलब्ध नहीं है।" };
+            }
 
-        const transaction = await state.roomReference.transaction(
-            function (room) {
-                if (!room || room.status !== "playing") {
+            let result = { success: false, error: "ड्रॉ ऑफर का जवाब नहीं दिया जा सका।" };
+
+            await state.roomRef.transaction(function (room) {
+                if (!room || !room.drawOffer) {
+                    result.error = "कोई ड्रॉ ऑफर मौजूद नहीं है।";
                     return;
                 }
 
-                if (
-                    !room.drawOffer ||
-                    room.drawOffer.status !== "pending" ||
-                    room.drawOffer.by === color
-                ) {
+                if (room.drawOffer.uid === state.currentUser.uid) {
+                    result.error = "आप अपने ही ड्रॉ ऑफर का जवाब नहीं दे सकते।";
                     return;
                 }
 
-                room.drawOffer.status = accept ? "accepted" : "declined";
-                room.drawOffer.respondedBy = color;
-                room.drawOffer.respondedAt = Date.now();
+                if (room.status !== "playing") return;
+
+                const player = room.players && room.players[state.color];
+
+                if (!player || player.uid !== state.currentUser.uid) return;
 
                 if (accept) {
                     room.status = "finished";
@@ -1050,190 +1105,220 @@ async function respondToDraw(accept) {
                     room.reason = "agreement";
                 }
 
+                room.drawOffer = null;
                 room.updatedAt = Date.now();
 
-                return room;
-            }
-        );
-
-        if (!transaction.committed) {
-            notify("कोई Pending Draw Offer उपलब्ध नहीं है।", "warning");
-            return false;
-        }
-
-        state.currentRoom = transaction.snapshot.val();
-
-        notify(
-            accept ? "Draw स्वीकार कर लिया गया।" : "Draw Offer अस्वीकार कर दिया गया।",
-            "info"
-        );
-
-        return true;
-
-    } catch (error) {
-        reportError("Draw Response भेजने में समस्या हुई", error);
-        return false;
-    }
-}
-
-
-/* Leave current room */
-async function leaveRoom() {
-    if (state.leavingRoom) {
-        return false;
-    }
-
-    state.leavingRoom = true;
-
-    try {
-        stopRoomListener();
-
-        if (state.roomReference && state.currentPlayerColor) {
-            const color = state.currentPlayerColor;
-
-            await state.roomReference.transaction(function (room) {
-                if (!room) return;
-
-                if (
-                    room.players &&
-                    room.players[color]
-                ) {
-                    room.players[color].online = false;
-                    room.players[color].leftAt = Date.now();
-                }
-
-                room.updatedAt = Date.now();
-
-                if (room.status === "waiting" && color === "white") {
-                    room.status = "cancelled";
-                    room.reason = "host_left";
-                }
+                result = {
+                    success: true,
+                    accepted: !!accept
+                };
 
                 return room;
             });
+
+            return result;
+        } catch (error) {
+            reportError(error, "ड्रॉ का जवाब देने में समस्या हुई।");
+            return { success: false, error: error.message };
         }
-
-        state.currentRoom = null;
-        state.currentRoomCode = null;
-        state.currentPlayerColor = null;
-        state.roomReference = null;
-        state.multiplayerConnected = false;
-        state.submittingMove = false;
-
-        setStatus("Disconnected");
-
-        return true;
-
-    } catch (error) {
-        reportError("Room छोड़ने में समस्या हुई", error);
-        return false;
-
-    } finally {
-        state.leavingRoom = false;
     }
-}
 
-
-/* Get current room */
-function getRoom() {
-    return state.currentRoom;
-}
-
-
-/* Get current room code */
-function getRoomCode() {
-    return state.currentRoomCode;
-}
-
-
-/* Get current player's color */
-function getPlayerColor() {
-    return state.currentPlayerColor;
-}
-
-
-/* Get connection state */
-function isConnected() {
-    return Boolean(state.connected);
-}
-
-
-/* Get current user */
-function getCurrentUser() {
-    return state.currentUser ||
-        (state.auth && state.auth.currentUser) ||
-        null;
-}
-
-
-/* Clean up online system */
-function destroy() {
-    stopRoomListener();
-
-    if (state.database) {
+    async function resign() {
         try {
-            const connectionRef = state.database.ref(".info/connected");
+            if (!state.roomRef || !state.currentUser || !state.color) {
+                return { success: false, error: "ऑनलाइन रूम उपलब्ध नहीं है।" };
+            }
 
-            if (state.connectionListener) {
-                connectionRef.off(
-                    "value",
-                    state.connectionListener
-                );
+            let result = { success: false, error: "गेम छोड़ने में समस्या हुई।" };
+
+            await state.roomRef.transaction(function (room) {
+                if (!room || room.status !== "playing") return;
+
+                const player = room.players && room.players[state.color];
+
+                if (!player || player.uid !== state.currentUser.uid) return;
+
+                const winner = getOpponentColor(state.color);
+
+                room.status = "finished";
+                room.result = winner;
+                room.reason = "resignation";
+                room.drawOffer = null;
+                room.updatedAt = Date.now();
+
+                result = {
+                    success: true,
+                    winner: winner
+                };
+
+                return room;
+            });
+
+            return result;
+        } catch (error) {
+            reportError(error, "गेम छोड़ने में समस्या हुई।");
+            return { success: false, error: error.message };
+        }
+    }
+
+    async function setPlayerOnline(online) {
+        try {
+            if (!state.roomRef || !state.currentUser || !state.color) {
+                return false;
+            }
+
+            let updated = false;
+
+            await state.roomRef.transaction(function (room) {
+                if (!room || !room.players || !room.players[state.color]) {
+                    return;
+                }
+
+                const player = room.players[state.color];
+
+                if (player.uid !== state.currentUser.uid) return;
+
+                player.online = !!online;
+                player.lastSeen = Date.now();
+
+                room.updatedAt = Date.now();
+                updated = true;
+
+                return room;
+            });
+
+            return updated;
+        } catch (error) {
+            reportError(error, "प्लेयर स्टेटस अपडेट नहीं हो सका।");
+            return false;
+        }
+    }
+
+    async function leaveRoom() {
+        try {
+            const roomReference = state.roomRef;
+            const currentColor = state.color;
+            const currentUser = state.currentUser;
+
+            stopRoomListener();
+
+            if (roomReference && currentColor && currentUser) {
+                await roomReference.transaction(function (room) {
+                    if (!room || !room.players || !room.players[currentColor]) {
+                        return;
+                    }
+
+                    const player = room.players[currentColor];
+
+                    if (player.uid !== currentUser.uid) return;
+
+                    player.online = false;
+                    player.lastSeen = Date.now();
+
+                    if (room.status === "playing") {
+                        room.status = "finished";
+                        room.result = getOpponentColor(currentColor);
+                        room.reason = "player_left";
+                        room.drawOffer = null;
+                    } else if (room.status === "waiting") {
+                        room.status = "cancelled";
+                        room.reason = "host_left";
+                    }
+
+                    room.updatedAt = Date.now();
+                    return room;
+                });
             }
         } catch (error) {
-            reportError("Connection Listener बंद नहीं हुआ", error);
+            reportError(error, "रूम छोड़ते समय समस्या हुई।");
         }
+
+        state.room = null;
+        state.roomRef = null;
+        state.roomCode = null;
+        state.color = null;
+        state.multiplayerConnected = false;
+
+        hideCreatedRoom();
+        setStatus(false, "ऑनलाइन रूम से डिस्कनेक्ट हो गए।");
+
+        return { success: true };
     }
 
-    state.initialized = false;
-    state.connected = false;
-    state.authenticated = false;
-    state.currentRoom = null;
-    state.currentRoomCode = null;
-    state.currentPlayerColor = null;
-    state.roomReference = null;
-    state.roomListener = null;
-    state.roomUpdateHandler = null;
-    state.multiplayerConnected = false;
-    state.submittingMove = false;
+    function getRoom() {
+        return state.room || null;
+    }
 
-    return true;
-}
+    function getRoomCode() {
+        return state.roomCode || "";
+    }
 
+    function getPlayerColor() {
+        return state.color || null;
+    }
 
-/* Public API */
-return {
-    init: init,
-    createRoom: createRoom,
-    joinRoom: joinRoom,
-    copyRoomCode: copyRoomCode,
+    function getCurrentUser() {
+        return state.currentUser || null;
+    }
 
-    listenToRoom: listenToRoom,
-    stopRoomListener: stopRoomListener,
-    setRoomUpdateHandler: setRoomUpdateHandler,
+    function isConnected() {
+        return !!state.multiplayerConnected;
+    }
 
-    sendMove: sendMove,
-    setPlayerOnline: setPlayerOnline,
+    function getLastError() {
+        return state.lastError || null;
+    }
 
-    resign: resign,
-    offerDraw: offerDraw,
-    respondToDraw: respondToDraw,
-    leaveRoom: leaveRoom,
+    function destroy() {
+        stopRoomListener();
 
-    getRoom: getRoom,
-    getRoomCode: getRoomCode,
-    getPlayerColor: getPlayerColor,
-    getCurrentUser: getCurrentUser,
+        if (state.connectionRef && state.connectionListener) {
+            state.connectionRef.off("value", state.connectionListener);
+        }
 
-    isConnected: isConnected,
-    connectMultiplayer: connectMultiplayer,
+        state.connectionRef = null;
+        state.connectionListener = null;
+        state.multiplayerConnected = false;
+        state.room = null;
+        state.roomRef = null;
+        state.roomCode = null;
+        state.color = null;
+    }
 
-    destroy: destroy
-};
+    // ==========================================
+    // PUBLIC API
+    // ==========================================
 
-})();
+    return Object.freeze({
+        init: init,
+        isFirebaseReady: isFirebaseReady,
+        ensureAuthenticated: ensureAuthenticated,
 
-/* =========================================================
-   APPARA CHESS — ONLINE SYSTEM
-   PART 3/3 END
-========================================================= */                
+        createRoom: createRoom,
+        joinRoom: joinRoom,
+        copyRoomCode: copyRoomCode,
+
+        listenToRoom: listenToRoom,
+        stopRoomListener: stopRoomListener,
+        setRoomUpdateHandler: setRoomUpdateHandler,
+
+        sendMove: sendMove,
+        connectMultiplayer: connectMultiplayer,
+
+        offerDraw: offerDraw,
+        respondToDraw: respondToDraw,
+        resign: resign,
+        leaveRoom: leaveRoom,
+        setPlayerOnline: setPlayerOnline,
+
+        getRoom: getRoom,
+        getRoomCode: getRoomCode,
+        getPlayerColor: getPlayerColor,
+        getCurrentUser: getCurrentUser,
+        isConnected: isConnected,
+        getLastError: getLastError,
+
+        destroy: destroy
+    });
+
+})();                    
