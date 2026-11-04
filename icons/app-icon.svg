@@ -1,21 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="512"
+     height="512"
+     viewBox="0 0 512 512">
 
-<svg
-  xmlns="http://www.w3.org/2000/svg"
-  viewBox="0 0 512 512"
-  width="512"
-  height="512"
->
   <defs>
-    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#251044"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#241044"/>
       <stop offset="55%" stop-color="#10091f"/>
-      <stop offset="100%" stop-color="#05040b"/>
+      <stop offset="100%" stop-color="#05030b"/>
     </linearGradient>
 
-    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#fff0a6"/>
-      <stop offset="45%" stop-color="#e9bd55"/>
-      <stop offset="100%" stop-color="#9c651b"/>
+    <linearGradient id="gold" x1="0" y1="0" x2="0.9" y2="1">
+      <stop offset="0%" stop-color="#fff1ad"/>
+      <stop offset="35%" stop-color="#eac45c"/>
+      <stop offset="70%" stop-color="#bd8730"/>
+      <stop offset="100%" stop-color="#fff0a0"/>
+    </linearGradient>
+
+    <linearGradient id="purple" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#a56aff"/>
+      <stop offset="100%" stop-color="#5520a0"/>
     </linearGradient>
 
     <filter id="glow">
@@ -25,153 +29,120 @@
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
+
+    <filter id="shadow">
+      <feGaussianBlur stdDeviation="7"/>
+    </filter>
   </defs>
 
-  <!-- BACKGROUND -->
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
 
-  <rect
-    width="512"
-    height="512"
-    rx="110"
-    fill="url(#background)"
-  />
+  <!-- Outer royal border -->
+  <rect x="17" y="17" width="478" height="478" rx="100"
+        fill="none" stroke="url(#gold)" stroke-width="5"/>
 
-  <!-- ROYAL BORDER -->
+  <rect x="29" y="29" width="454" height="454" rx="90"
+        fill="none" stroke="#a66cff" stroke-opacity=".35"
+        stroke-width="2"/>
 
-  <rect
-    x="17"
-    y="17"
-    width="478"
-    height="478"
-    rx="96"
-    fill="none"
-    stroke="url(#gold)"
-    stroke-width="5"
-    opacity=".8"
-  />
+  <!-- Background royal glow -->
+  <circle cx="256" cy="222" r="155"
+          fill="#762bd2" opacity=".16" filter="url(#glow)"/>
 
-  <rect
-    x="32"
-    y="32"
-    width="448"
-    height="448"
-    rx="82"
-    fill="none"
-    stroke="#b88a42"
-    stroke-width="1.5"
-    opacity=".4"
-  />
+  <!-- Chessboard base -->
+  <ellipse cx="256" cy="405" rx="155" ry="25"
+           fill="#000000" opacity=".65" filter="url(#shadow)"/>
 
-  <!-- ROYAL CROWN -->
+  <path d="M112 350 L256 307 L400 350 L256 397 Z"
+        fill="#171020" stroke="url(#gold)" stroke-width="4"/>
 
-  <g
-    fill="url(#gold)"
-    stroke="#ffe9a0"
-    stroke-width="4"
-    stroke-linejoin="round"
-    filter="url(#glow)"
-  >
+  <path d="M145 350 L256 319 L367 350 L256 382 Z"
+        fill="url(#purple)" opacity=".55"/>
+
+  <path d="M256 319 L256 382 M200 334 L200 365 M312 334 L312 365"
+        stroke="#f3d783" stroke-opacity=".45" stroke-width="2"/>
+
+  <!-- Central chess knight silhouette -->
+  <g filter="url(#glow)">
     <path d="
-      M 155 150
-      L 116 91
-      L 183 119
-      L 256 66
-      L 329 119
-      L 396 91
-      L 357 150
-      Z
-    "/>
+      M190 326
+      L205 291
+      L194 263
+      L207 228
+      L196 195
+      L213 151
+      L249 113
+      L289 105
+      L321 128
+      L331 158
+      L311 185
+      L296 206
+      L310 235
+      L327 263
+      L321 302
+      L344 326
+      Z"
+      fill="url(#gold)"
+      stroke="#fff0ae"
+      stroke-width="5"
+      stroke-linejoin="round"/>
 
-    <path d="
-      M 155 150
-      L 357 150
-      L 340 186
-      L 172 186
-      Z
-    "/>
+    <!-- Knight mane -->
+    <path d="M215 153 L235 177 L222 199 L245 216
+             L230 238 L258 252 L281 225"
+          fill="none" stroke="#8b5a20" stroke-width="7"
+          stroke-linecap="round" stroke-linejoin="round"/>
 
-    <path d="
-      M 172 201
-      L 340 201
-      L 329 224
-      L 183 224
-      Z
-    "/>
+    <!-- Eye -->
+    <circle cx="284" cy="145" r="8" fill="#241044"/>
+    <circle cx="286" cy="143" r="3" fill="#ffffff"/>
+
+    <!-- Neck detail -->
+    <path d="M255 259 L294 282 L286 309"
+          fill="none" stroke="#8b5a20" stroke-width="7"
+          stroke-linecap="round"/>
+
+    <!-- Base -->
+    <path d="M178 326 L356 326 L370 347
+             L164 347 Z"
+          fill="url(#gold)" stroke="#fff0ae" stroke-width="3"/>
   </g>
 
-  <!-- CHESS KING -->
-
-  <g
-    fill="url(#gold)"
-    stroke="#fff0b0"
-    stroke-width="4"
-    stroke-linejoin="round"
-  >
-    <path d="
-      M 256 207
-      L 256 251
-      M 234 229
-      L 278 229
-    "/>
-
-    <path d="
-      M 225 260
-      Q 256 244 287 260
-      L 300 314
-      L 326 355
-      L 186 355
-      L 212 314
-      Z
-    "/>
-
-    <path d="
-      M 186 355
-      L 326 355
-      L 344 379
-      L 168 379
-      Z
-    "/>
-
-    <path d="
-      M 168 379
-      L 344 379
-      L 354 399
-      L 158 399
-      Z
-    "/>
+  <!-- Crown accent -->
+  <g fill="url(#gold)" stroke="#fff0ae" stroke-width="3">
+    <path d="M215 91 L229 61 L254 82 L279 55
+             L296 88 L317 69 L309 108 L222 108 Z"/>
+    <circle cx="229" cy="60" r="6"/>
+    <circle cx="279" cy="54" r="6"/>
+    <circle cx="317" cy="68" r="6"/>
   </g>
 
-  <!-- CENTER GEM -->
+  <!-- Small royal stars -->
+  <g fill="#fff0ae">
+    <path d="M105 143 L111 158 L127 164 L111 170 L105 186
+             L99 170 L83 164 L99 158 Z"/>
+    <path d="M391 190 L396 202 L409 207 L396 212 L391 225
+             L386 212 L373 207 L386 202 Z"/>
+    <circle cx="135" cy="250" r="4"/>
+    <circle cx="375" cy="275" r="4"/>
+  </g>
 
-  <path
-    d="M256 287 L276 310 L256 337 L236 310 Z"
-    fill="#27124c"
-    stroke="#fff0b0"
-    stroke-width="3"
-  />
+  <!-- APPARA label -->
+  <text x="256" y="442"
+        text-anchor="middle"
+        font-family="Georgia, serif"
+        font-size="31"
+        font-weight="bold"
+        letter-spacing="5"
+        fill="url(#gold)">APPARA</text>
 
-  <!-- APPARA TEXT -->
-
-  <text
-    x="256"
-    y="446"
-    text-anchor="middle"
-    font-family="Georgia, serif"
-    font-size="36"
-    font-weight="bold"
-    letter-spacing="5"
-    fill="#f4d98a"
-  >APPARA</text>
-
-  <text
-    x="256"
-    y="472"
-    text-anchor="middle"
-    font-family="Arial, sans-serif"
-    font-size="15"
-    letter-spacing="7"
-    fill="#d6c6e8"
-  >CHESS</text>
+  <text x="256" y="468"
+        text-anchor="middle"
+        font-family="Arial, sans-serif"
+        font-size="13"
+        letter-spacing="6"
+        fill="#e8d7ff">CHESS</text>
 
 </svg>
 
