@@ -1,9 +1,7 @@
-
 /* =========================================================
-   APPARA CHESS — FILE 51
-   File: js/ui/navigation.js
-   Section: UI
-   Purpose: Application screen navigation
+   APPARA CHESS — NAVIGATION SYSTEM
+   FILE: js/ui/navigation.js
+   PURPOSE: Screen routing, transitions, history and auth
    ========================================================= */
 
 export const NAVIGATION_EVENTS = Object.freeze({
@@ -12,7 +10,8 @@ export const NAVIGATION_EVENTS = Object.freeze({
   NAVIGATE: "navigation:navigate",
   AFTER_NAVIGATE: "navigation:after-navigate",
   BACK: "navigation:back",
-  ERROR: "navigation:error"
+  ERROR: "navigation:error",
+  AUTH_REQUIRED: "navigation:auth-required"
 });
 
 export const APP_ROUTES = Object.freeze({
@@ -36,7 +35,6 @@ export class Navigation {
   constructor(options = {}) {
     this.document = options.document || globalThis.document;
     this.eventBus = options.eventBus || null;
-
     this.container = options.container || null;
 
     this.routes = new Map();
@@ -45,15 +43,18 @@ export class Navigation {
     this.currentRoute = null;
     this.currentParams = {};
 
-    this.transitionDuration =
-      Math.max(0, Number(options.transitionDuration ?? 180));
+    this.transitionDuration = Math.max(
+      0,
+      Number(options.transitionDuration ?? 180)
+    );
 
     this.beforeNavigateGuards = new Set();
 
     this.navigating = false;
     this.disposed = false;
-
     this.navigationSequence = 0;
+
+    this.pendingRedirect = null;
   }
 
   /* -------------------------------------------------------
@@ -68,9 +69,9 @@ export class Navigation {
     }
 
     if (!this.container && this.document) {
-      this.container = this.document.querySelector(
-        "[data-app-content]"
-      ) || this.document.getElementById("app-content");
+      this.container =
+        this.document.querySelector("[data-app-content]") ||
+        this.document.getElementById("app-content");
     }
 
     if (!this.container) {
@@ -91,7 +92,10 @@ export class Navigation {
   register(name, configuration = {}) {
     this.ensureActive();
 
-    if (!name || typeof name !== "string") {
+    if (
+      typeof name !== "string" ||
+      !name.trim()
+    ) {
       throw new TypeError("Route name must be a string.");
     }
 
@@ -146,10 +150,7 @@ export class Navigation {
 
   unregister(name) {
     if (!this.routes.has(name)) return false;
-
-    if (this.currentRoute === name) {
-      return false;
-    }
+    if (this.currentRoute === name) return false;
 
     return this.routes.delete(name);
   }
@@ -163,7 +164,7 @@ export class Navigation {
   }
 
   /* -------------------------------------------------------
-     NAVIGATE
+     NAVIGATION
      ------------------------------------------------------- */
 
   async navigate(name, params = {}, options = {}) {
@@ -194,8 +195,11 @@ export class Navigation {
       force = false
     } = options;
 
-    if (!force && this.currentRoute === name &&
-        this.areParamsEqual(this.currentParams, params)) {
+    if (
+      !force &&
+      this.currentRoute === name &&
+      this.areParamsEqual(this.currentParams, params)
+    ) {
       return true;
     }
 
@@ -204,8 +208,9 @@ export class Navigation {
     const previousRoute = this.currentRoute;
     const previousParams = { ...this.currentParams };
 
-    const previousConfiguration =
-      previousRoute ? this.routes.get(previousRoute) : null;
+    const previousConfiguration = previousRoute
+      ? this.routes.get(previousRoute)
+      : null;
 
     const navigationId = ++this.navigationSequence;
 
@@ -217,9 +222,7 @@ export class Navigation {
         force
       });
 
-      if (!allowed) {
-        return false;
-      }
+      if (!allowed) return false;
 
       if (previousConfiguration?.beforeLeave) {
         const canLeave = await previousConfiguration.beforeLeave({
@@ -228,9 +231,7 @@ export class Navigation {
           params: previousParams
         });
 
-        if (canLeave === false) {
-          return false;
-        }
+        if (canLeave === false) return false;
       }
 
       if (route.beforeEnter) {
@@ -240,9 +241,7 @@ export class Navigation {
           params
         });
 
-        if (canEnter === false) {
-          return false;
-        }
+        if (canEnter === false) return false;
       }
 
       this.emit(NAVIGATION_EVENTS.BEFORE_NAVIGATE, {
@@ -311,9 +310,33 @@ export class Navigation {
         error
       });
 
+      console.error(
+        "[APPARA CHESS] Navigation failed:",
+        error
+      );
+
       return false;
     } finally {
       this.navigating = false;
+
+      /*
+       * A redirect requested by a guard is processed only
+       * after the current navigation has completely ended.
+       */
+      if (this.pendingRedirect && !this.disposed) {
+        const redirect = this.pendingRedirect;
+        this.pendingRedirect = null;
+
+        Promise.resolve().then(() => {
+          if (!this.disposed) {
+            this.navigate(
+              redirect.route,
+              redirect.params,
+              redirect.options
+            );
+          }
+        });
+      }
     }
   }
 
@@ -329,15 +352,15 @@ export class Navigation {
         route: route.name
       });
 
-      if (result instanceof this.document.defaultView.Node) {
+      const NodeClass = this.document?.defaultView?.Node;
+
+      if (NodeClass && result instanceof NodeClass) {
         return result;
       }
 
       if (typeof result === "string") {
         const wrapper = this.document.createElement("div");
         wrapper.className = "ac-screen";
-
-        // Route strings are treated as text, not executable HTML.
         wrapper.textContent = result;
 
         return wrapper;
@@ -352,7 +375,9 @@ export class Navigation {
       );
     }
 
-    if (route.element instanceof this.document.defaultView.Node) {
+    const NodeClass = this.document?.defaultView?.Node;
+
+    if (NodeClass && route.element instanceof NodeClass) {
       return route.element.cloneNode(true);
     }
 
@@ -366,12 +391,10 @@ export class Navigation {
 
     screen.classList.add("ac-screen");
     screen.dataset.route = route.name;
-
     screen.setAttribute("aria-label", route.title);
 
     if (oldScreen && this.transitionDuration > 0) {
       oldScreen.classList.add("ac-screen--leaving");
-
       await this.wait(this.transitionDuration);
     }
 
@@ -436,7 +459,9 @@ export class Navigation {
 
   addGuard(callback) {
     if (typeof callback !== "function") {
-      throw new TypeError("Navigation guard must be a function.");
+      throw new TypeError(
+        "Navigation guard must be a function."
+      );
     }
 
     this.beforeNavigateGuards.add(callback);
@@ -459,14 +484,16 @@ export class Navigation {
   }
 
   /* -------------------------------------------------------
-     AUTHENTICATION ROUTE GUARD
+     AUTHENTICATION GUARD
      ------------------------------------------------------- */
 
   createAuthGuard(authService, options = {}) {
     const authRoute = options.authRoute || APP_ROUTES.AUTH;
 
     return async ({ to, force }) => {
-      if (force) return true;
+      if (force || to === authRoute) {
+        return true;
+      }
 
       const route = this.routes.get(to);
 
@@ -482,12 +509,22 @@ export class Navigation {
         return true;
       }
 
-      if (to !== authRoute && this.hasRoute(authRoute)) {
-        await this.navigate(authRoute, {
-          returnTo: to
-        }, {
-          skipHistory: true
-        });
+      this.emit(NAVIGATION_EVENTS.AUTH_REQUIRED, {
+        requestedRoute: to,
+        authRoute
+      });
+
+      if (this.hasRoute(authRoute)) {
+        this.pendingRedirect = {
+          route: authRoute,
+          params: {
+            returnTo: to
+          },
+          options: {
+            skipHistory: true,
+            replace: true
+          }
+        };
       }
 
       return false;
@@ -517,7 +554,10 @@ export class Navigation {
   navigateFromHash() {
     if (!globalThis.location) return false;
 
-    const hash = globalThis.location.hash.replace(/^#\/?/, "");
+    const hash = globalThis.location.hash.replace(
+      /^#\/?/,
+      ""
+    );
 
     if (!hash) return false;
 
@@ -530,7 +570,13 @@ export class Navigation {
     const params = {};
 
     if (segments.length > 0) {
-      params.id = decodeURIComponent(segments.join("/"));
+      try {
+        params.id = decodeURIComponent(
+          segments.join("/")
+        );
+      } catch {
+        return false;
+      }
     }
 
     return this.navigate(name, params, {
@@ -592,7 +638,9 @@ export class Navigation {
 
   ensureActive() {
     if (this.disposed) {
-      throw new Error("Navigation has been disposed.");
+      throw new Error(
+        "Navigation has been disposed."
+      );
     }
   }
 
@@ -608,6 +656,8 @@ export class Navigation {
     this.routes.clear();
     this.history = [];
     this.beforeNavigateGuards.clear();
+
+    this.pendingRedirect = null;
 
     this.container?.replaceChildren();
 
@@ -628,5 +678,8 @@ export function createNavigation(options = {}) {
   return new Navigation(options);
 }
 
-/* ================= FILE 51 END ================= */
-        
+/* =========================================================
+   FILE 3 COMPLETE
+   FILE: js/ui/navigation.js
+   ========================================================= */
+         
