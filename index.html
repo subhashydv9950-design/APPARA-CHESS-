@@ -64,10 +64,7 @@
 
 <body>
 
-    <!-- =====================================
-         LOADING SCREEN
-    ====================================== -->
-
+    <!-- LOADING SCREEN -->
     <div id="loading-screen" class="loading-screen">
 
         <div class="loading-content">
@@ -90,17 +87,10 @@
 
     </div>
 
-
-    <!-- =====================================
-         MAIN APP CONTAINER
-    ====================================== -->
-
+    <!-- MAIN APP CONTAINER -->
     <div id="app" class="app-container">
 
-        <!-- =================================
-             HEADER
-        ================================== -->
-
+        <!-- HEADER -->
         <header class="app-header">
 
             <button
@@ -157,11 +147,7 @@
 
         </header>
 
-
-        <!-- =================================
-             SIDE MENU
-        ================================== -->
-
+        <!-- SIDE MENU -->
         <aside
             class="side-menu"
             id="side-menu"
@@ -245,720 +231,735 @@
             aria-hidden="true"
         ></div>
 
-
-        <!-- =====================================
-             MAIN CONTENT
-        ====================================== -->
-
+        <!-- MAIN CONTENT -->
         <main class="main-content">
 
-            <!-- =================================
-                 HOME PAGE
-            ================================== -->
+           <!-- =========================================
+     APPARA CHESS — ROYAL 3D HOME PAGE
+========================================== -->
 
-            <section class="page active" id="page-home">
+<section class="page active" id="page-home">
 
-                <!-- HERO SECTION -->
+    <div class="royal-home">
 
-                <div class="home-hero">
+        <!-- PLAYER TOP BAR -->
+        <div class="royal-topbar">
 
-                    <div class="hero-content">
+            <div class="royal-player">
 
-                        <span class="eyebrow">
-                            WELCOME TO THE CHESS ARENA
-                        </span>
+                <div class="royal-avatar">♛</div>
 
-                        <h1>
-                            THINK SMARTER.
-                            <span>PLAY BETTER.</span>
-                        </h1>
+                <div class="royal-player-details">
+                    <strong>APPARA KING</strong>
+                    <span>♛ LEVEL 01</span>
 
-                        <p>
-                            Challenge your mind. Master your strategy.
-                            Become a chess legend.
-                        </p>
-
-                        <button
-                            class="primary-button"
-                            id="quick-play-btn"
-                            type="button"
-                        >
-                            PLAY NOW <span>→</span>
-                        </button>
-
+                    <div class="xp-track">
+                        <i></i>
                     </div>
-
-                    <div class="hero-chess-art">
-
-                        <div class="hero-glow"></div>
-
-                        <div class="hero-king">♚</div>
-
-                        <div class="hero-art-caption">
-                            STRATEGY • SKILL • VICTORY
-                        </div>
-
-                    </div>
-
                 </div>
 
+            </div>
 
-                <!-- PLAY MODES -->
+            <div class="royal-wallet">
+                <span>🪙 <b>2,500</b></span>
+                <span>💎 <b>50</b></span>
+            </div>
 
-                <div class="section-heading">
+            <div class="royal-top-actions">
 
-                    <div>
-                        <span class="eyebrow">
-                            CHOOSE YOUR EXPERIENCE
-                        </span>
+                <button
+                    type="button"
+                    data-page="profile"
+                    aria-label="Profile"
+                >
+                    👤
+                </button>
 
-                        <h2>Play Chess</h2>
-                    </div>
+                <button
+                    type="button"
+                    data-page="settings"
+                    aria-label="Settings"
+                >
+                    ⚙
+                </button>
 
+            </div>
+
+        </div>
+
+
+        <!-- ROYAL HERO -->
+        <div class="royal-hero">
+
+            <div class="royal-brand">
+
+                <div class="royal-crown">♛</div>
+
+                <h1>
+                    APPARA
+                    <span>CHESS</span>
+                </h1>
+
+                <p>THINK SMARTER. PLAY BETTER.</p>
+
+                <div class="royal-brand-line"></div>
+
+            </div>
+
+
+            <!-- 3D CHESS SHOWCASE -->
+            <div
+                class="royal-stage"
+                aria-label="Royal three dimensional chess display"
+            >
+
+                <div class="stage-light"></div>
+
+                <div class="stage-piece piece-blue">
+                    ♞
                 </div>
 
-                <div class="mode-grid">
-
-                    <button
-                        class="mode-card"
-                        data-mode="offline"
-                        type="button"
-                    >
-                        <span class="mode-icon">♟</span>
-
-                        <strong>Local Offline</strong>
-
-                        <small>
-                            Play with a friend on one device
-                        </small>
-
-                        <span class="mode-arrow">→</span>
-                    </button>
-
-                    <button
-                        class="mode-card"
-                        data-mode="computer"
-                        type="button"
-                    >
-                        <span class="mode-icon">🤖</span>
-
-                        <strong>Computer AI</strong>
-
-                        <small>
-                            Challenge the computer
-                        </small>
-
-                        <span class="mode-arrow">→</span>
-                    </button>
-
-                    <button
-                        class="mode-card"
-                        data-mode="online"
-                        type="button"
-                    >
-                        <span class="mode-icon">🌐</span>
-
-                        <strong>Online Match</strong>
-
-                        <small>
-                            Play with other players
-                        </small>
-
-                        <span class="mode-arrow">→</span>
-                    </button>
-
-                    <button
-                        class="mode-card"
-                        data-mode="training"
-                        type="button"
-                    >
-                        <span class="mode-icon">🎯</span>
-
-                        <strong>Training</strong>
-
-                        <small>
-                            Improve your chess skills
-                        </small>
-
-                        <span class="mode-arrow">→</span>
-                    </button>
-
+                <div class="stage-piece piece-gold">
+                    ♛
                 </div>
 
-
-                <!-- CHESS FEATURES -->
-
-                <div class="section-heading">
-
-                    <div>
-                        <span class="eyebrow">
-                            EXPLORE MORE
-                        </span>
-
-                        <h2>Chess Arena</h2>
-                    </div>
-
+                <div class="stage-piece piece-purple">
+                    ♜
                 </div>
 
-                <div class="feature-grid">
-
-                    <button
-                        class="feature-card"
-                        data-page="puzzles"
-                        type="button"
-                    >
-                        <span>🧩</span>
-
-                        <strong>Chess Puzzles</strong>
-
-                        <small>
-                            Sharpen your tactics
-                        </small>
-                    </button>
-
-                    <button
-                        class="feature-card"
-                        data-page="tournament"
-                        type="button"
-                    >
-                        <span>🏆</span>
-
-                        <strong>Tournaments</strong>
-
-                        <small>
-                            Compete and win
-                        </small>
-                    </button>
-
-                    <button
-                        class="feature-card"
-                        data-page="leaderboard"
-                        type="button"
-                    >
-                        <span>📊</span>
-
-                        <strong>Leaderboard</strong>
-
-                        <small>
-                            See player rankings
-                        </small>
-                    </button>
-
-                    <button
-                        class="feature-card"
-                        data-page="profile"
-                        type="button"
-                    >
-                        <span>👤</span>
-
-                        <strong>Player Profile</strong>
-
-                        <small>
-                            Track your progress
-                        </small>
-                    </button>
-
+                <div class="stage-floor">
+                    <div class="stage-chess-grid"></div>
                 </div>
 
-            </section>
+            </div>
 
-<!-- PART 1/4 END — NEXT PART STARTS WITH GAME PAGE -->
 
-                        <!-- =================================
-                 GAME PAGE
-            ================================== -->
+            <!-- PLAY BUTTON -->
+            <button
+                class="royal-play-button"
+                id="quick-play-btn"
+                type="button"
+            >
 
-            <section class="page" id="page-game">
+                <span>▶</span>
 
-                <div class="page-heading">
+                <strong>PLAY NOW</strong>
 
-                    <button
-                        class="back-button"
-                        data-page="home"
-                        type="button"
-                    >
-                        ←
-                    </button>
+                <span>➜</span>
 
-                    <div>
-                        <span class="eyebrow">CHESS ARENA</span>
-                        <h2>Chess Match</h2>
-                    </div>
+            </button>
 
-                    <span
-                        class="game-mode-label"
-                        id="game-mode-label"
-                    >
-                        OFFLINE
-                    </span>
 
-                </div>
+            <div class="royal-tagline">
+                ✦ STRATEGY • SKILL • VICTORY ✦
+            </div>
 
+        </div>
 
-                <div class="game-layout">
 
-                    <div class="game-main">
+        <!-- PLAY MODES HEADING -->
+        <div class="royal-section-title">
 
-                        <!-- OPPONENT PLAYER -->
+            <span>♛</span>
 
-                        <div class="player-panel opponent-panel">
+            <div>
+                <small>CHOOSE YOUR EXPERIENCE</small>
+                <h2>PLAY MODES</h2>
+            </div>
 
-                            <div class="player-avatar">♚</div>
+        </div>
 
-                            <div class="player-info">
 
-                                <strong id="opponent-name">
-                                    Opponent
-                                </strong>
+        <!-- PLAY MODE CARDS -->
+        <div class="royal-mode-grid">
 
-                                <small id="opponent-rating">
-                                    Rating: 1200
-                                </small>
+            <button
+                class="royal-mode offline-mode"
+                data-mode="offline"
+                type="button"
+            >
+                <span>🎮</span>
+                <strong>OFFLINE</strong>
+                <small>Play with Friends</small>
+            </button>
 
-                            </div>
 
-                            <div
-                                class="player-clock"
-                                id="black-clock"
-                            >
-                                10:00
-                            </div>
+            <button
+                class="royal-mode ai-mode"
+                data-mode="computer"
+                type="button"
+            >
+                <span>🤖</span>
+                <strong>COMPUTER AI</strong>
+                <small>Challenge AI</small>
+            </button>
 
-                        </div>
 
+            <button
+                class="royal-mode online-mode"
+                data-mode="online"
+                type="button"
+            >
+                <span>🌐</span>
+                <strong>ONLINE</strong>
+                <small>Multiplayer</small>
+            </button>
 
-                        <!-- CHESS BOARD -->
 
-                        <div class="board-wrapper">
+            <button
+                class="royal-mode puzzle-mode"
+                data-page="puzzles"
+                type="button"
+            >
+                <span>🧩</span>
+                <strong>PUZZLES</strong>
+                <small>Train Your Mind</small>
+            </button>
 
-                            <div
-                                class="board-coordinates board-files"
-                                id="file-coordinates-top"
-                            ></div>
 
-                            <div class="board-middle">
+            <button
+                class="royal-mode training-mode"
+                data-page="training"
+                type="button"
+            >
+                <span>🎓</span>
+                <strong>TRAINING</strong>
+                <small>Learn Chess</small>
+            </button>
 
-                                <div
-                                    class="board-coordinates board-ranks"
-                                    id="rank-coordinates-left"
-                                ></div>
+        </div>
 
-                                <div
-                                    id="chess-board"
-                                    class="chess-board"
-                                    aria-label="Chess board"
-                                ></div>
 
-                                <div
-                                    class="board-coordinates board-ranks"
-                                    id="rank-coordinates-right"
-                                ></div>
+        <!-- CHESS WORLD -->
+        <div class="royal-section-title">
 
-                            </div>
+            <span>✦</span>
 
-                            <div
-                                class="board-coordinates board-files"
-                                id="file-coordinates-bottom"
-                            ></div>
+            <div>
+                <small>DISCOVER THE ARENA</small>
+                <h2>CHESS WORLD</h2>
+            </div>
 
-                        </div>
+        </div>
 
 
-                        <!-- CURRENT PLAYER -->
+        <!-- FEATURE CARDS -->
+        <div class="royal-feature-grid">
 
-                        <div class="player-panel current-player-panel">
+            <button
+                data-page="tournament"
+                type="button"
+            >
+                <span>🏆</span>
+                <strong>TOURNAMENTS</strong>
+                <small>Win & Compete</small>
+            </button>
 
-                            <div
-                                class="player-avatar"
-                                id="current-avatar"
-                            >
-                                ♔
-                            </div>
 
-                            <div class="player-info">
+            <button
+                data-page="leaderboard"
+                type="button"
+            >
+                <span>📊</span>
+                <strong>LEADERBOARD</strong>
+                <small>Top Players</small>
+            </button>
 
-                                <strong id="current-player-name">
-                                    You
-                                </strong>
 
-                                <small id="current-player-rating">
-                                    Rating: 1200
-                                </small>
+            <button
+                data-page="profile"
+                type="button"
+            >
+                <span>👤</span>
+                <strong>PROFILE</strong>
+                <small>Your Statistics</small>
+            </button>
 
-                            </div>
 
-                            <div
-                                class="player-clock"
-                                id="white-clock"
-                            >
-                                10:00
-                            </div>
+            <button
+                data-page="settings"
+                type="button"
+            >
+                <span>⚙️</span>
+                <strong>SETTINGS</strong>
+                <small>Customize Game</small>
+            </button>
 
-                        </div>
+        </div>
 
 
-                        <!-- GAME TOOLBAR -->
+        <!-- PREMIUM UPGRADE BANNER -->
+        <button
+            class="royal-upgrade-banner"
+            data-page="settings"
+            type="button"
+        >
 
-                        <div class="game-toolbar">
+            <span class="upgrade-crown">👑</span>
 
-                            <button
-                                id="undo-btn"
-                                class="tool-button"
-                                type="button"
-                            >
-                                ↶ <span>Undo</span>
-                            </button>
+            <span class="upgrade-copy">
 
-                            <button
-                                id="flip-board-btn"
-                                class="tool-button"
-                                type="button"
-                            >
-                                ⇅ <span>Flip</span>
-                            </button>
+                <strong>
+                    UPGRADE YOUR CHESS WORLD
+                </strong>
 
-                            <button
-                                id="draw-btn"
-                                class="tool-button"
-                                type="button"
-                            >
-                                ½ <span>Draw</span>
-                            </button>
+                <small>
+                    Royal Boards • Premium 3D Pieces • VIP Themes
+                </small>
 
-                            <button
-                                id="resign-btn"
-                                class="tool-button danger-button"
-                                type="button"
-                            >
-                                ⚑ <span>Resign</span>
-                            </button>
+            </span>
 
-                            <button
-                                id="pause-btn"
-                                class="tool-button"
-                                type="button"
-                            >
-                                Ⅱ <span>Pause</span>
-                            </button>
+            <b>EXPLORE ➜</b>
 
-                        </div>
+        </button>
 
-                    </div>
 
+        <!-- AUDIO PANEL -->
+        <div class="royal-audio-panel">
 
-                    <!-- GAME SIDEBAR -->
+            <div class="audio-heading">
 
-                    <aside class="game-sidebar">
+                <span>♫</span>
 
-                        <!-- MATCH STATUS -->
+                <strong>SOUND & MUSIC</strong>
 
-                        <div class="sidebar-card">
+            </div>
 
-                            <span class="eyebrow">
-                                MATCH STATUS
-                            </span>
 
-                            <h3 id="game-status">
-                                Waiting to start
-                            </h3>
+            <div class="audio-control">
 
-                            <p id="turn-status">
-                                White to move
-                            </p>
+                <span>Music Volume</span>
 
-                        </div>
-
-
-                        <!-- MOVE HISTORY -->
-
-                        <div class="sidebar-card">
-
-                            <div class="card-title-row">
-
-                                <h3>Move History</h3>
-
-                                <span id="move-count">
-                                    0 moves
-                                </span>
-
-                            </div>
-
-                            <div
-                                class="move-history"
-                                id="move-history"
-                            >
-                                <p class="empty-message">
-                                    Moves will appear here.
-                                </p>
-                            </div>
-
-                        </div>
-
-
-                        <!-- CAPTURED PIECES -->
-
-                        <div class="sidebar-card">
-
-                            <h3>Captured Pieces</h3>
-
-                            <div
-                                id="captured-white"
-                                class="captured-pieces"
-                            ></div>
-
-                            <div
-                                id="captured-black"
-                                class="captured-pieces"
-                            ></div>
-
-                        </div>
-
-                    </aside>
-
-                </div>
-
-            </section>
-
-
-            <!-- =================================
-                 ONLINE PAGE
-            ================================== -->
-
-            <section class="page" id="page-online">
-
-                <div class="page-heading">
-
-                    <button
-                        class="back-button"
-                        data-page="home"
-                        type="button"
-                    >
-                        ←
-                    </button>
-
-                    <div>
-                        <span class="eyebrow">
-                            PLAY WITH THE WORLD
-                        </span>
-
-                        <h2>Online Chess</h2>
-                    </div>
-
-                </div>
-
-
-                <!-- CONNECTION STATUS -->
-
-                <div class="online-status-card">
-
-                    <span
-                        class="connection-indicator"
-                        id="connection-indicator"
-                    ></span>
-
-                    <span id="online-connection-status">
-                        Checking connection...
-                    </span>
-
-                </div>
-
-
-                <!-- ONLINE ROOM CARDS -->
-
-                <div class="online-grid">
-
-                    <!-- CREATE ROOM -->
-
-                    <div class="online-card">
-
-                        <div class="online-card-icon">
-                            ＋
-                        </div>
-
-                        <h3>Create Room</h3>
-
-                        <p>
-                            Create a private room and invite a friend.
-                        </p>
-
-                        <input
-                            type="text"
-                            id="online-player-name"
-                            placeholder="Your player name"
-                            maxlength="20"
-                            autocomplete="name"
-                        >
-
-                        <button
-                            class="primary-button"
-                            id="create-room-btn"
-                            type="button"
-                        >
-                            CREATE ROOM
-                        </button>
-
-
-                        <!-- CREATED ROOM DETAILS -->
-
-                        <div
-                            id="created-room-container"
-                            hidden
-                        >
-
-                            <span>Your Room Code</span>
-
-                            <strong id="created-room-code">
-                                ------
-                            </strong>
-
-                            <button
-                                id="copy-room-code-btn"
-                                type="button"
-                            >
-                                COPY CODE
-                            </button>
-
-                        </div>
-
-                    </div>
-
-
-                    <!-- JOIN ROOM -->
-
-                    <div class="online-card">
-
-                        <div class="online-card-icon">
-                            ↗
-                        </div>
-
-                        <h3>Join Room</h3>
-
-                        <p>
-                            Enter your friend's private room code.
-                        </p>
-
-                        <input
-                            type="text"
-                            id="join-player-name"
-                            placeholder="Your player name"
-                            maxlength="20"
-                            autocomplete="name"
-                        >
-
-                        <input
-                            type="text"
-                            id="room-code-input"
-                            placeholder="ENTER ROOM CODE"
-                            maxlength="6"
-                            autocomplete="off"
-                        >
-
-                        <button
-                            class="primary-button"
-                            id="join-room-btn"
-                            type="button"
-                        >
-                            JOIN MATCH
-                        </button>
-
-                    </div>
-
-                </div>
-
-
-                <!-- ACTIVE ROOM STATUS -->
-
-                <div
-                    class="content-card online-room-panel"
-                    id="online-room-panel"
+                <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value="65"
+                    aria-label="Music volume"
                 >
 
-                    <h3>Room Information</h3>
+            </div>
 
-                    <p id="online-room-status">
-                        You are not connected to a room.
-                    </p>
 
-                    <p>
-                        Opponent:
-                        <strong id="online-opponent-name">
-                            Waiting...
-                        </strong>
-                    </p>
+            <div class="audio-control">
 
-                    <div class="online-room-actions">
+                <span>Effects Volume</span>
 
-                        <button
-                            id="online-offer-draw-btn"
-                            class="secondary-button"
-                            type="button"
-                            disabled
-                        >
-                            OFFER DRAW
-                        </button>
+                <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value="80"
+                    aria-label="Effects volume"
+                >
 
-                        <button
-                            id="online-accept-draw-btn"
-                            class="secondary-button"
-                            type="button"
-                            hidden
-                        >
-                            ACCEPT DRAW
-                        </button>
+            </div>
 
-                        <button
-                            id="online-reject-draw-btn"
-                            class="secondary-button"
-                            type="button"
-                            hidden
-                        >
-                            REJECT DRAW
-                        </button>
+            <small>
+                Use the sound and music buttons in the top bar to toggle audio.
+            </small>
 
-                        <button
-                            id="online-resign-btn"
-                            class="secondary-button danger-button"
-                            type="button"
-                            disabled
-                        >
-                            RESIGN
-                        </button>
+        </div>
 
-                        <button
-                            id="leave-room-btn"
-                            class="secondary-button"
-                            type="button"
-                            disabled
-                        >
-                            LEAVE ROOM
-                        </button>
 
-                    </div>
+        <!-- FOOTER -->
+        <div class="royal-footer">
+
+            <span>♛</span>
+
+            CHESS — A GAME OF KINGS
+
+            <span>♛</span>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =========================================
+     HOME PAGE END — GAME PAGE STARTS NEXT
+========================================== --> 
+
+      <!-- PART 3/5 START — GAME PAGE -->
+
+<!-- =================================
+     GAME PAGE
+================================== -->
+
+<section class="page" id="page-game">
+
+    <div class="page-heading">
+
+        <button
+            class="back-button"
+            data-page="home"
+            type="button"
+        >
+            ←
+        </button>
+
+        <div>
+            <span class="eyebrow">CHESS ARENA</span>
+            <h2>Chess Match</h2>
+        </div>
+
+        <span
+            class="game-mode-label"
+            id="game-mode-label"
+        >
+            OFFLINE
+        </span>
+
+    </div>
+
+    <div class="game-layout">
+
+        <div class="game-main">
+
+            <!-- OPPONENT PLAYER -->
+
+            <div class="player-panel opponent-panel">
+
+                <div class="player-avatar">♚</div>
+
+                <div class="player-info">
+
+                    <strong id="opponent-name">
+                        Opponent
+                    </strong>
+
+                    <small id="opponent-rating">
+                        Rating: 1200
+                    </small>
 
                 </div>
 
+                <div
+                    class="player-clock"
+                    id="black-clock"
+                >
+                    10:00
+                </div>
 
-                <!-- ONLINE NOTICE -->
+            </div>
 
-                <div class="online-note">
+            <!-- CHESS BOARD -->
 
-                    Online matches require an active internet
-                    connection and a configured Firebase project.
+            <div class="board-wrapper">
+
+                <div
+                    class="board-coordinates board-files"
+                    id="file-coordinates-top"
+                ></div>
+
+                <div class="board-middle">
+
+                    <div
+                        class="board-coordinates board-ranks"
+                        id="rank-coordinates-left"
+                    ></div>
+
+                    <div
+                        id="chess-board"
+                        class="chess-board"
+                        aria-label="Chess board"
+                    ></div>
+
+                    <div
+                        class="board-coordinates board-ranks"
+                        id="rank-coordinates-right"
+                    ></div>
 
                 </div>
 
-            </section>
+                <div
+                    class="board-coordinates board-files"
+                    id="file-coordinates-bottom"
+                ></div>
+
+            </div>
+
+            <!-- CURRENT PLAYER -->
+
+            <div class="player-panel current-player-panel">
+
+                <div
+                    class="player-avatar"
+                    id="current-avatar"
+                >
+                    ♔
+                </div>
+
+                <div class="player-info">
+
+                    <strong id="current-player-name">
+                        You
+                    </strong>
+
+                    <small id="current-player-rating">
+                        Rating: 1200
+                    </small>
+
+                </div>
+
+                <div
+                    class="player-clock"
+                    id="white-clock"
+                >
+                    10:00
+                </div>
+
+            </div>
+
+            <!-- GAME TOOLBAR -->
+
+            <div class="game-toolbar">
+
+                <button
+                    id="undo-btn"
+                    class="tool-button"
+                    type="button"
+                >
+                    ↶ <span>Undo</span>
+                </button>
+
+                <button
+                    id="flip-board-btn"
+                    class="tool-button"
+                    type="button"
+                >
+                    ⇅ <span>Flip</span>
+                </button>
+
+                <button
+                    id="draw-btn"
+                    class="tool-button"
+                    type="button"
+                >
+                    ½ <span>Draw</span>
+                </button>
+
+                <button
+                    id="resign-btn"
+                    class="tool-button danger-button"
+                    type="button"
+                >
+                    ⚑ <span>Resign</span>
+                </button>
+
+                <button
+                    id="pause-btn"
+                    class="tool-button"
+                    type="button"
+                >
+                    Ⅱ <span>Pause</span>
+                </button>
+
+            </div>
+
+        </div>
+
+        <!-- GAME SIDEBAR -->
+
+        <aside class="game-sidebar">
+
+            <!-- MATCH STATUS -->
+
+            <div class="sidebar-card">
+
+                <span class="eyebrow">
+                    MATCH STATUS
+                </span>
+
+                <h3 id="game-status">
+                    Waiting to start
+                </h3>
+
+                <p id="turn-status">
+                    White to move
+                </p>
+
+            </div>
+
+            <!-- MOVE HISTORY -->
+
+            <div class="sidebar-card">
+
+                <div class="card-title-row">
+
+                    <h3>Move History</h3>
+
+                    <span id="move-count">
+                        0 moves
+                    </span>
+
+                </div>
+
+                <div
+                    class="move-history"
+                    id="move-history"
+                >
+                    <p class="empty-message">
+                        Moves will appear here.
+                    </p>
+                </div>
+
+            </div>
+
+            <!-- CAPTURED PIECES -->
+
+            <div class="sidebar-card">
+
+                <h3>Captured Pieces</h3>
+
+                <div
+                    id="captured-white"
+                    class="captured-pieces"
+                ></div>
+
+                <div
+                    id="captured-black"
+                    class="captured-pieces"
+                ></div>
+
+            </div>
+
+        </aside>
+
+    </div>
+
+</section>
+
+<!-- PART 3/5 END — NEXT PART STARTS WITH ONLINE PAGE -->
+
+    
+<!-- PART 4/5 START -->
+
+<!-- =================================
+     ONLINE PAGE
+================================== -->
+
+<section class="page" id="page-online">
+
+    <div class="page-heading">
+        <button class="back-button" data-page="home" type="button">←</button>
+        <div>
+            <span class="eyebrow">PLAY WITH THE WORLD</span>
+            <h2>Online Chess</h2>
+        </div>
+    </div>
+
+    <div class="online-status-card">
+        <span class="connection-indicator" id="connection-indicator"></span>
+        <span id="online-connection-status">Checking connection...</span>
+    </div>
+
+    <div class="online-grid">
+
+        <div class="online-card">
+            <div class="online-card-icon">＋</div>
+            <h3>Create Room</h3>
+            <p>Create a private room and invite a friend.</p>
+
+            <input
+                type="text"
+                id="online-player-name"
+                placeholder="Your player name"
+                maxlength="20"
+                autocomplete="name"
+            >
+
+            <button class="primary-button" id="create-room-btn" type="button">
+                CREATE ROOM
+            </button>
+
+            <div id="created-room-container" hidden>
+                <span>Your Room Code</span>
+                <strong id="created-room-code">------</strong>
+                <button id="copy-room-code-btn" type="button">COPY CODE</button>
+            </div>
+        </div>
+
+        <div class="online-card">
+            <div class="online-card-icon">↗</div>
+            <h3>Join Room</h3>
+            <p>Enter your friend's private room code.</p>
+
+            <input
+                type="text"
+                id="join-player-name"
+                placeholder="Your player name"
+                maxlength="20"
+                autocomplete="name"
+            >
+
+            <input
+                type="text"
+                id="room-code-input"
+                placeholder="ENTER ROOM CODE"
+                maxlength="6"
+                autocomplete="off"
+            >
+
+            <button class="primary-button" id="join-room-btn" type="button">
+                JOIN MATCH
+            </button>
+        </div>
+
+    </div>
+
+    <div class="content-card online-room-panel" id="online-room-panel">
+        <h3>Room Information</h3>
+
+        <p id="online-room-status">
+            You are not connected to a room.
+        </p>
+
+        <p>
+            Opponent:
+            <strong id="online-opponent-name">Waiting...</strong>
+        </p>
+
+        <div class="online-room-actions">
+
+            <button id="online-offer-draw-btn" class="secondary-button" type="button" disabled>
+                OFFER DRAW
+            </button>
+
+            <button id="online-accept-draw-btn" class="secondary-button" type="button" hidden>
+                ACCEPT DRAW
+            </button>
+
+            <button id="online-reject-draw-btn" class="secondary-button" type="button" hidden>
+                REJECT DRAW
+            </button>
+
+            <button id="online-resign-btn" class="secondary-button danger-button" type="button" disabled>
+                RESIGN
+            </button>
+
+            <button id="leave-room-btn" class="secondary-button" type="button" disabled>
+                LEAVE ROOM
+            </button>
+
+        </div>
+    </div>
+
+    <div class="online-note">
+        Online matches require an active internet connection and a configured Firebase project.
+    </div>
+
+</section>
 
 
-<!-- PART 2/4 END — NEXT PART STARTS WITH TRAINING PAGE -->
+<!-- =================================
+     TRAINING PAGE
+================================== -->
 
-            <!-- =====================================================
-     PART 3/4 — TRAINING, PUZZLES, TOURNAMENT,
-     LEADERBOARD AND PROFILE PAGES
-===================================================== -->
-
-<!-- TRAINING PAGE -->
 <section class="page" id="page-training">
+
     <div class="page-header">
         <div>
             <span class="section-eyebrow">IMPROVE YOUR GAME</span>
@@ -968,6 +969,7 @@
     </div>
 
     <div class="training-categories">
+
         <button class="training-card active" type="button" data-training="beginner">
             <span class="training-icon">♟</span>
             <span class="training-card-title">Beginner</span>
@@ -991,6 +993,7 @@
             <span class="training-card-title">Endgames</span>
             <span class="training-card-description">Win difficult endgame positions</span>
         </button>
+
     </div>
 
     <div class="training-content-panel">
@@ -1002,11 +1005,16 @@
             </div>
         </div>
     </div>
+
 </section>
 
 
-<!-- PUZZLES PAGE -->
+<!-- =================================
+     PUZZLES PAGE
+================================== -->
+
 <section class="page" id="page-puzzles">
+
     <div class="page-header">
         <div>
             <span class="section-eyebrow">DAILY CHALLENGE</span>
@@ -1016,6 +1024,7 @@
     </div>
 
     <div class="puzzle-stats">
+
         <div class="stat-card">
             <span class="stat-icon">🏆</span>
             <div>
@@ -1031,9 +1040,11 @@
                 <span>Current Level</span>
             </div>
         </div>
+
     </div>
 
     <div class="puzzle-main-card">
+
         <div class="puzzle-card-header">
             <div>
                 <span class="section-eyebrow">TACTICAL TRAINING</span>
@@ -1055,12 +1066,18 @@
                 Start Puzzle
             </button>
         </div>
+
     </div>
+
 </section>
 
 
-<!-- TOURNAMENT PAGE -->
+<!-- =================================
+     TOURNAMENT PAGE
+================================== -->
+
 <section class="page" id="page-tournament">
+
     <div class="page-header">
         <div>
             <span class="section-eyebrow">COMPETE AND WIN</span>
@@ -1070,6 +1087,7 @@
     </div>
 
     <div class="tournament-create-card">
+
         <div class="card-heading">
             <span class="card-heading-icon">🏆</span>
             <div>
@@ -1111,9 +1129,11 @@
         <button class="primary-btn" id="create-tournament-btn" type="button">
             + Create Tournament
         </button>
+
     </div>
 
     <div class="tournament-list-section">
+
         <div class="section-heading">
             <div>
                 <h2>Available Tournaments</h2>
@@ -1128,14 +1148,20 @@
                 <p>Create a tournament to get started.</p>
             </div>
         </div>
+
     </div>
 
     <div id="tournament-details"></div>
+
 </section>
 
 
-<!-- LEADERBOARD PAGE -->
+<!-- =================================
+     LEADERBOARD PAGE
+================================== -->
+
 <section class="page" id="page-leaderboard">
+
     <div class="page-header">
         <div>
             <span class="section-eyebrow">GLOBAL RANKINGS</span>
@@ -1153,6 +1179,7 @@
     </div>
 
     <div class="leaderboard-table-wrapper">
+
         <div class="leaderboard-table-header">
             <span>RANK</span>
             <span>PLAYER</span>
@@ -1166,12 +1193,18 @@
                 <p>Player rankings will appear here when available.</p>
             </div>
         </div>
+
     </div>
+
 </section>
 
 
-<!-- PROFILE PAGE -->
+<!-- =================================
+     PROFILE PAGE
+================================== -->
+
 <section class="page" id="page-profile">
+
     <div class="page-header">
         <div>
             <span class="section-eyebrow">YOUR CHESS IDENTITY</span>
@@ -1181,7 +1214,9 @@
     </div>
 
     <div class="profile-main-card">
+
         <div class="profile-top">
+
             <div class="profile-avatar" id="profile-avatar">
                 ♟
             </div>
@@ -1194,11 +1229,13 @@
             <button class="secondary-btn" id="edit-profile-btn" type="button">
                 Edit Profile
             </button>
+
         </div>
 
         <div class="profile-divider"></div>
 
         <div class="profile-stats-grid">
+
             <div class="profile-stat">
                 <strong id="profile-rating">1200</strong>
                 <span>Rating</span>
@@ -1218,10 +1255,13 @@
                 <strong id="profile-losses">0</strong>
                 <span>Losses</span>
             </div>
+
         </div>
+
     </div>
 
     <div class="profile-history-section">
+
         <div class="section-heading">
             <div>
                 <h2>Game History</h2>
@@ -1236,21 +1276,20 @@
                 <p>Your completed games will appear here.</p>
             </div>
         </div>
+
     </div>
+
 </section>
 
+<!-- PART 4/5 END — NEXT PART STARTS WITH SETTINGS PAGE -->
+       <!-- PART 5/5 START -->
 
-<!-- =====================================================
-     PART 3/4 END
-     NEXT PART STARTS WITH SETTINGS PAGE
-===================================================== -->
-            <!-- =====================================================
-     PART 4/4 — SETTINGS, ABOUT, BOTTOM NAVIGATION,
-     GLOBAL MODAL AND HTML CLOSING
-===================================================== -->
+<!-- =================================
+     SETTINGS PAGE
+================================== -->
 
-<!-- SETTINGS PAGE -->
 <section class="page" id="page-settings">
+
     <div class="page-header">
         <div>
             <span class="section-eyebrow">PERSONALIZE YOUR EXPERIENCE</span>
@@ -1260,6 +1299,7 @@
     </div>
 
     <div class="settings-section">
+
         <div class="settings-card">
             <div class="settings-card-heading">
                 <span class="settings-icon">🎨</span>
@@ -1338,12 +1378,18 @@
                 <span class="toggle-track"></span>
             </label>
         </div>
+
     </div>
+
 </section>
 
 
-<!-- ABOUT PAGE -->
+<!-- =================================
+     ABOUT PAGE
+================================== -->
+
 <section class="page" id="page-about">
+
     <div class="page-header">
         <div>
             <span class="section-eyebrow">ABOUT THE PROJECT</span>
@@ -1369,6 +1415,7 @@
     </div>
 
     <div class="about-developer-card">
+
         <span class="section-eyebrow">THE CREATOR</span>
         <h2>Developer & Founder</h2>
 
@@ -1381,6 +1428,7 @@
         </div>
 
         <div class="about-contact-list">
+
             <a
                 href="https://www.instagram.com/iamsubhash177/"
                 target="_blank"
@@ -1406,20 +1454,27 @@
                 </span>
                 <span class="contact-arrow">↗</span>
             </a>
+
         </div>
+
     </div>
 
     <div class="about-footer">
         <p>Made with passion for chess.</p>
         <p>© APPARA CHESS</p>
     </div>
+
 </section>
 
 </main>
 
 
-<!-- BOTTOM NAVIGATION -->
+<!-- =================================
+     BOTTOM NAVIGATION
+================================== -->
+
 <nav class="bottom-navigation" id="bottom-navigation">
+
     <button class="nav-item active" type="button" data-page="home">
         <span class="nav-icon">⌂</span>
         <span>Home</span>
@@ -1444,14 +1499,21 @@
         <span class="nav-icon">♙</span>
         <span>Profile</span>
     </button>
+
 </nav>
 
 
-<!-- GLOBAL MODAL -->
+<!-- =================================
+     GLOBAL MODAL
+================================== -->
+
 <div class="modal-overlay" id="global-modal" aria-hidden="true">
+
     <div class="modal-container" role="dialog" aria-modal="true">
+
         <div class="modal-header">
             <h2 id="modal-title">APPARA CHESS</h2>
+
             <button
                 class="modal-close-btn"
                 id="modal-close-btn"
@@ -1465,11 +1527,16 @@
         <div class="modal-body" id="modal-body"></div>
 
         <div class="modal-footer" id="modal-footer"></div>
+
     </div>
+
 </div>
 
 
-<!-- NOTIFICATION CONTAINER -->
+<!-- =================================
+     NOTIFICATION CONTAINER
+================================== -->
+
 <div
     class="notification-container"
     id="notification-container"
@@ -1478,10 +1545,8 @@
 ></div>
 
 
-<!-- =====================================================
-     PART 4/4 END — INDEX.HTML COMPLETE
-===================================================== -->
+<!-- PART 5/5 END — INDEX.HTML COMPLETE -->
 
 </div>
 </body>
-</html>
+</html>     
