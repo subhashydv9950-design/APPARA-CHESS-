@@ -1,8 +1,8 @@
-
 /* =========================================================
    APPARA CHESS — FILE 60
-   SCREEN: SHOP & THEMES
+   SHOP & THEMES SCREEN
    PATH: js/screens/shop-screen.js
+   PART 1/2
 ========================================================= */
 
 const SHOP_CATEGORIES = [
@@ -138,6 +138,16 @@ const SHOP_ITEMS = [
   }
 ];
 
+const SHOP_INVENTORY_CATEGORY = Object.freeze({
+  pieces: "pieces",
+  boards: "boards",
+  tables: "tables",
+  environments: "environments",
+  lighting: "lighting",
+  effects: "effects",
+  victory: "effects"
+});
+
 export class ShopScreen {
   constructor(options = {}) {
     this.container = options.container || null;
@@ -178,7 +188,7 @@ export class ShopScreen {
     this.render();
     this.cacheElements();
     this.bindEvents();
-
+    this.renderItems();
     this.loadInventory();
 
     return this;
@@ -188,44 +198,43 @@ export class ShopScreen {
     try {
       const profile = this.playerService?.getProfile?.();
 
-      this.coins = Math.max(
-        0,
-        Number(profile?.wallet?.coins ?? profile?.coins ?? 0)
-      );
-
-      this.diamonds = Math.max(
-        0,
-        Number(profile?.wallet?.diamonds ?? profile?.diamonds ?? 0)
-      );
+      this.coins = Math.max(0, Number(profile?.coins) || 0);
+      this.diamonds = Math.max(0, Number(profile?.diamonds) || 0);
 
       this.playerLevel = Math.max(
         1,
         Number(profile?.level || profile?.progression?.level || 1)
       );
 
-      const inventory =
-        profile?.inventory?.items ||
-        profile?.inventory ||
-        [];
+      const inventory = profile?.inventory || {};
 
-      if (Array.isArray(inventory)) {
-        inventory.forEach(item => {
-          const id = typeof item === "string" ? item : item?.id;
-          if (id) this.ownedItems.add(id);
-        });
+      for (const category of Object.values(inventory)) {
+        if (Array.isArray(category)) {
+          category.forEach(id => {
+            if (typeof id === "string") {
+              this.ownedItems.add(id);
+            } else if (id?.id) {
+              this.ownedItems.add(id.id);
+            }
+          });
+        }
       }
 
-      const equipped = profile?.inventory?.equipped || {};
+      const equipped = profile?.equipped || {};
 
-      if (equipped && typeof equipped === "object") {
-        Object.values(equipped).forEach(id => {
-          if (typeof id === "string") {
-            this.equippedItems.add(id);
-          }
-        });
-      }
+      Object.values(equipped).forEach(id => {
+        if (typeof id === "string") {
+          this.equippedItems.add(id);
+        }
+      });
+
+      (profile?.purchases || []).forEach(purchase => {
+        if (purchase?.itemId) {
+          this.ownedItems.add(purchase.itemId);
+        }
+      });
     } catch (error) {
-      console.warn("Unable to load shop profile:", error);
+      console.warn("Shop profile loading failed:", error);
     }
 
     this.ownedItems.add("royal-gold-pieces");
@@ -243,9 +252,7 @@ export class ShopScreen {
             class="shop-back-button"
             data-action="back"
             aria-label="Go back"
-          >
-            ←
-          </button>
+          >←</button>
 
           <div class="shop-heading">
             <span class="shop-eyebrow">THE ROYAL COLLECTION</span>
@@ -275,7 +282,7 @@ export class ShopScreen {
 
           <div class="shop-wallet-level">
             <small>PLAYER LEVEL</small>
-            <strong>${this.playerLevel}</strong>
+            <strong id="shop-level">${this.playerLevel}</strong>
           </div>
         </section>
 
@@ -289,9 +296,7 @@ export class ShopScreen {
             </p>
           </div>
 
-          <div class="shop-feature-art" aria-hidden="true">
-            ♔
-          </div>
+          <div class="shop-feature-art" aria-hidden="true">♔</div>
         </section>
 
         <section class="shop-catalog">
@@ -311,9 +316,7 @@ export class ShopScreen {
                 }"
                 data-action="category"
                 data-category="${category.id}"
-                aria-pressed="${
-                  category.id === this.selectedCategory
-                }"
+                aria-pressed="${category.id === this.selectedCategory}"
               >
                 <span>${category.icon}</span>
                 ${this.escapeHTML(category.label)}
@@ -339,20 +342,14 @@ export class ShopScreen {
       grid: this.container.querySelector("#shop-item-grid"),
       coins: this.container.querySelector("#shop-coins"),
       diamonds: this.container.querySelector("#shop-diamonds"),
+      level: this.container.querySelector("#shop-level"),
       preview: this.container.querySelector("#shop-preview-panel")
     };
   }
 
   bindEvents() {
-    this.container.removeEventListener(
-      "click",
-      this.boundClickHandler
-    );
-
-    this.container.addEventListener(
-      "click",
-      this.boundClickHandler
-    );
+    this.container.removeEventListener("click", this.boundClickHandler);
+    this.container.addEventListener("click", this.boundClickHandler);
   }
 
   handleClick(event) {
@@ -364,39 +361,21 @@ export class ShopScreen {
 
     if (action === "back") {
       this.goBack();
-      return;
-    }
-
-    if (action === "category") {
+    } else if (action === "category") {
       this.selectCategory(button.dataset.category);
-      return;
-    }
-
-    if (action === "preview") {
+    } else if (action === "preview") {
       this.showItemPreview(button.dataset.id);
-      return;
-    }
-
-    if (action === "purchase") {
+    } else if (action === "purchase") {
       this.purchaseItem(button.dataset.id);
-      return;
-    }
-
-    if (action === "equip") {
+    } else if (action === "equip") {
       this.equipItem(button.dataset.id);
-      return;
-    }
-
-    if (action === "close-preview") {
+    } else if (action === "close-preview") {
       this.closePreview();
     }
   }
 
   async loadInventory() {
-    if (
-      this.loading ||
-      typeof this.inventoryService?.getInventory !== "function"
-    ) {
+    if (this.loading || !this.inventoryService) {
       this.renderItems();
       return;
     }
@@ -404,21 +383,30 @@ export class ShopScreen {
     this.loading = true;
 
     try {
-      const result =
-        await this.inventoryService.getInventory();
+      const result = await this.inventoryService.getInventory();
 
       if (this.destroyed) return;
 
-      const items = Array.isArray(result)
-        ? result
-        : result?.items;
+      if (result && typeof result === "object") {
+        Object.values(result).forEach(category => {
+          if (!Array.isArray(category)) return;
 
-      if (Array.isArray(items)) {
-        items.forEach(item => {
-          const id = typeof item === "string" ? item : item?.id;
-          if (id) this.ownedItems.add(id);
+          category.forEach(id => {
+            if (typeof id === "string") {
+              this.ownedItems.add(id);
+            }
+          });
         });
       }
+
+      const equipped =
+        this.inventoryService.getEquippedItems?.() || {};
+
+      Object.values(equipped).forEach(id => {
+        if (typeof id === "string") {
+          this.equippedItems.add(id);
+        }
+      });
 
       this.renderItems();
     } catch (error) {
@@ -436,14 +424,12 @@ export class ShopScreen {
 
     this.selectedCategory = categoryId;
 
-    this.container
-      .querySelectorAll(".shop-category")
-      .forEach(button => {
-        const active = button.dataset.category === categoryId;
+    this.container.querySelectorAll(".shop-category").forEach(button => {
+      const active = button.dataset.category === categoryId;
 
-        button.classList.toggle("active", active);
-        button.setAttribute("aria-pressed", String(active));
-      });
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
 
     this.closePreview();
     this.renderItems();
@@ -468,29 +454,20 @@ export class ShopScreen {
 
     this.elements.grid.innerHTML = items.map(item => {
       const owned = this.ownedItems.has(item.id);
-      const equipped = this.equippedItems.has(item.id);
       const unlocked = this.playerLevel >= item.level;
 
       return `
         <article class="shop-item-card">
-
           <div class="shop-item-art preview-${this.escapeHTML(item.preview)}">
             <span>${item.icon}</span>
-
             <small class="shop-rarity ${this.escapeHTML(item.rarity.toLowerCase())}">
               ${this.escapeHTML(item.rarity)}
             </small>
-
-            ${
-              owned
-                ? `<span class="shop-owned-mark">✓</span>`
-                : ""
-            }
+            ${owned ? `<span class="shop-owned-mark">✓</span>` : ""}
           </div>
 
           <div class="shop-item-content">
             <h3>${this.escapeHTML(item.name)}</h3>
-
             <p>${this.escapeHTML(item.description)}</p>
 
             <span class="shop-item-level">
@@ -511,21 +488,21 @@ export class ShopScreen {
                 type="button"
                 data-action="preview"
                 data-id="${this.escapeHTML(item.id)}"
-              >
-                Preview
-              </button>
+              >Preview</button>
             </div>
           </div>
-
         </article>
       `;
     }).join("");
   }
 
+/* =========================================================
+   FILE 60 — PART 1/2 END
+   PART 2 CONTINUES INSIDE ShopScreen CLASS
+========================================================= */
+   
   showItemPreview(itemId) {
-    const item = SHOP_ITEMS.find(
-      product => product.id === itemId
-    );
+    const item = SHOP_ITEMS.find(product => product.id === itemId);
 
     if (!item || !this.elements.preview) return;
 
@@ -533,6 +510,7 @@ export class ShopScreen {
 
     const owned = this.ownedItems.has(item.id);
     const unlocked = this.playerLevel >= item.level;
+    const equipped = this.equippedItems.has(item.id);
 
     let actionButton = "";
 
@@ -543,8 +521,9 @@ export class ShopScreen {
           class="shop-equip-button"
           data-action="equip"
           data-id="${this.escapeHTML(item.id)}"
+          ${equipped ? "disabled" : ""}
         >
-          ${this.equippedItems.has(item.id) ? "Equipped" : "Equip"}
+          ${equipped ? "Equipped" : "Equip"}
         </button>
       `;
     } else if (unlocked) {
@@ -556,7 +535,7 @@ export class ShopScreen {
           data-id="${this.escapeHTML(item.id)}"
           ${this.purchasing ? "disabled" : ""}
         >
-          Purchase
+          ${this.purchasing ? "Processing..." : "Purchase"}
         </button>
       `;
     } else {
@@ -571,24 +550,20 @@ export class ShopScreen {
 
     this.elements.preview.innerHTML = `
       <div class="shop-preview-content">
-
         <button
           type="button"
           class="shop-preview-close"
           data-action="close-preview"
           aria-label="Close preview"
-        >
-          ×
-        </button>
+        >×</button>
 
-        <span class="shop-eyebrow">3D COLLECTION PREVIEW</span>
+        <span class="shop-eyebrow">COLLECTION PREVIEW</span>
 
         <div class="shop-large-preview preview-${this.escapeHTML(item.preview)}">
           <span>${item.icon}</span>
         </div>
 
         <h2>${this.escapeHTML(item.name)}</h2>
-
         <p>${this.escapeHTML(item.description)}</p>
 
         <div class="shop-preview-info">
@@ -606,7 +581,6 @@ export class ShopScreen {
         }
 
         ${actionButton}
-
       </div>
     `;
 
@@ -619,23 +593,22 @@ export class ShopScreen {
   async purchaseItem(itemId) {
     if (this.purchasing || this.destroyed) return;
 
-    const item = SHOP_ITEMS.find(
-      product => product.id === itemId
-    );
+    const item = SHOP_ITEMS.find(product => product.id === itemId);
 
     if (!item || this.ownedItems.has(item.id)) return;
 
     if (this.playerLevel < item.level) {
-      this.showMessage(
-        `You need Level ${item.level} to unlock this item.`
-      );
+      this.showMessage(`You need Level ${item.level} to unlock this item.`);
+      return;
+    }
+
+    if (item.price <= 0) {
+      this.showMessage("This item is already available for free.");
       return;
     }
 
     if (typeof this.economyService?.purchaseItem !== "function") {
-      this.showMessage(
-        "Purchases are not available until the shop service is connected."
-      );
+      this.showMessage("Shop service is not connected.");
       return;
     }
 
@@ -653,39 +626,60 @@ export class ShopScreen {
     if (!confirmed || this.destroyed) return;
 
     this.purchasing = true;
+    this.showItemPreview(item.id);
 
     try {
       const result = await this.economyService.purchaseItem({
         itemId: item.id,
         price: item.price,
-        currency: item.currency
+        currency: item.currency,
+        category: item.category
       });
 
       if (this.destroyed) return;
 
       if (result?.success === false) {
-        throw new Error(
-          result.message || "Purchase was not completed."
-        );
+        throw new Error(result.message || "Purchase failed.");
+      }
+
+      const inventoryCategory = SHOP_INVENTORY_CATEGORY[item.category];
+
+      if (
+        inventoryCategory &&
+        typeof this.inventoryService?.unlockItem === "function"
+      ) {
+        // EconomyService purchase has already charged the player.
+        // Add the purchased item directly to inventory without charging twice.
+        const profile = this.playerService?.getProfile?.();
+
+        if (profile?.inventory &&
+            Array.isArray(profile.inventory[inventoryCategory])) {
+          if (!profile.inventory[inventoryCategory].includes(item.id)) {
+            profile.inventory[inventoryCategory].push(item.id);
+          }
+
+          await this.playerService.saveProfile();
+        }
       }
 
       this.ownedItems.add(item.id);
 
-      if (typeof result?.coins === "number") {
-        this.coins = result.coins;
-      }
+      const latestProfile = this.playerService?.getProfile?.();
 
-      if (typeof result?.diamonds === "number") {
-        this.diamonds = result.diamonds;
+      if (latestProfile) {
+        this.coins = Number(latestProfile.coins) || 0;
+        this.diamonds = Number(latestProfile.diamonds) || 0;
+      } else if (item.currency === "coins") {
+        this.coins = Math.max(0, this.coins - item.price);
+      } else {
+        this.diamonds = Math.max(0, this.diamonds - item.price);
       }
 
       this.updateWallet();
       this.renderItems();
       this.showItemPreview(item.id);
 
-      this.showMessage(
-        result?.message || `${item.name} purchased successfully.`
-      );
+      this.showMessage(`${item.name} purchased successfully.`);
 
       this.eventBus?.emit?.("shop:item-purchased", {
         itemId: item.id,
@@ -693,12 +687,13 @@ export class ShopScreen {
       });
     } catch (error) {
       console.error("Shop purchase failed:", error);
-
-      this.showMessage(
-        error?.message || "Unable to complete purchase."
-      );
+      this.showMessage(error?.message || "Unable to complete purchase.");
     } finally {
       this.purchasing = false;
+
+      if (!this.destroyed && this.selectedItem) {
+        this.showItemPreview(this.selectedItem.id);
+      }
     }
   }
 
@@ -714,31 +709,40 @@ export class ShopScreen {
   }
 
   async equipItem(itemId) {
-    const item = SHOP_ITEMS.find(
-      product => product.id === itemId
-    );
+    if (this.destroyed) return;
+
+    const item = SHOP_ITEMS.find(product => product.id === itemId);
 
     if (!item || !this.ownedItems.has(item.id)) return;
 
+    const category = SHOP_INVENTORY_CATEGORY[item.category];
+
+    if (!category) {
+      this.showMessage("This item category cannot be equipped yet.");
+      return;
+    }
+
     if (typeof this.inventoryService?.equipItem !== "function") {
-      this.showMessage(
-        "Equipping will be available when inventory integration is complete."
-      );
+      this.showMessage("Inventory service is not connected.");
       return;
     }
 
     try {
-      const result =
-        await this.inventoryService.equipItem(item.id);
+      // InventoryService signature: equipItem(category, itemId)
+      await this.inventoryService.equipItem(category, item.id);
 
-      if (result?.success === false) {
-        throw new Error(
-          result.message || "Unable to equip item."
-        );
-      }
+      const profile = this.playerService?.getProfile?.();
+      const equipped = profile?.equipped || {};
 
-      this.equippedItems.add(item.id);
+      this.equippedItems.clear();
 
+      Object.values(equipped).forEach(id => {
+        if (typeof id === "string") {
+          this.equippedItems.add(id);
+        }
+      });
+
+      this.renderItems();
       this.showItemPreview(item.id);
 
       this.eventBus?.emit?.("shop:item-equipped", {
@@ -749,22 +753,21 @@ export class ShopScreen {
       this.showMessage(`${item.name} equipped.`);
     } catch (error) {
       console.error("Equip failed:", error);
-
-      this.showMessage(
-        error?.message || "Unable to equip this item."
-      );
+      this.showMessage(error?.message || "Unable to equip this item.");
     }
   }
 
   updateWallet() {
     if (this.elements.coins) {
-      this.elements.coins.textContent =
-        this.formatNumber(this.coins);
+      this.elements.coins.textContent = this.formatNumber(this.coins);
     }
 
     if (this.elements.diamonds) {
-      this.elements.diamonds.textContent =
-        this.formatNumber(this.diamonds);
+      this.elements.diamonds.textContent = this.formatNumber(this.diamonds);
+    }
+
+    if (this.elements.level) {
+      this.elements.level.textContent = String(this.playerLevel);
     }
   }
 
@@ -819,7 +822,6 @@ export class ShopScreen {
         "click",
         this.boundClickHandler
       );
-
       this.container.innerHTML = "";
     }
 
@@ -839,3 +841,4 @@ export function createShopScreen(options = {}) {
    FILE 60 END
    SHOP & THEMES SCREEN COMPLETE
 ========================================================= */
+       
