@@ -604,4 +604,240 @@ export class PuzzlesScreen {
    CLASS CONTINUES IN PART 57B.
    DO NOT CLOSE THE CLASS HERE.
 ========================================================= */
-        
+   
+/* =========================================================
+   APPARA CHESS — FILE 57B
+   SCREEN: PUZZLES CENTER
+   PART 2/2 — CONTINUATION
+========================================================= */
+
+  async showHint() {
+    if (!this.currentPuzzle || this.solved || this.loading) return;
+
+    if (typeof this.puzzleService?.getHint !== "function") {
+      this.elements.feedback.textContent =
+        "Hint is not available for this puzzle.";
+      return;
+    }
+
+    try {
+      this.hintsUsed++;
+
+      const puzzleId =
+        this.currentPuzzle.id || this.currentPuzzle.puzzleId;
+
+      const result = await this.puzzleService.getHint(puzzleId);
+
+      if (this.destroyed) return;
+
+      const hint = typeof result === "string"
+        ? result
+        : result?.hint || result?.message;
+
+      this.elements.feedback.textContent =
+        hint || "Think about checks, captures and threats.";
+    } catch (error) {
+      this.elements.feedback.textContent =
+        error?.message || "Unable to get a hint.";
+    }
+  }
+
+  async checkAnswer() {
+    if (!this.currentPuzzle || this.solved || this.loading) return;
+
+    const puzzleId =
+      this.currentPuzzle.id || this.currentPuzzle.puzzleId;
+
+    if (!puzzleId) {
+      this.elements.feedback.textContent =
+        "This puzzle does not have a valid ID.";
+      return;
+    }
+
+    const answer = this.currentPuzzle.answer ||
+      this.currentPuzzle.solution ||
+      this.currentPuzzle.moves?.[0];
+
+    if (!answer) {
+      this.elements.feedback.textContent =
+        "The answer for this puzzle is not available.";
+      return;
+    }
+
+    this.attempts++;
+    this.updateStats();
+
+    this.elements.feedback.textContent =
+      "Submit your move on the chessboard to check the answer.";
+
+    this.elements.feedback.classList.remove("success", "error");
+
+    /*
+      Puzzle validation must be performed by PuzzleService.
+      This screen intentionally does not award rewards locally.
+      The actual move-submission flow will be connected with
+      the chessboard interaction in the integration stage.
+    */
+
+    if (typeof this.puzzleService?.checkSolution === "function") {
+      try {
+        const result = await this.puzzleService.checkSolution(
+          puzzleId,
+          answer
+        );
+
+        if (this.destroyed) return;
+
+        if (result?.correct === true || result?.success === true) {
+          await this.handleCorrectAnswer(puzzleId, result);
+        } else {
+          this.handleIncorrectAnswer();
+        }
+      } catch (error) {
+        this.elements.feedback.textContent =
+          error?.message || "Unable to verify this answer.";
+      }
+
+      return;
+    }
+
+    this.elements.feedback.textContent =
+      "Move submission will be connected to the interactive board.";
+  }
+
+  handleIncorrectAnswer() {
+    this.elements.feedback.textContent =
+      "Not quite. Review the position and try again.";
+
+    this.elements.feedback.classList.remove("success");
+    this.elements.feedback.classList.add("error");
+  }
+
+  async handleCorrectAnswer(puzzleId, result = {}) {
+    this.solved = true;
+    this.solvedPuzzles.add(puzzleId);
+
+    this.elements.feedback.textContent =
+      result.message || "Excellent! Puzzle solved successfully.";
+
+    this.elements.feedback.classList.remove("error");
+    this.elements.feedback.classList.add("success");
+
+    this.elements.nextButton.disabled =
+      this.currentIndex >= this.puzzleList.length - 1;
+
+    this.elements.checkButton.disabled = true;
+    this.elements.hintButton.disabled = true;
+
+    await this.savePuzzleProgress();
+
+    this.updateStats();
+  }
+
+  async savePuzzleProgress() {
+    const profile = this.playerService?.getProfile?.();
+
+    if (!profile) return;
+
+    profile.puzzles = profile.puzzles || {};
+    profile.puzzles.solvedPuzzleIds = [...this.solvedPuzzles];
+    profile.puzzles.attempts = this.attempts;
+
+    if (typeof this.playerService.replaceProfile === "function") {
+      await this.playerService.replaceProfile(profile);
+    } else if (typeof this.playerService.updateProfile === "function") {
+      await this.playerService.updateProfile(current => {
+        current.puzzles = current.puzzles || {};
+        current.puzzles.solvedPuzzleIds = [...this.solvedPuzzles];
+        current.puzzles.attempts = this.attempts;
+      });
+    }
+  }
+
+  updateStats() {
+    const solved = this.solvedPuzzles.size;
+    const rate = this.attempts > 0
+      ? Math.round((solved / this.attempts) * 100)
+      : 0;
+
+    if (this.elements.solvedCount) {
+      this.elements.solvedCount.textContent = String(solved);
+    }
+
+    if (this.elements.attemptCount) {
+      this.elements.attemptCount.textContent = String(this.attempts);
+    }
+
+    if (this.elements.successRate) {
+      this.elements.successRate.textContent = `${Math.min(rate, 100)}%`;
+    }
+  }
+
+  nextPuzzle() {
+    if (!this.solved && this.currentPuzzle) {
+      this.elements.feedback.textContent =
+        "Solve the current puzzle before moving to the next one.";
+      return;
+    }
+
+    if (this.currentIndex >= this.puzzleList.length - 1) {
+      this.elements.feedback.textContent =
+        "You have reached the end of this puzzle set.";
+      return;
+    }
+
+    this.currentIndex++;
+    this.currentPuzzle = this.puzzleList[this.currentIndex];
+
+    this.resetPuzzleState();
+    this.renderCurrentPuzzle();
+  }
+
+  escapeHTML(value) {
+    return String(value ?? "").replace(/[&<>"']/g, character => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    })[character]);
+  }
+
+  goBack() {
+    if (this.navigation?.back) {
+      this.navigation.back();
+    } else {
+      this.navigation?.navigate?.("home");
+    }
+  }
+
+  destroy() {
+    this.destroyed = true;
+    this.loading = false;
+
+    if (typeof this.unsubscribePuzzle === "function") {
+      this.unsubscribePuzzle();
+      this.unsubscribePuzzle = null;
+    }
+
+    this.currentPuzzle = null;
+    this.puzzleList = [];
+    this.solvedPuzzles.clear();
+
+    if (this.container) {
+      this.container.innerHTML = "";
+    }
+
+    this.elements = {};
+  }
+}
+
+export function createPuzzlesScreen(options = {}) {
+  return new PuzzlesScreen(options);
+}
+
+/* =========================================================
+   FILE 57B END — FILE 57 COMPLETE
+   PATH: js/screens/puzzles-screen.js
+========================================================= */
+
