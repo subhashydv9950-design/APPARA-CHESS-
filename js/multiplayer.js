@@ -1,75 +1,71 @@
 /* =========================================================
    APPARA CHESS — MULTIPLAYER CONTROLLER
-   PART 21H — INTEGRATION REPAIR
+   PART 21J — ONLINE INTEGRATION REBUILD
    FILE: js/multiplayer.js
-   PART 1/3 — CORE, INITIALIZATION & GAME MODES
+   PART 1/3
 ========================================================= */
 
 window.APPARA_MULTIPLAYER = (function () {
     "use strict";
 
     /* =====================================================
-       1. STATE
+       01. STATE
     ===================================================== */
 
     const state = {
-        initialized: false,
         mode: "offline",
         active: false,
-        paused: false,
         finished: false,
+        paused: false,
 
         playerColor: "w",
-        currentRoom: null,
+        opponentColor: "b",
 
-        aiThinking: false,
-        aiDifficulty: "medium",
+        roomCode: null,
+        difficulty: "medium",
 
-        lastSyncedFen: null,
-        lastMove: null,
-
-        moveHandlerBound: false,
         roomHandlerBound: false,
+        moveInProgress: false,
 
-        onStateChange: null
+        onStateChange: null,
+        onGameEnd: null,
+
+        lastPosition: null,
+        lastMove: null
     };
 
 
     /* =====================================================
-       2. MODULE ACCESS
+       02. MODULE REFERENCES
     ===================================================== */
 
-    function engine() {
+    function getEngine() {
         return window.APPARA_ENGINE || null;
     }
 
-    function board() {
+    function getBoard() {
         return window.APPARA_BOARD || null;
     }
 
-    function ai() {
-        return window.APPARA_AI || null;
-    }
-
-    function timer() {
-        return window.APPARA_TIMER || null;
-    }
-
-    function online() {
-        return window.APPARA_ONLINE || null;
-    }
-
-    function game() {
+    function getGame() {
         return window.APPARA_GAME || null;
     }
 
-    function sound() {
-        return window.APPARA_SOUND || null;
+    function getAI() {
+        return window.APPARA_AI || null;
+    }
+
+    function getTimer() {
+        return window.APPARA_TIMER || null;
+    }
+
+    function getOnline() {
+        return window.APPARA_ONLINE || null;
     }
 
 
     /* =====================================================
-       3. NOTIFICATION
+       03. NOTIFICATION
     ===================================================== */
 
     function notify(message, type) {
@@ -78,293 +74,20 @@ window.APPARA_MULTIPLAYER = (function () {
             typeof window.APPARA_APP.notify === "function"
         ) {
             window.APPARA_APP.notify(message, type || "info");
-        } else {
-            console.log("[APPARA MULTIPLAYER]", message);
+            return;
         }
+
+        if (typeof window.showNotification === "function") {
+            window.showNotification(message, type || "info");
+            return;
+        }
+
+        console.log("[APPARA MULTIPLAYER]", message);
     }
 
 
     /* =====================================================
-       4. INITIALIZATION
-    ===================================================== */
-
-    function init() {
-        if (state.initialized) {
-            return true;
-        }
-
-        if (!engine() || !board()) {
-            console.error(
-                "APPARA CHESS: Engine or board is unavailable."
-            );
-
-            return false;
-        }
-
-        connectBoard();
-
-        state.initialized = true;
-
-        return true;
-    }
-
-
-    /* =====================================================
-       5. CONNECT BOARD
-    ===================================================== */
-
-    function connectBoard() {
-        const chessBoard = board();
-
-        if (!chessBoard || state.moveHandlerBound) {
-            return false;
-        }
-
-        if (typeof chessBoard.setMoveHandler === "function") {
-            chessBoard.setMoveHandler(function (move) {
-                handlePlayerMove(move);
-            });
-
-            state.moveHandlerBound = true;
-            return true;
-        }
-
-        return false;
-    }
-
-
-    /* =====================================================
-       6. RESET MODE STATE
-    ===================================================== */
-
-    function resetModeState(mode) {
-        state.mode = mode;
-        state.active = true;
-        state.paused = false;
-        state.finished = false;
-
-        state.aiThinking = false;
-
-        state.lastMove = null;
-        state.lastSyncedFen = null;
-    }
-
-
-    /* =====================================================
-       7. START OFFLINE GAME
-    ===================================================== */
-
-    function startOffline(options) {
-        options = options || {};
-
-        if (!init()) {
-            return false;
-        }
-
-        resetModeState("offline");
-
-        state.playerColor = "w";
-
-        const chessEngine = engine();
-
-        if (
-            options.resetEngine !== false &&
-            chessEngine &&
-            typeof chessEngine.reset === "function"
-        ) {
-            chessEngine.reset();
-        }
-
-        connectBoard();
-
-        if (typeof board().render === "function") {
-            board().render();
-        }
-
-        if (typeof board().setOrientation === "function") {
-            board().setOrientation("w");
-        }
-
-        notify("Offline game ready.", "success");
-
-        emitStateChange();
-
-        return true;
-    }
-
-
-    /* =====================================================
-       8. START COMPUTER GAME
-    ===================================================== */
-
-    function startComputer(options) {
-        options = options || {};
-
-        if (!init()) {
-            return false;
-        }
-
-        resetModeState("computer");
-
-        state.playerColor =
-            options.playerColor === "b" ? "b" : "w";
-
-        state.aiDifficulty =
-            options.difficulty || "medium";
-
-        const chessEngine = engine();
-
-        if (
-            options.resetEngine !== false &&
-            chessEngine &&
-            typeof chessEngine.reset === "function"
-        ) {
-            chessEngine.reset();
-        }
-
-        const computer = ai();
-
-        if (computer) {
-            if (typeof computer.setDifficulty === "function") {
-                computer.setDifficulty(state.aiDifficulty);
-            }
-
-            if (typeof computer.reset === "function") {
-                computer.reset();
-            }
-        }
-
-        connectBoard();
-
-        if (typeof board().setOrientation === "function") {
-            board().setOrientation(state.playerColor);
-        }
-
-        if (typeof board().render === "function") {
-            board().render();
-        }
-
-        notify("Computer game ready.", "success");
-
-        emitStateChange();
-
-        /*
-         * If the player chooses Black, AI plays White first.
-         */
-
-        if (state.playerColor === "b") {
-            window.setTimeout(function () {
-                if (
-                    state.active &&
-                    !state.finished &&
-                    !state.paused
-                ) {
-                    playComputerTurn();
-                }
-            }, 450);
-        }
-
-        return true;
-    }
-
-
-    /* =====================================================
-       9. START ONLINE GAME
-    ===================================================== */
-
-    function startOnline(options) {
-        options = options || {};
-
-        if (!init()) {
-            return false;
-        }
-
-        resetModeState("online");
-
-        state.playerColor =
-            options.playerColor === "b" ? "b" : "w";
-
-        state.currentRoom =
-            options.roomCode || null;
-
-        state.lastSyncedFen =
-            typeof engine().getFEN === "function"
-                ? engine().getFEN()
-                : null;
-
-        if (typeof board().setOrientation === "function") {
-            board().setOrientation(state.playerColor);
-        }
-
-        if (typeof board().render === "function") {
-            board().render();
-        }
-
-        connectOnlineRoom();
-
-        emitStateChange();
-
-        return true;
-    }
-
-
-    /* =====================================================
-       10. CONNECT ONLINE ROOM
-    ===================================================== */
-
-    function connectOnlineRoom() {
-        const onlineModule = online();
-
-        if (!onlineModule) {
-            notify("Online module is unavailable.", "error");
-            return false;
-        }
-
-        if (state.roomHandlerBound) {
-            return true;
-        }
-
-        /*
-         * Online room callbacks are connected in Part 2.
-         */
-
-        state.roomHandlerBound = true;
-
-        return true;
-    }
-
-
-    /* =====================================================
-       11. CHECK ACTIVE TURN
-    ===================================================== */
-
-    function isPlayerTurn() {
-        if (!state.active || state.paused || state.finished) {
-            return false;
-        }
-
-        const chessEngine = engine();
-
-        if (!chessEngine) {
-            return false;
-        }
-
-        const currentTurn = chessEngine.turn();
-
-        if (state.mode === "computer") {
-            return currentTurn === state.playerColor;
-        }
-
-        if (state.mode === "online") {
-            return currentTurn === state.playerColor;
-        }
-
-        return true;
-    }
-
-
-    /* =====================================================
-       12. EMIT STATE CHANGE
+       04. STATE CHANGE
     ===================================================== */
 
     function emitStateChange() {
@@ -373,141 +96,413 @@ window.APPARA_MULTIPLAYER = (function () {
         }
     }
 
+    function setStateChangeHandler(callback) {
+        state.onStateChange =
+            typeof callback === "function" ? callback : null;
+    }
+
+    function setGameEndHandler(callback) {
+        state.onGameEnd =
+            typeof callback === "function" ? callback : null;
+    }
+
+
+    /* =====================================================
+       05. RESET STATE
+    ===================================================== */
+
+    function resetState(mode) {
+        state.mode = mode || "offline";
+        state.active = true;
+        state.finished = false;
+        state.paused = false;
+
+        state.roomCode = null;
+        state.roomHandlerBound = false;
+        state.moveInProgress = false;
+
+        state.lastPosition = null;
+        state.lastMove = null;
+
+        emitStateChange();
+    }
+
+
+    /* =====================================================
+       06. CHECK CONTROLLER AVAILABILITY
+    ===================================================== */
+
+    function validateModules() {
+        const engine = getEngine();
+        const board = getBoard();
+
+        if (!engine || !board) {
+            notify(
+                "Chess engine or board controller is unavailable.",
+                "error"
+            );
+
+            return false;
+        }
+
+        return true;
+    }
+
+
+    /* =====================================================
+       07. CONNECT BOARD
+    ===================================================== */
+
+    function connectBoard() {
+        const board = getBoard();
+
+        if (!board || typeof board.setMoveHandler !== "function") {
+            return false;
+        }
+
+        board.setMoveHandler(function (move) {
+            handlePlayerMove(move);
+        });
+
+        return true;
+    }
+
+
+    /* =====================================================
+       08. START OFFLINE GAME
+    ===================================================== */
+
+    function startOffline(options) {
+        options = options || {};
+
+        if (!validateModules()) {
+            return false;
+        }
+
+        const engine = getEngine();
+
+        resetState("offline");
+
+        state.playerColor = "w";
+        state.opponentColor = "b";
+
+        if (typeof engine.reset === "function") {
+            engine.reset();
+        }
+
+        connectBoard();
+
+        const board = getBoard();
+
+        if (board && typeof board.setOrientation === "function") {
+            board.setOrientation("w");
+        }
+
+        const timer = getTimer();
+
+        if (timer && typeof timer.reset === "function") {
+            timer.reset({
+                minutes: options.minutes || 10,
+                increment: options.increment || 0
+            });
+        }
+
+        emitStateChange();
+
+        return true;
+    }
+
+
+    /* =====================================================
+       09. START COMPUTER GAME
+    ===================================================== */
+
+    function startComputer(options) {
+        options = options || {};
+
+        if (!validateModules()) {
+            return false;
+        }
+
+        const engine = getEngine();
+        const ai = getAI();
+
+        resetState("computer");
+
+        state.playerColor =
+            options.playerColor === "b" ? "b" : "w";
+
+        state.opponentColor =
+            state.playerColor === "w" ? "b" : "w";
+
+        state.difficulty =
+            options.difficulty || "medium";
+
+        if (typeof engine.reset === "function") {
+            engine.reset();
+        }
+
+        if (ai) {
+            if (typeof ai.setDifficulty === "function") {
+                ai.setDifficulty(state.difficulty);
+            }
+
+            if (typeof ai.reset === "function") {
+                ai.reset();
+            }
+        }
+
+        connectBoard();
+
+        const board = getBoard();
+
+        if (board && typeof board.setOrientation === "function") {
+            board.setOrientation(state.playerColor);
+        }
+
+        const timer = getTimer();
+
+        if (timer && typeof timer.reset === "function") {
+            timer.reset({
+                minutes: options.minutes || 10,
+                increment: options.increment || 0
+            });
+        }
+
+        emitStateChange();
+
+        if (state.playerColor === "b") {
+            window.setTimeout(function () {
+                if (state.active && !state.finished) {
+                    playComputerTurn();
+                }
+            }, 500);
+        }
+
+        return true;
+    }
+
+
+    /* =====================================================
+       10. CHECK PLAYER TURN
+    ===================================================== */
+
+    function isPlayerTurn() {
+        if (!state.active || state.finished || state.paused) {
+            return false;
+        }
+
+        const engine = getEngine();
+
+        if (!engine || typeof engine.turn !== "function") {
+            return false;
+        }
+
+        if (state.mode === "offline") {
+            return true;
+        }
+
+        return engine.turn() === state.playerColor;
+    }
+
+
+    /* =====================================================
+       11. CHECK GAME STATE
+    ===================================================== */
+
+    function canPlayMove() {
+        if (!state.active || state.finished || state.paused) {
+            return false;
+        }
+
+        if (state.moveInProgress) {
+            return false;
+        }
+
+        return true;
+    }
+
+
+    /* =====================================================
+       12. PLAYER MOVE ENTRY
+    ===================================================== */
+
+    function handlePlayerMove(move) {
+        if (!canPlayMove()) {
+            return false;
+        }
+
+        if (!move || !move.from || !move.to) {
+            return false;
+        }
+
+        if (!isPlayerTurn()) {
+            notify("It is not your turn.", "warning");
+            return false;
+        }
+
+        if (state.mode === "online") {
+            return handleOnlineMove(move);
+        }
+
+        if (state.mode === "computer") {
+            return handleComputerPlayerMove(move);
+        }
+
+        return handleLocalMove(move);
+    }
+
 
     /* =====================================================
        PART 1/3 END
        CONTINUE PART 2/3 BELOW THIS LINE
     ===================================================== */
-   /* =========================================================
+
+             /* =========================================================
    APPARA CHESS — MULTIPLAYER CONTROLLER
-   PART 21H — INTEGRATION REPAIR
+   PART 21J — MOVE HANDLING & ONLINE SYNC
    FILE: js/multiplayer.js
-   PART 2/3 — PLAYER MOVES, AI & ONLINE SYNC
+   PART 2/3
 ========================================================= */
 
 
 /* =====================================================
-   13. HANDLE PLAYER MOVE
+   13. LOCAL PLAYER MOVE
 ===================================================== */
 
-function handlePlayerMove(move) {
-    if (!isPlayerTurn()) {
+function handleLocalMove(move) {
+    const engine = getEngine();
+
+    if (!engine) {
         return false;
     }
 
-    if (!move || !move.from || !move.to) {
-        return false;
-    }
+    state.moveInProgress = true;
 
-    const chessEngine = engine();
+    try {
+        const result = engine.move({
+            from: move.from,
+            to: move.to,
+            promotion: move.promotion || "q"
+        });
 
-    if (!chessEngine) {
-        return false;
-    }
-
-    if (state.mode === "online") {
-        return handleOnlineMove(move);
-    }
-
-    const result = chessEngine.move({
-        from: move.from,
-        to: move.to,
-        promotion: move.promotion || "q"
-    });
-
-    if (!result) {
-        return false;
-    }
-
-    state.lastMove = result;
-
-    afterSuccessfulMove(result);
-
-    if (
-        state.mode === "computer" &&
-        !state.finished &&
-        !state.paused
-    ) {
-        const currentTurn = chessEngine.turn();
-
-        if (currentTurn !== state.playerColor) {
-            window.setTimeout(function () {
-                if (
-                    state.active &&
-                    !state.finished &&
-                    !state.paused
-                ) {
-                    playComputerTurn();
-                }
-            }, 350);
+        if (!result) {
+            return false;
         }
-    }
 
-    return true;
+        afterSuccessfulMove(result);
+
+        return true;
+
+    } catch (error) {
+        console.error("Local move failed:", error);
+        return false;
+
+    } finally {
+        state.moveInProgress = false;
+    }
 }
 
 
 /* =====================================================
-   14. HANDLE ONLINE MOVE
+   14. COMPUTER PLAYER MOVE
 ===================================================== */
 
-function handleOnlineMove(move) {
-    const onlineModule = online();
+function handleComputerPlayerMove(move) {
+    const engine = getEngine();
+
+    if (!engine) {
+        return false;
+    }
+
+    state.moveInProgress = true;
+
+    try {
+        const result = engine.move({
+            from: move.from,
+            to: move.to,
+            promotion: move.promotion || "q"
+        });
+
+        if (!result) {
+            return false;
+        }
+
+        afterSuccessfulMove(result);
+
+        if (!state.finished && state.active) {
+            window.setTimeout(function () {
+                playComputerTurn();
+            }, 350);
+        }
+
+        return true;
+
+    } catch (error) {
+        console.error("Player move failed:", error);
+        return false;
+
+    } finally {
+        state.moveInProgress = false;
+    }
+}
+
+
+/* =====================================================
+   15. ONLINE PLAYER MOVE
+===================================================== */
+
+async function handleOnlineMove(move) {
+    const online = getOnline();
+    const engine = getEngine();
 
     if (
-        !onlineModule ||
-        typeof onlineModule.sendMove !== "function"
+        !online ||
+        !engine ||
+        typeof online.sendMove !== "function"
     ) {
         notify("Online connection is unavailable.", "error");
         return false;
     }
 
-    const chessEngine = engine();
+    state.moveInProgress = true;
 
-    const previousFen =
-        typeof chessEngine.getFEN === "function"
-            ? chessEngine.getFEN()
-            : null;
+    try {
+        const expectedFen = engine.getFEN();
 
-    /*
-     * The online module is responsible for validating and
-     * submitting the move. The local engine is not changed
-     * here, preventing a premature local move.
-     */
+        const accepted = await online.sendMove({
+            from: move.from,
+            to: move.to,
+            promotion: move.promotion || "q",
+            expectedFen: expectedFen
+        });
 
-    const submitted = onlineModule.sendMove({
-        from: move.from,
-        to: move.to,
-        promotion: move.promotion || "q",
-        expectedFen: previousFen
-    });
+        if (!accepted) {
+            notify("Move was not accepted.", "warning");
+            return false;
+        }
 
-    if (submitted && typeof submitted.then === "function") {
-        submitted
-            .then(function (success) {
-                if (!success) {
-                    notify("Move was not accepted.", "warning");
-                }
-            })
-            .catch(function (error) {
-                console.error("Online move failed:", error);
-                notify("Could not submit online move.", "error");
-            });
+        /*
+         * Do not modify the local chess engine here.
+         * Firebase room listener will deliver the
+         * authoritative updated FEN to both players.
+         */
 
         return true;
-    }
 
-    if (!submitted) {
-        notify("Move was not accepted.", "warning");
+    } catch (error) {
+        console.error("Online move failed:", error);
+        notify("Unable to send move.", "error");
         return false;
-    }
 
-    return true;
+    } finally {
+        state.moveInProgress = false;
+    }
 }
 
 
 /* =====================================================
-   15. COMPUTER AI TURN
+   16. COMPUTER AI TURN
 ===================================================== */
 
 function playComputerTurn() {
@@ -515,392 +510,407 @@ function playComputerTurn() {
         state.mode !== "computer" ||
         !state.active ||
         state.finished ||
-        state.paused ||
-        state.aiThinking
+        state.paused
     ) {
         return false;
     }
 
-    const chessEngine = engine();
-    const computer = ai();
+    const engine = getEngine();
+    const ai = getAI();
 
-    if (!chessEngine || !computer) {
-        notify("Computer AI is unavailable.", "error");
+    if (!engine || !ai) {
         return false;
     }
 
-    if (chessEngine.turn() === state.playerColor) {
+    if (engine.turn() === state.playerColor) {
         return false;
     }
 
-    state.aiThinking = true;
+    if (
+        typeof ai.getBestMove !== "function" ||
+        typeof engine.move !== "function"
+    ) {
+        return false;
+    }
 
-    emitStateChange();
+    state.moveInProgress = true;
 
-    window.setTimeout(function () {
-        try {
-            if (
-                !state.active ||
-                state.finished ||
-                state.paused
-            ) {
-                state.aiThinking = false;
-                emitStateChange();
-                return;
-            }
+    try {
+        const bestMove = ai.getBestMove();
 
-            const bestMove =
-                typeof computer.getBestMove === "function"
-                    ? computer.getBestMove()
-                    : null;
-
-            if (!bestMove) {
-                state.aiThinking = false;
-                checkGameEnd();
-                emitStateChange();
-                return;
-            }
-
-            const result = chessEngine.move({
-                from: bestMove.from,
-                to: bestMove.to,
-                promotion: bestMove.promotion || "q"
-            });
-
-            if (!result) {
-                console.error("AI returned an invalid move.");
-                state.aiThinking = false;
-                emitStateChange();
-                return;
-            }
-
-            state.lastMove = result;
-
-            state.aiThinking = false;
-
-            afterSuccessfulMove(result);
-
-            emitStateChange();
-
-        } catch (error) {
-            state.aiThinking = false;
-
-            console.error("AI turn error:", error);
-
-            notify("Computer could not complete its move.", "error");
-
-            emitStateChange();
+        if (!bestMove) {
+            checkGameEnd();
+            return false;
         }
-    }, 120);
 
-    return true;
+        const result = engine.move({
+            from: bestMove.from,
+            to: bestMove.to,
+            promotion: bestMove.promotion || "q"
+        });
+
+        if (!result) {
+            notify("Computer could not complete its move.", "warning");
+            return false;
+        }
+
+        afterSuccessfulMove(result);
+
+        return true;
+
+    } catch (error) {
+        console.error("Computer turn failed:", error);
+        return false;
+
+    } finally {
+        state.moveInProgress = false;
+    }
 }
 
 
 /* =====================================================
-   16. AFTER SUCCESSFUL MOVE
+   17. SUCCESSFUL MOVE PROCESSOR
 ===================================================== */
 
 function afterSuccessfulMove(move) {
-    if (!move) {
+    const engine = getEngine();
+    const board = getBoard();
+    const timer = getTimer();
+
+    if (!engine) {
         return false;
     }
 
-    const chessEngine = engine();
-    const chessBoard = board();
-    const chessTimer = timer();
-    const chessSound = sound();
+    state.lastMove = move;
 
-    if (chessBoard) {
-        if (typeof chessBoard.clearSelection === "function") {
-            chessBoard.clearSelection();
+    state.lastPosition = engine.getFEN();
+
+    if (board) {
+        if (typeof board.setLastMove === "function") {
+            board.setLastMove(move.from, move.to);
         }
 
-        if (typeof chessBoard.setLastMove === "function") {
-            chessBoard.setLastMove(move.from, move.to);
+        if (typeof board.clearSelection === "function") {
+            board.clearSelection();
         }
 
-        if (typeof chessBoard.render === "function") {
-            chessBoard.render();
-        }
-    }
-
-    if (chessTimer && typeof chessTimer.switchTurn === "function") {
-        chessTimer.switchTurn();
-    }
-
-    if (chessSound) {
-        if (move.captured && typeof chessSound.capture === "function") {
-            chessSound.capture();
-        } else if (typeof chessSound.move === "function") {
-            chessSound.move();
-        }
-
-        if (
-            chessEngine &&
-            typeof chessEngine.isCheck === "function" &&
-            chessEngine.isCheck() &&
-            typeof chessSound.check === "function"
-        ) {
-            chessSound.check();
+        if (typeof board.refresh === "function") {
+            board.refresh();
         }
     }
 
-    const gameController = game();
+    if (timer && typeof timer.switchTurn === "function") {
+        timer.switchTurn();
+    }
 
-    if (
-        gameController &&
-        typeof gameController.onMultiplayerMove === "function"
-    ) {
-        gameController.onMultiplayerMove(move);
+    if (window.APPARA_SOUND) {
+        if (move.captured) {
+            window.APPARA_SOUND.capture();
+        } else {
+            window.APPARA_SOUND.move();
+        }
+
+        if (engine.isCheck && engine.isCheck()) {
+            window.APPARA_SOUND.check();
+        }
+    }
+
+    const game = getGame();
+
+    if (game && typeof game.onMultiplayerMove === "function") {
+        game.onMultiplayerMove(move);
     }
 
     checkGameEnd();
 
+    emitStateChange();
+
     return true;
 }
 
 
 /* =====================================================
-   17. HANDLE REMOTE ROOM UPDATE
+   18. REGISTER ONLINE ROOM HANDLER
+===================================================== */
+
+function registerRoomUpdateHandler() {
+    const online = getOnline();
+
+    if (
+        !online ||
+        typeof online.setRoomUpdateHandler !== "function"
+    ) {
+        return false;
+    }
+
+    online.setRoomUpdateHandler(function (roomData) {
+        handleRoomUpdate(roomData);
+    });
+
+    state.roomHandlerBound = true;
+
+    return true;
+}
+
+
+/* =====================================================
+   19. RECEIVE ONLINE ROOM UPDATE
 ===================================================== */
 
 function handleRoomUpdate(roomData) {
     if (
+        !roomData ||
         state.mode !== "online" ||
         !state.active ||
-        state.finished ||
-        !roomData
+        state.finished
     ) {
         return false;
     }
 
-    const chessEngine = engine();
-    const chessBoard = board();
+    const engine = getEngine();
 
-    if (!chessEngine || !chessBoard) {
+    if (!engine) {
         return false;
-    }
-
-    const remoteFen = roomData.fen;
-
-    if (
-        typeof remoteFen === "string" &&
-        remoteFen.length > 0
-    ) {
-        const currentFen = chessEngine.getFEN();
-
-        if (remoteFen !== currentFen) {
-            if (typeof chessEngine.load === "function") {
-                const loaded = chessEngine.load(remoteFen);
-
-                if (!loaded) {
-                    console.error("Received invalid online FEN.");
-                    return false;
-                }
-            }
-
-            state.lastSyncedFen = remoteFen;
-
-            if (typeof chessBoard.clearSelection === "function") {
-                chessBoard.clearSelection();
-            }
-
-            if (typeof chessBoard.clearLastMove === "function") {
-                chessBoard.clearLastMove();
-            }
-
-            if (typeof chessBoard.render === "function") {
-                chessBoard.render();
-            }
-
-            const gameController = game();
-
-            if (
-                gameController &&
-                typeof gameController.onMultiplayerMove === "function"
-            ) {
-                gameController.onMultiplayerMove();
-            }
-        }
     }
 
     if (roomData.status === "finished") {
         state.finished = true;
         state.active = false;
 
-        const gameController = game();
+        const game = getGame();
 
-        if (
-            gameController &&
-            typeof gameController.onMultiplayerGameEnd === "function"
-        ) {
-            gameController.onMultiplayerGameEnd(
-                roomData.result || "draw",
-                roomData.reason || "online"
+        if (game && typeof game.onMultiplayerGameEnd === "function") {
+            game.onMultiplayerGameEnd(
+                roomData.result,
+                roomData.reason
             );
         }
-    }
 
-    emitStateChange();
+        emitStateChange();
 
-    return true;
-}
-
-
-/* =====================================================
-   18. CHECK GAME END
-===================================================== */
-
-function checkGameEnd() {
-    const chessEngine = engine();
-
-    if (!chessEngine) {
-        return false;
-    }
-
-    let result = null;
-    let reason = "normal";
-
-    if (
-        typeof chessEngine.isCheckmate === "function" &&
-        chessEngine.isCheckmate()
-    ) {
-        result =
-            chessEngine.turn() === "w" ? "b" : "w";
-
-        reason = "checkmate";
-
-    } else if (
-        typeof chessEngine.isStalemate === "function" &&
-        chessEngine.isStalemate()
-    ) {
-        result = "draw";
-        reason = "stalemate";
-
-    } else if (
-        typeof chessEngine.isDraw === "function" &&
-        chessEngine.isDraw()
-    ) {
-        result = "draw";
-        reason = "draw";
-
-    } else if (
-        typeof chessEngine.isGameOver === "function" &&
-        chessEngine.isGameOver()
-    ) {
-        result = "draw";
-        reason = "draw";
-    }
-
-    if (!result) {
-        return false;
-    }
-
-    state.finished = true;
-    state.active = false;
-
-    const gameController = game();
-
-    if (
-        gameController &&
-        typeof gameController.onMultiplayerGameEnd === "function"
-    ) {
-        gameController.onMultiplayerGameEnd(result, reason);
-    }
-
-    emitStateChange();
-
-    return true;
-}
-
-
-/* =====================================================
-   PART 2/3 END
-   CONTINUE PART 3/3 BELOW THIS LINE
-========================================================= */
-
-   /* =========================================================
-   APPARA CHESS — MULTIPLAYER CONTROLLER
-   PART 21H — INTEGRATION REPAIR
-   FILE: js/multiplayer.js
-   PART 3/3 — ONLINE CALLBACKS, CONTROLS & PUBLIC API
-========================================================= */
-
-
-/* =====================================================
-   19. REGISTER ROOM UPDATE HANDLER
-===================================================== */
-
-function registerRoomUpdateHandler() {
-    const onlineModule = online();
-
-    if (!onlineModule) {
-        return false;
-    }
-
-    /*
-     * The online module must expose setRoomUpdateHandler.
-     * If it does not, the room listener cannot be connected
-     * through this controller.
-     */
-
-    if (
-        typeof onlineModule.setRoomUpdateHandler === "function"
-    ) {
-        onlineModule.setRoomUpdateHandler(function (roomData) {
-            handleRoomUpdate(roomData);
-        });
-
-        state.roomHandlerBound = true;
         return true;
     }
 
-    console.warn(
-        "Online module does not expose setRoomUpdateHandler()."
-    );
+    if (
+        roomData.status !== "playing" ||
+        !roomData.fen
+    ) {
+        return false;
+    }
+
+    const localFen = engine.getFEN();
+
+    if (localFen === roomData.fen) {
+        return true;
+    }
+
+    const loaded = engine.load(roomData.fen);
+
+    if (!loaded) {
+        console.error("Invalid FEN received from room.");
+        return false;
+    }
+
+    state.lastPosition = roomData.fen;
+
+    const board = getBoard();
+
+    if (board && typeof board.refresh === "function") {
+        board.refresh();
+    }
+
+    const game = getGame();
+
+    if (game && typeof game.onMultiplayerMove === "function") {
+        game.onMultiplayerMove({
+            remote: true,
+            fen: roomData.fen
+        });
+    }
+
+    checkGameEnd();
+
+    emitStateChange();
+
+    return true;
+}
+
+
+/* =====================================================
+   20. CHECK GAME END
+===================================================== */
+
+function checkGameEnd() {
+    const engine = getEngine();
+
+    if (!engine || state.finished) {
+        return false;
+    }
+
+    if (
+        typeof engine.isGameOver === "function" &&
+        engine.isGameOver()
+    ) {
+        state.finished = true;
+        state.active = false;
+
+        const game = getGame();
+
+        if (game && typeof game.checkGameEnd === "function") {
+            game.checkGameEnd();
+        }
+
+        if (typeof state.onGameEnd === "function") {
+            state.onGameEnd(engine.getGameStatus());
+        }
+
+        emitStateChange();
+
+        return true;
+    }
 
     return false;
 }
 
 
 /* =====================================================
-   20. RESIGN
+   PART 2/3 END
+   CONTINUE PART 3/3 BELOW THIS LINE
+========================================================= */   
+   /* =========================================================
+   APPARA CHESS — MULTIPLAYER CONTROLLER
+   PART 21J — FINAL CONTROLS & PUBLIC API
+   FILE: js/multiplayer.js
+   PART 3/3
+========================================================= */
+
+
+/* =====================================================
+   21. START ONLINE GAME
 ===================================================== */
 
-function resign() {
+function startOnline(options) {
+    options = options || {};
+
+    if (!validateModules()) {
+        return false;
+    }
+
+    const engine = getEngine();
+    const online = getOnline();
+
+    if (!online) {
+        notify("Online controller is unavailable.", "error");
+        return false;
+    }
+
+    resetState("online");
+
+    state.playerColor =
+        options.playerColor === "b" ? "b" : "w";
+
+    state.opponentColor =
+        state.playerColor === "w" ? "b" : "w";
+
+    state.roomCode =
+        options.roomCode || online.getRoomCode();
+
+    if (!state.roomCode) {
+        notify("Room code is missing.", "error");
+        return false;
+    }
+
+    connectBoard();
+
+    const board = getBoard();
+
+    if (board && typeof board.setOrientation === "function") {
+        board.setOrientation(state.playerColor);
+    }
+
+    registerRoomUpdateHandler();
+
+    const room = online.getRoom
+        ? online.getRoom()
+        : null;
+
+    if (room) {
+        handleRoomUpdate(room);
+    }
+
+    emitStateChange();
+
+    return true;
+}
+
+
+/* =====================================================
+   22. CONNECT ONLINE ROOM
+===================================================== */
+
+function connectOnlineRoom(roomCode, playerColor) {
+    const online = getOnline();
+
+    if (!online) {
+        return false;
+    }
+
+    if (playerColor) {
+        state.playerColor =
+            playerColor === "b" ? "b" : "w";
+
+        state.opponentColor =
+            state.playerColor === "w" ? "b" : "w";
+    }
+
+    state.roomCode =
+        roomCode || online.getRoomCode();
+
+    if (!state.roomCode) {
+        return false;
+    }
+
+    registerRoomUpdateHandler();
+
+    const room = online.getRoom
+        ? online.getRoom()
+        : null;
+
+    if (room) {
+        handleRoomUpdate(room);
+    }
+
+    return true;
+}
+
+
+/* =====================================================
+   23. RESIGN
+===================================================== */
+
+async function resign() {
     if (!state.active || state.finished) {
         return false;
     }
 
     if (state.mode === "online") {
-        const onlineModule = online();
+        const online = getOnline();
 
-        if (
-            onlineModule &&
-            typeof onlineModule.resign === "function"
-        ) {
-            return onlineModule.resign();
+        if (!online || typeof online.resign !== "function") {
+            return false;
         }
 
-        notify("Online resignation is unavailable.", "error");
-        return false;
+        return await online.resign();
     }
-
-    const losingColor = state.playerColor;
-    const winnerColor = losingColor === "w" ? "b" : "w";
 
     state.finished = true;
     state.active = false;
 
-    const gameController = game();
+    const game = getGame();
 
-    if (
-        gameController &&
-        typeof gameController.onMultiplayerGameEnd === "function"
-    ) {
-        gameController.onMultiplayerGameEnd(
-            winnerColor,
+    if (game && typeof game.onMultiplayerGameEnd === "function") {
+        game.onMultiplayerGameEnd(
+            state.opponentColor,
             "resignation"
         );
     }
@@ -912,43 +922,50 @@ function resign() {
 
 
 /* =====================================================
-   21. OFFER DRAW
+   24. OFFER DRAW
 ===================================================== */
 
-function offerDraw() {
+async function offerDraw() {
     if (!state.active || state.finished) {
         return false;
     }
 
-    if (state.mode === "online") {
-        const onlineModule = online();
-
-        if (
-            onlineModule &&
-            typeof onlineModule.offerDraw === "function"
-        ) {
-            return onlineModule.offerDraw();
-        }
-
-        notify("Online draw offer is not available yet.", "warning");
+    if (state.mode !== "online") {
+        notify("Draw offers are available in online games.", "info");
         return false;
     }
 
-    const gameController = game();
+    const online = getOnline();
 
-    if (
-        gameController &&
-        typeof gameController.offerDraw === "function"
-    ) {
-        return gameController.offerDraw();
+    if (!online || typeof online.offerDraw !== "function") {
+        return false;
     }
 
-    return false;
+    return await online.offerDraw();
 }
 
 
 /* =====================================================
-   22. PAUSE
+   25. RESPOND TO DRAW
+===================================================== */
+
+async function respondToDraw(accept) {
+    if (state.mode !== "online") {
+        return false;
+    }
+
+    const online = getOnline();
+
+    if (!online || typeof online.respondToDraw !== "function") {
+        return false;
+    }
+
+    return await online.respondToDraw(Boolean(accept));
+}
+
+
+/* =====================================================
+   26. PAUSE GAME
 ===================================================== */
 
 function pause() {
@@ -956,21 +973,12 @@ function pause() {
         return false;
     }
 
-    if (state.mode === "online") {
-        notify(
-            "Online games cannot be paused locally.",
-            "warning"
-        );
-
-        return false;
-    }
-
     state.paused = true;
 
-    const chessTimer = timer();
+    const timer = getTimer();
 
-    if (chessTimer && typeof chessTimer.pause === "function") {
-        chessTimer.pause();
+    if (timer && typeof timer.pause === "function") {
+        timer.pause();
     }
 
     emitStateChange();
@@ -980,7 +988,7 @@ function pause() {
 
 
 /* =====================================================
-   23. RESUME
+   27. RESUME GAME
 ===================================================== */
 
 function resume() {
@@ -990,10 +998,10 @@ function resume() {
 
     state.paused = false;
 
-    const chessTimer = timer();
+    const timer = getTimer();
 
-    if (chessTimer && typeof chessTimer.resume === "function") {
-        chessTimer.resume();
+    if (timer && typeof timer.resume === "function") {
+        timer.resume();
     }
 
     emitStateChange();
@@ -1003,32 +1011,19 @@ function resume() {
 
 
 /* =====================================================
-   24. STOP
+   28. STOP GAME
 ===================================================== */
 
 function stop() {
     state.active = false;
-    state.paused = false;
     state.finished = true;
+    state.paused = false;
+    state.moveInProgress = false;
 
-    state.aiThinking = false;
+    const timer = getTimer();
 
-    state.lastMove = null;
-    state.lastSyncedFen = null;
-
-    const chessTimer = timer();
-
-    if (chessTimer && typeof chessTimer.stop === "function") {
-        chessTimer.stop();
-    }
-
-    const chessBoard = board();
-
-    if (
-        chessBoard &&
-        typeof chessBoard.clearSelection === "function"
-    ) {
-        chessBoard.clearSelection();
+    if (timer && typeof timer.stop === "function") {
+        timer.stop();
     }
 
     emitStateChange();
@@ -1038,91 +1033,80 @@ function stop() {
 
 
 /* =====================================================
-   25. LEAVE ONLINE ROOM
+   29. LEAVE ONLINE ROOM
 ===================================================== */
 
-function leaveRoom() {
-    const onlineModule = online();
+async function leaveRoom() {
+    const online = getOnline();
 
-    if (
-        onlineModule &&
-        typeof onlineModule.leaveRoom === "function"
-    ) {
-        onlineModule.leaveRoom();
+    if (online && typeof online.leaveRoom === "function") {
+        await online.leaveRoom();
     }
-
-    state.currentRoom = null;
-    state.roomHandlerBound = false;
 
     stop();
 
     state.mode = "offline";
+    state.roomCode = null;
+    state.roomHandlerBound = false;
+
+    emitStateChange();
 
     return true;
 }
 
 
 /* =====================================================
-   26. SET STATE CHANGE CALLBACK
-===================================================== */
-
-function setStateChangeHandler(callback) {
-    state.onStateChange =
-        typeof callback === "function"
-            ? callback
-            : null;
-
-    return true;
-}
-
-
-/* =====================================================
-   27. GET STATE
+   30. GET CURRENT STATE
 ===================================================== */
 
 function getState() {
     return {
-        initialized: state.initialized,
         mode: state.mode,
         active: state.active,
-        paused: state.paused,
         finished: state.finished,
+        paused: state.paused,
 
         playerColor: state.playerColor,
-        currentRoom: state.currentRoom,
+        opponentColor: state.opponentColor,
 
-        aiThinking: state.aiThinking,
-        aiDifficulty: state.aiDifficulty,
+        roomCode: state.roomCode,
+        difficulty: state.difficulty,
 
-        lastSyncedFen: state.lastSyncedFen
+        roomHandlerBound: state.roomHandlerBound,
+        moveInProgress: state.moveInProgress,
+
+        lastPosition: state.lastPosition,
+        lastMove: state.lastMove
     };
 }
 
 
 /* =====================================================
-   28. DESTROY
+   31. DESTROY CONTROLLER
 ===================================================== */
 
 function destroy() {
     stop();
 
-    state.initialized = false;
-    state.moveHandlerBound = false;
-    state.roomHandlerBound = false;
+    const board = getBoard();
+
+    if (board && typeof board.setMoveHandler === "function") {
+        board.setMoveHandler(null);
+    }
 
     state.onStateChange = null;
+    state.onGameEnd = null;
+    state.roomHandlerBound = false;
 
     return true;
 }
 
 
 /* =====================================================
-   29. PUBLIC API
+   32. PUBLIC API
 ===================================================== */
 
 return {
-    init: init,
-
     startOffline: startOffline,
     startComputer: startComputer,
     startOnline: startOnline,
@@ -1133,32 +1117,32 @@ return {
 
     handlePlayerMove: handlePlayerMove,
     handleOnlineMove: handleOnlineMove,
-    playComputerTurn: playComputerTurn,
-
-    afterSuccessfulMove: afterSuccessfulMove,
     handleRoomUpdate: handleRoomUpdate,
 
+    playComputerTurn: playComputerTurn,
+    afterSuccessfulMove: afterSuccessfulMove,
     checkGameEnd: checkGameEnd,
 
     resign: resign,
     offerDraw: offerDraw,
+    respondToDraw: respondToDraw,
 
     pause: pause,
     resume: resume,
-
     stop: stop,
     leaveRoom: leaveRoom,
 
     setStateChangeHandler: setStateChangeHandler,
-
+    setGameEndHandler: setGameEndHandler,
     getState: getState,
+
     destroy: destroy
 };
 
 })();
 
+
 /* =========================================================
    APPARA CHESS — MULTIPLAYER CONTROLLER
-   PART 21H COMPLETE
-   FILE: js/multiplayer.js COMPLETE
+   PART 21J COMPLETE
 ========================================================= */
