@@ -1,18 +1,26 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-    <meta name="theme-color" content="#090914">
-    <meta name="description" content="APPARA CHESS - Premium 3D Chess Experience.">
+    <meta name="theme-color" content="#090811">
+    <meta name="description" content="APPARA CHESS - The Royal Chess Experience.">
     <meta name="author" content="Subhash Yadav">
+
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="APPARA CHESS">
 
     <title>APPARA CHESS</title>
 
-    <link rel="icon" href="assets/images/favicon.png">
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icons/app-icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icons/app-icon.svg">
 
+    <!-- FONTS -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
@@ -24,7 +32,7 @@
     <link rel="stylesheet" href="css/animations.css">
     <link rel="stylesheet" href="css/responsive.css">
 
-    <!-- EXISTING CHESS ENGINE -->
+    <!-- CHESS ENGINE -->
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 
     <!-- FIREBASE -->
@@ -57,9 +65,6 @@
 
     <!-- MAIN CONTROLLER — ALWAYS LAST -->
     <script defer src="js/app.js"></script>
-
-    <!-- NEW LUXURY HOME DESIGN CSS WILL BE ADDED IN PART 6 -->
-
 </head>
 
 <body>
@@ -87,10 +92,8 @@
 
     </div>
 
-
     <!-- MAIN APPLICATION -->
     <div id="app" class="app-container">
-
 
         <!-- HEADER — USED ON INNER PAGES -->
         <header class="app-header" id="app-header">
@@ -149,7 +152,6 @@
 
         </header>
 
-
         <!-- SIDE MENU -->
         <aside
             class="side-menu"
@@ -176,7 +178,6 @@
                 </button>
 
             </div>
-
 
             <nav class="side-navigation">
 
@@ -222,14 +223,12 @@
 
             </nav>
 
-
             <div class="side-menu-footer">
                 <span>APPARA CHESS</span>
                 <small>VERSION 2.0</small>
             </div>
 
         </aside>
-
 
         <!-- MENU OVERLAY -->
         <div
@@ -238,12 +237,9 @@
             aria-hidden="true"
         ></div>
 
-
         <!-- MAIN CONTENT START -->
         <main class="main-content">
-
-<!-- PART 1/6 END — NEXT PART STARTS WITH NEW LANDSCAPE HOME PAGE -->
-        
+            
 <!-- ==========================================
  APPARA CHESS — LANDSCAPE LUXURY HOME PAGE
  PART 2/6
@@ -267,7 +263,6 @@
             </button>
 
             <div class="lux-profile-info">
-
                 <strong id="lux-player-name">APPARA KING</strong>
 
                 <span>
@@ -280,11 +275,9 @@
                 </div>
 
                 <small>ROYAL PLAYER</small>
-
             </div>
 
         </div>
-
 
         <!-- TOP RIGHT WALLET -->
         <div class="lux-top-actions">
@@ -292,55 +285,21 @@
             <div class="lux-currency">
                 <span>🪙</span>
                 <strong id="lux-coins">2,500</strong>
-
-                <button
-                    type="button"
-                    data-lux-action="shop"
-                    aria-label="Open coin shop"
-                >+</button>
+                <button type="button" data-lux-action="shop" aria-label="Open coin shop">+</button>
             </div>
 
             <div class="lux-currency">
                 <span>💎</span>
                 <strong id="lux-gems">50</strong>
-
-                <button
-                    type="button"
-                    data-lux-action="gems"
-                    aria-label="Open gems"
-                >+</button>
+                <button type="button" data-lux-action="gems" aria-label="Open gems">+</button>
             </div>
 
-            <button
-                class="lux-round-button"
-                data-page="leaderboard"
-                type="button"
-                aria-label="Leaderboard"
-            >🏆</button>
-
-            <button
-                class="lux-round-button"
-                data-lux-action="rewards"
-                type="button"
-                aria-label="Rewards"
-            >🎁</button>
-
-            <button
-                class="lux-round-button"
-                data-page="profile"
-                type="button"
-                aria-label="Friends and profile"
-            >👥</button>
-
-            <button
-                class="lux-round-button"
-                data-page="settings"
-                type="button"
-                aria-label="Settings"
-            >⚙</button>
+            <button class="lux-round-button" data-page="leaderboard" type="button" aria-label="Leaderboard">🏆</button>
+            <button class="lux-round-button" data-lux-action="rewards" type="button" aria-label="Rewards">🎁</button>
+            <button class="lux-round-button" data-page="profile" type="button" aria-label="Friends and profile">👥</button>
+            <button class="lux-round-button" data-page="settings" type="button" aria-label="Settings">⚙</button>
 
         </div>
-
 
         <!-- MAIN ROYAL ARENA -->
         <div class="lux-arena">
@@ -353,7 +312,6 @@
                 <span></span>
                 <span></span>
             </div>
-
 
             <!-- GAME TITLE -->
             <div class="lux-palace-title">
@@ -373,12 +331,10 @@
 
             </div>
 
-
             <!-- CENTRAL 3D CHESS DISPLAY -->
             <div class="lux-chess-stage">
 
                 <div class="lux-stage-light"></div>
-
                 <div class="lux-stage-ring lux-ring-one"></div>
                 <div class="lux-stage-ring lux-ring-two"></div>
 
@@ -387,32 +343,14 @@
                     <div class="lux-stage-board">
 
                         <div class="lux-board-squares"></div>
-
                         <div class="lux-board-border"></div>
 
-                        <div class="lux-board-piece lux-piece-one">
-                            ♜
-                        </div>
-
-                        <div class="lux-board-piece lux-piece-two">
-                            ♞
-                        </div>
-
-                        <div class="lux-board-piece lux-piece-three">
-                            ♛
-                        </div>
-
-                        <div class="lux-board-piece lux-piece-four">
-                            ♝
-                        </div>
-
-                        <div class="lux-board-piece lux-piece-five">
-                            ♚
-                        </div>
-
-                        <div class="lux-board-piece lux-piece-six">
-                            ♟
-                        </div>
+                        <div class="lux-board-piece lux-piece-one">♜</div>
+                        <div class="lux-board-piece lux-piece-two">♞</div>
+                        <div class="lux-board-piece lux-piece-three">♛</div>
+                        <div class="lux-board-piece lux-piece-four">♝</div>
+                        <div class="lux-board-piece lux-piece-five">♚</div>
+                        <div class="lux-board-piece lux-piece-six">♟</div>
 
                     </div>
 
@@ -422,13 +360,8 @@
 
             </div>
 
-
             <!-- PLAY NOW -->
-            <button
-                class="lux-play-now"
-                id="quick-play-btn"
-                type="button"
-            >
+            <button class="lux-play-now" id="quick-play-btn" type="button">
 
                 <span class="lux-play-icon">♞</span>
 
@@ -441,13 +374,11 @@
 
             </button>
 
-
             <div class="lux-arena-tagline">
                 <span>✦</span>
                 STRATEGY • HONOUR • VICTORY
                 <span>✦</span>
             </div>
-
 
             <!-- RIGHT SIDE GAME MODES -->
             <div class="lux-mode-stack">
@@ -457,123 +388,67 @@
                     <i></i>
                 </div>
 
-
-                <button
-                    class="lux-mode-card lux-offline"
-                    data-mode="computer"
-                    type="button"
-                >
-
+                <button class="lux-mode-card lux-offline" data-mode="computer" type="button">
                     <span class="lux-mode-icon">♟</span>
-
                     <span class="lux-mode-copy">
                         <strong>OFFLINE</strong>
                         <small>Play vs Computer</small>
                     </span>
-
                     <b>›</b>
-
                 </button>
 
-
-                <button
-                    class="lux-mode-card lux-online"
-                    data-mode="online"
-                    type="button"
-                >
-
+                <button class="lux-mode-card lux-online" data-mode="online" type="button">
                     <span class="lux-mode-icon">🌐</span>
-
                     <span class="lux-mode-copy">
                         <strong>ONLINE</strong>
                         <small>Play with Friends</small>
                     </span>
-
                     <b>›</b>
-
                 </button>
 
-
-                <button
-                    class="lux-mode-card lux-training"
-                    data-page="training"
-                    type="button"
-                >
-
+                <button class="lux-mode-card lux-training" data-page="training" type="button">
                     <span class="lux-mode-icon">🎓</span>
-
                     <span class="lux-mode-copy">
                         <strong>TRAINING</strong>
                         <small>Improve Your Skills</small>
                     </span>
-
                     <b>›</b>
-
                 </button>
 
-
-                <button
-                    class="lux-mode-card lux-puzzles"
-                    data-page="puzzles"
-                    type="button"
-                >
-
+                <button class="lux-mode-card lux-puzzles" data-page="puzzles" type="button">
                     <span class="lux-mode-icon">🧩</span>
-
                     <span class="lux-mode-copy">
                         <strong>PUZZLES</strong>
                         <small>Challenge Your Mind</small>
                     </span>
-
                     <b>›</b>
-
                 </button>
 
-
-                <button
-                    class="lux-mode-card lux-tournaments"
-                    data-page="tournament"
-                    type="button"
-                >
-
+                <button class="lux-mode-card lux-tournaments" data-page="tournament" type="button">
                     <span class="lux-mode-icon">🏆</span>
-
                     <span class="lux-mode-copy">
                         <strong>TOURNAMENTS</strong>
                         <small>Compete &amp; Win</small>
                     </span>
-
                     <b>›</b>
-
                 </button>
 
             </div>
 
         </div>
 
-
         <!-- BOTTOM FEATURE STRIP -->
         <div class="lux-bottom-row">
 
-
             <!-- CHESS WORLD -->
-            <button
-                class="lux-world-panel"
-                data-page="leaderboard"
-                type="button"
-            >
-
+            <button class="lux-world-panel" data-page="leaderboard" type="button">
                 <span class="lux-world-icon">🌍</span>
-
                 <span class="lux-bottom-copy">
                     <strong>CHESS WORLD</strong>
                     <small>Explore the Arena</small>
                 </span>
-
                 <b>›</b>
-
             </button>
-
 
             <!-- BOARD COLLECTION -->
             <div class="lux-themes-panel">
@@ -586,89 +461,45 @@
 
                 <div class="lux-theme-list">
 
-                    <button
-                        class="lux-theme-preview theme-classic active"
-                        data-theme-preview="classic"
-                        data-lux-action="theme"
-                        type="button"
-                        aria-label="Classic board"
-                    >
+                    <button class="lux-theme-preview theme-classic active" data-theme-preview="classic" data-lux-action="theme" type="button" aria-label="Classic board">
                         <span></span>
                     </button>
 
-                    <button
-                        class="lux-theme-preview theme-silver"
-                        data-theme-preview="silver"
-                        data-lux-action="theme"
-                        type="button"
-                        aria-label="Silver board"
-                    >
+                    <button class="lux-theme-preview theme-silver" data-theme-preview="silver" data-lux-action="theme" type="button" aria-label="Silver board">
                         <span></span>
                     </button>
 
-                    <button
-                        class="lux-theme-preview theme-blue"
-                        data-theme-preview="blue"
-                        data-lux-action="theme"
-                        type="button"
-                        aria-label="Blue board"
-                    >
+                    <button class="lux-theme-preview theme-blue" data-theme-preview="blue" data-lux-action="theme" type="button" aria-label="Blue board">
                         <span></span>
                     </button>
 
-                    <button
-                        class="lux-theme-preview theme-purple"
-                        data-theme-preview="purple"
-                        data-lux-action="theme"
-                        type="button"
-                        aria-label="Purple board"
-                    >
+                    <button class="lux-theme-preview theme-purple" data-theme-preview="purple" data-lux-action="theme" type="button" aria-label="Purple board">
                         <span></span>
                     </button>
 
-                    <button
-                        class="lux-theme-preview theme-emerald"
-                        data-theme-preview="emerald"
-                        data-lux-action="theme"
-                        type="button"
-                        aria-label="Emerald board"
-                    >
+                    <button class="lux-theme-preview theme-emerald" data-theme-preview="emerald" data-lux-action="theme" type="button" aria-label="Emerald board">
                         <span></span>
                     </button>
 
                 </div>
 
-                <button
-                    class="lux-view-collection"
-                    data-lux-action="shop"
-                    type="button"
-                >
+                <button class="lux-view-collection" data-lux-action="shop" type="button">
                     VIEW COLLECTION
                 </button>
 
             </div>
 
-
             <!-- LEADERBOARD -->
-            <button
-                class="lux-leaderboard-panel"
-                data-page="leaderboard"
-                type="button"
-            >
-
+            <button class="lux-leaderboard-panel" data-page="leaderboard" type="button">
                 <span class="lux-trophy-icon">🏆</span>
-
                 <span class="lux-bottom-copy">
                     <strong>LEADERBOARD</strong>
                     <small>Top Chess Players</small>
                 </span>
-
                 <b>›</b>
-
             </button>
 
         </div>
-
 
         <!-- HOME PAGE FOOTER -->
         <div class="lux-home-footer">
@@ -682,8 +513,9 @@
 </section>
 
 <!-- PART 2/6 END -->
+                    
 <!-- NEXT PART: GAME PAGE -->
-         
+
 <!-- ==========================================
  APPARA CHESS — GAME PAGE
  PART 3/6
@@ -714,12 +546,10 @@
 
     </div>
 
-
     <!-- GAME LAYOUT -->
     <div class="game-layout">
 
         <div class="game-main">
-
 
             <!-- OPPONENT PLAYER -->
             <div class="player-panel opponent-panel">
@@ -746,7 +576,6 @@
                 </div>
 
             </div>
-
 
             <!-- CHESS BOARD -->
             <div class="board-wrapper">
@@ -783,7 +612,6 @@
 
             </div>
 
-
             <!-- CURRENT PLAYER -->
             <div class="player-panel current-player-panel">
 
@@ -814,7 +642,6 @@
                 </div>
 
             </div>
-
 
             <!-- GAME TOOLBAR -->
             <div class="game-toolbar">
@@ -863,10 +690,8 @@
 
         </div>
 
-
         <!-- GAME SIDEBAR -->
         <aside class="game-sidebar">
-
 
             <!-- MATCH STATUS -->
             <div class="sidebar-card">
@@ -884,7 +709,6 @@
                 </p>
 
             </div>
-
 
             <!-- MOVE HISTORY -->
             <div class="sidebar-card">
@@ -910,7 +734,6 @@
 
             </div>
 
-
             <!-- CAPTURED PIECES -->
             <div class="sidebar-card">
 
@@ -928,7 +751,6 @@
 
             </div>
 
-
         </aside>
 
     </div>
@@ -936,8 +758,9 @@
 </section>
 
 <!-- PART 3/6 END -->
-<!-- NEXT PART: ONLINE, TRAINING AND PUZZLES -->
           
+<!-- NEXT PART: ONLINE, TRAINING AND PUZZLES -->
+
 <!-- ==========================================
  APPARA CHESS — ONLINE PAGE
  PART 4/6
@@ -960,7 +783,6 @@
 
     </div>
 
-
     <div class="online-grid">
 
         <!-- QUICK MATCH -->
@@ -978,7 +800,6 @@
 
         </div>
 
-
         <!-- CREATE ROOM -->
         <div class="online-card">
 
@@ -993,7 +814,6 @@
             </button>
 
         </div>
-
 
         <!-- JOIN ROOM -->
         <div class="online-card">
@@ -1018,7 +838,6 @@
 
         </div>
 
-
         <!-- FRIENDS -->
         <div class="online-card">
 
@@ -1036,15 +855,12 @@
 
     </div>
 
-
     <div class="online-room-status" id="online-room-status">
         <span>♟</span>
         <p>Waiting for an online match.</p>
     </div>
 
 </section>
-
-
 
 <!-- ==========================================
  APPARA CHESS — TRAINING PAGE
@@ -1063,7 +879,6 @@
 
     </div>
 
-
     <div class="training-hero">
 
         <div class="training-hero-icon">♞</div>
@@ -1073,7 +888,6 @@
         <p>Learn tactics, strategy and master-level techniques.</p>
 
     </div>
-
 
     <div class="training-categories">
 
@@ -1103,7 +917,6 @@
 
     </div>
 
-
     <div class="training-content-panel" id="training-content">
 
         <h3>Training Centre</h3>
@@ -1113,8 +926,6 @@
     </div>
 
 </section>
-
-
 
 <!-- ==========================================
  APPARA CHESS — PUZZLES PAGE
@@ -1133,7 +944,6 @@
 
     </div>
 
-
     <div class="puzzle-main-card">
 
         <div class="puzzle-heading">
@@ -1147,7 +957,6 @@
 
         </div>
 
-
         <div class="puzzle-board-area">
 
             <div
@@ -1157,7 +966,6 @@
             ></div>
 
         </div>
-
 
         <div class="puzzle-information">
 
@@ -1181,7 +989,6 @@
 
     </div>
 
-
     <div class="puzzle-stats">
 
         <div class="stat-card">
@@ -1199,8 +1006,9 @@
 </section>
 
 <!-- PART 4/6 END -->
+         
 <!-- NEXT PART: TOURNAMENT, LEADERBOARD, PROFILE, SETTINGS, ABOUT -->
-           
+
 <!-- =========================================
      PART 5/6 START
      TOURNAMENT, LEADERBOARD, PROFILE,
@@ -1274,7 +1082,6 @@
   <div id="tournament-details"></div>
 </section>
 
-
 <!-- LEADERBOARD PAGE -->
 <section class="page" id="page-leaderboard">
   <div class="page-header">
@@ -1308,7 +1115,6 @@
     </div>
   </div>
 </section>
-
 
 <!-- PROFILE PAGE -->
 <section class="page" id="page-profile">
@@ -1370,7 +1176,6 @@
     </div>
   </div>
 </section>
-
 
 <!-- SETTINGS PAGE -->
 <section class="page" id="page-settings">
@@ -1496,7 +1301,6 @@
   </div>
 </section>
 
-
 <!-- ABOUT PAGE -->
 <section class="page" id="page-about">
   <div class="page-header">
@@ -1566,7 +1370,7 @@
 </section>
 
 <!-- PART 5/6 END -->
-    
+            
 <!-- =========================================
      PART 6/6 START
      FINAL DESIGN + SHOP + FUNCTIONAL SYSTEM
@@ -1612,16 +1416,6 @@
 <!-- NOTIFICATIONS -->
 <div class="notification-container" id="notification-container"
   aria-live="polite" aria-atomic="true"></div>
-
-<!-- ROTATE SCREEN MESSAGE -->
-<div id="rotate-screen-overlay">
-  <div class="rotate-card">
-    <div class="rotate-icon">📱</div>
-    <h2>Rotate Your Device</h2>
-    <p>APPARA CHESS is designed for landscape mode.</p>
-    <span>Turn your phone horizontally to continue.</span>
-  </div>
-</div>
 
 <!-- LUXURY DESIGN CSS -->
 <style>
@@ -2414,51 +2208,7 @@ body:has(#page-home.active) #app-header #sound-toggle {
   font-size:26px;
 }
 
-#rotate-screen-overlay {
-  display:none;
-  position:fixed;
-  inset:0;
-  z-index:99999;
-  background:#0b0812;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-  padding:25px;
-}
-
-.rotate-card {
-  max-width:320px;
-  padding:25px;
-  border:1px solid #c19b5e;
-  border-radius:18px;
-  background:#21172e;
-}
-
-.rotate-icon {
-  font-size:45px;
-}
-
-.rotate-card h2 {
-  color:#f4d695;
-}
-
-.rotate-card p,
-.rotate-card span {
-  color:#c8b6d8;
-  font-size:13px;
-}
-
-@media (orientation:portrait) {
-  #rotate-screen-overlay {
-    display:flex;
-  }
-}
-
-@media (orientation:landscape) {
-  #rotate-screen-overlay {
-    display:none;
-  }
-}
+/* RESPONSIVE LANDSCAPE HOME */
 
 @media (max-width:700px) and (orientation:landscape) {
   .lux-home {
@@ -2718,7 +2468,7 @@ body:has(#page-home.active) #app-header #sound-toggle {
         notify("Not enough coins. Play games to earn more!");
         return;
       }
-        state.coins -= item.price;
+      state.coins -= item.price;
       owned.push(id);
       notify(item.name + " purchased successfully!");
     }
@@ -2748,8 +2498,7 @@ body:has(#page-home.active) #app-header #sound-toggle {
         `);
       }
     }
-
-    const switchTab = event.target.closest("[data-shop-switch]");
+      const switchTab = event.target.closest("[data-shop-switch]");
     if (switchTab) {
       renderShop(switchTab.dataset.shopSwitch);
     }
@@ -2798,7 +2547,8 @@ body:has(#page-home.active) #app-header #sound-toggle {
       }
     });
   }
-      /* SETTINGS CONTROL SYNC */
+
+  /* SETTINGS CONTROL SYNC */
   const oldSound = document.getElementById("sound-toggle");
   const newSound = document.getElementById("settings-sound-toggle");
   const oldMusic = document.getElementById("music-toggle");
@@ -2832,10 +2582,10 @@ body:has(#page-home.active) #app-header #sound-toggle {
       } catch(e) {}
     });
   }
-
   syncVolume("settings-music-volume","appara_music_volume");
   syncVolume("settings-sound-volume","appara_sound_volume");
-    /* OPTIONAL LANDSCAPE LOCK AFTER USER INTERACTION */
+
+  /* BEST-EFFORT LANDSCAPE LOCK */
   document.addEventListener("click",function() {
     try {
       if (screen.orientation &&
@@ -2849,7 +2599,7 @@ body:has(#page-home.active) #app-header #sound-toggle {
   updateWallet();
   applyCollection();
 
-  /* Update compact home profile label when profile data exists */
+  /* UPDATE COMPACT HOME PROFILE LABEL */
   const profileName = document.getElementById("profile-name");
   const luxName = document.getElementById("lux-player-name");
   if (profileName && luxName &&
@@ -2857,6 +2607,17 @@ body:has(#page-home.active) #app-header #sound-toggle {
     luxName.textContent = profileName.textContent.trim();
   }
 })();
+</script>
+
+<!-- PWA SERVICE WORKER REGISTRATION -->
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("./sw.js")
+      .catch(error => console.log("PWA:", error));
+  });
+}
 </script>
 
 <!-- =========================================
@@ -2867,3 +2628,5 @@ body:has(#page-home.active) #app-header #sound-toggle {
 </div>
 </body>
 </html>
+
+      
