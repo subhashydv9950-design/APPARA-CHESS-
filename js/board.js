@@ -1,13 +1,24 @@
 /* =========================================================
    APPARA CHESS — BOARD CONTROLLER
-   PART 09 — js/board.js
-   ========================================================= */
+   Complete replacement: js/board.js
+========================================================= */
 
 (function () {
   "use strict";
 
   const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
   const RANKS = ["8", "7", "6", "5", "4", "3", "2", "1"];
+
+  const PIECES = {
+    white: {
+      k: "♔", q: "♕", r: "♖",
+      b: "♗", n: "♘", p: "♙"
+    },
+    black: {
+      k: "♚", q: "♛", r: "♜",
+      b: "♝", n: "♞", p: "♟"
+    }
+  };
 
   const Board = {
     initialized: false,
@@ -22,10 +33,12 @@
     draggable: true,
     theme: "classic",
     boardElement: null,
+
     boundClickHandler: null,
     boundDragStartHandler: null,
     boundDragOverHandler: null,
     boundDropHandler: null,
+    boundKeyHandler: null,
 
     /* ---------- INITIALIZATION ---------- */
 
@@ -33,12 +46,12 @@
       this.boardElement = document.getElementById("chess-board");
 
       if (!this.boardElement) {
-        console.error("APPARA BOARD: #chess-board element not found.");
+        console.error("APPARA BOARD: #chess-board not found.");
         return false;
       }
 
       if (!window.APPARA_ENGINE) {
-        console.error("APPARA BOARD: Chess engine is not loaded.");
+        console.error("APPARA BOARD: Chess engine missing.");
         return false;
       }
 
@@ -47,22 +60,34 @@
         return true;
       }
 
-      this.moveHandler = typeof options.onMove === "function"
-        ? options.onMove
-        : null;
+      this.moveHandler =
+        typeof options.onMove === "function"
+          ? options.onMove
+          : null;
 
-      this.promotionHandler = typeof options.onPromotion === "function"
-        ? options.onPromotion
-        : null;
+      this.promotionHandler =
+        typeof options.onPromotion === "function"
+          ? options.onPromotion
+          : null;
 
       this.showCoordinates = options.coordinates !== false;
       this.showLegalMoves = options.legalMoves !== false;
       this.draggable = options.draggable !== false;
 
-      this.boundClickHandler = this.handleBoardClick.bind(this);
-      this.boundDragStartHandler = this.handleDragStart.bind(this);
-      this.boundDragOverHandler = this.handleDragOver.bind(this);
-      this.boundDropHandler = this.handleDrop.bind(this);
+      this.boundClickHandler =
+        this.handleBoardClick.bind(this);
+
+      this.boundDragStartHandler =
+        this.handleDragStart.bind(this);
+
+      this.boundDragOverHandler =
+        this.handleDragOver.bind(this);
+
+      this.boundDropHandler =
+        this.handleDrop.bind(this);
+
+      this.boundKeyHandler =
+        this.handleBoardKey.bind(this);
 
       this.boardElement.addEventListener(
         "click",
@@ -84,6 +109,11 @@
         this.boundDropHandler
       );
 
+      this.boardElement.addEventListener(
+        "keydown",
+        this.boundKeyHandler
+      );
+
       this.initialized = true;
 
       this.setTheme(this.theme);
@@ -92,47 +122,26 @@
       return true;
     },
 
-    /* ---------- PIECE SYMBOLS ---------- */
+    /* ---------- PIECE SYMBOL ---------- */
 
     getPieceSymbol(piece) {
       if (!piece) return "";
 
+      const color = piece.color === "w" ? "white" : "black";
+      const type = String(piece.type || "").toLowerCase();
+
       const config = window.APPARA_CONFIG || {};
-      const pieces = config.pieces || {};
-
-      const colorName = piece.color === "w" ? "white" : "black";
-      const pieceType = String(piece.type || "").toLowerCase();
-
-      const fallback = {
-        white: {
-          k: "♔",
-          q: "♕",
-          r: "♖",
-          b: "♗",
-          n: "♘",
-          p: "♙"
-        },
-        black: {
-          k: "♚",
-          q: "♛",
-          r: "♜",
-          b: "♝",
-          n: "♞",
-          p: "♟"
-        }
-      };
-
-      const configuredColor = pieces[colorName] || {};
+      const configured = config.pieces || {};
+      const colorPieces = configured[color] || {};
 
       return (
-        configuredColor[pieceType] ||
-        configuredColor[pieceType.toUpperCase()] ||
-        fallback[colorName][pieceType] ||
+        colorPieces[type] ||
+        PIECES[color][type] ||
         ""
       );
     },
 
-    /* ---------- SQUARE CREATION ---------- */
+    /* ---------- CREATE SQUARE ---------- */
 
     createSquare(squareName, piece) {
       const square = document.createElement("div");
@@ -172,15 +181,19 @@
       return square;
     },
 
-    /* ---------- BOARD RENDER ---------- */
+    /* ---------- RENDER BOARD ---------- */
 
     render() {
       if (!this.boardElement) return false;
 
       const engine = window.APPARA_ENGINE;
+      if (!engine) return false;
+
       const boardData = engine.getBoard();
 
-      if (!Array.isArray(boardData)) return false;
+      if (!Array.isArray(boardData) || boardData.length !== 8) {
+        return false;
+      }
 
       this.boardElement.replaceChildren();
 
@@ -199,12 +212,9 @@
 
           const piece = boardData[rankIndex][fileIndex];
 
-          const square = this.createSquare(
-            squareName,
-            piece
+          this.boardElement.appendChild(
+            this.createSquare(squareName, piece)
           );
-
-          this.boardElement.appendChild(square);
         });
       });
 
@@ -218,22 +228,6 @@
     /* ---------- COORDINATES ---------- */
 
     updateCoordinates() {
-      const top = document.getElementById(
-        "file-coordinates-top"
-      );
-
-      const bottom = document.getElementById(
-        "file-coordinates-bottom"
-      );
-
-      const left = document.getElementById(
-        "rank-coordinates-left"
-      );
-
-      const right = document.getElementById(
-        "rank-coordinates-right"
-      );
-
       const files = this.orientation === "white"
         ? FILES
         : [...FILES].reverse();
@@ -242,7 +236,15 @@
         ? RANKS
         : [...RANKS].reverse();
 
-      const fill = (element, values) => {
+      const elements = [
+        ["file-coordinates-top", files],
+        ["file-coordinates-bottom", files],
+        ["rank-coordinates-left", ranks],
+        ["rank-coordinates-right", ranks]
+      ];
+
+      elements.forEach(([id, values]) => {
+        const element = document.getElementById(id);
         if (!element) return;
 
         element.replaceChildren();
@@ -254,12 +256,7 @@
         });
 
         element.hidden = !this.showCoordinates;
-      };
-
-      fill(top, files);
-      fill(bottom, files);
-      fill(left, ranks);
-      fill(right, ranks);
+      });
     },
 
     setCoordinates(enabled) {
@@ -267,19 +264,29 @@
       this.updateCoordinates();
     },
 
-    /* ---------- SQUARE SELECTION ---------- */
+    /* ---------- CLICK AND KEYBOARD ---------- */
 
     handleBoardClick(event) {
-      const squareElement = event.target.closest(
-        "[data-square]"
-      );
+      const square = event.target.closest("[data-square]");
 
-      if (!squareElement || !this.boardElement.contains(squareElement)) {
+      if (!square || !this.boardElement.contains(square)) {
         return;
       }
 
-      this.selectSquare(squareElement.dataset.square);
+      this.selectSquare(square.dataset.square);
     },
+
+    handleBoardKey(event) {
+      if (event.key !== "Enter" && event.key !== " ") return;
+
+      const square = event.target.closest("[data-square]");
+      if (!square) return;
+
+      event.preventDefault();
+      this.selectSquare(square.dataset.square);
+    },
+
+    /* ---------- SELECTION ---------- */
 
     selectSquare(squareName) {
       if (!this.isValidSquare(squareName)) return false;
@@ -300,16 +307,18 @@
         );
 
         if (matchingMove) {
-          this.submitMove(selected, squareName, matchingMove);
-          return true;
+          return this.submitMove(
+            selected,
+            squareName,
+            matchingMove
+          );
         }
 
         if (
           clickedPiece &&
           clickedPiece.color === engine.turn()
         ) {
-          this.setSelection(squareName);
-          return true;
+          return this.setSelection(squareName);
         }
 
         this.clearSelection();
@@ -320,8 +329,7 @@
         clickedPiece &&
         clickedPiece.color === engine.turn()
       ) {
-        this.setSelection(squareName);
-        return true;
+        return this.setSelection(squareName);
       }
 
       return false;
@@ -337,12 +345,12 @@
       this.legalMoves = Array.isArray(moves) ? moves : [];
 
       this.updateHighlights();
+      return true;
     },
 
     clearSelection() {
       this.selectedSquare = null;
       this.legalMoves = [];
-
       this.updateHighlights();
     },
 
@@ -350,45 +358,61 @@
       return this.selectedSquare;
     },
 
+    /* ---------- PROMOTION ---------- */
+
+    getPromotion(piece, from, to) {
+      if (
+        !piece ||
+        piece.type !== "p" ||
+        (to[1] !== "8" && to[1] !== "1")
+      ) {
+        return "q";
+      }
+
+      if (!this.promotionHandler) return "q";
+
+      const result = this.promotionHandler({
+        from,
+        to,
+        color: piece.color
+      });
+
+      if (
+        typeof result === "string" &&
+        ["q", "r", "b", "n"].includes(result.toLowerCase())
+      ) {
+        return result.toLowerCase();
+      }
+
+      return "q";
+    },
+
     /* ---------- MOVE SUBMISSION ---------- */
 
     submitMove(from, to, matchingMove) {
-      const piece = window.APPARA_ENGINE.getPiece(from);
+      const engine = window.APPARA_ENGINE;
+      const piece = engine.getPiece(from);
 
-      let promotion = "q";
+      if (!piece) return false;
 
-      if (
-        piece &&
-        piece.type === "p" &&
-        (to[1] === "8" || to[1] === "1")
-      ) {
-        if (this.promotionHandler) {
-          const selectedPromotion = this.promotionHandler({
-            from,
-            to,
-            color: piece.color
-          });
-
-          if (
-            selectedPromotion &&
-            ["q", "r", "b", "n"].includes(
-              String(selectedPromotion).toLowerCase()
-            )
-          ) {
-            promotion = String(selectedPromotion).toLowerCase();
-          }
-        }
-      }
+      const promotion = this.getPromotion(piece, from, to);
 
       const moveData = {
-        from,
-        to,
-        promotion,
+        from: from,
+        to: to,
+        promotion: promotion,
         san: matchingMove ? matchingMove.san : null
       };
 
       if (this.moveHandler) {
-        const result = this.moveHandler(moveData);
+        let result;
+
+        try {
+          result = this.moveHandler(moveData);
+        } catch (error) {
+          console.error("APPARA BOARD: Move handler failed.", error);
+          return false;
+        }
 
         if (result === false) {
           this.updateHighlights();
@@ -398,6 +422,7 @@
         if (result && typeof result.then === "function") {
           result.then((success) => {
             if (success !== false) {
+              this.lastMove = { from, to };
               this.clearSelection();
               this.render();
             }
@@ -408,12 +433,23 @@
           return true;
         }
 
+        this.lastMove = { from, to };
         this.clearSelection();
         this.render();
+
         return true;
       }
 
-      const result = window.APPARA_ENGINE.move(moveData);
+      /* IMPORTANT:
+         Chess Engine expects move(from, to, promotion).
+         Do not pass the complete object here.
+      */
+
+      const result = engine.move(
+        from,
+        to,
+        promotion
+      );
 
       if (!result) {
         this.updateHighlights();
@@ -421,8 +457,8 @@
       }
 
       this.lastMove = {
-        from,
-        to
+        from: from,
+        to: to
       };
 
       this.clearSelection();
@@ -432,18 +468,16 @@
     },
 
     setMoveHandler(callback) {
-      this.moveHandler = typeof callback === "function"
-        ? callback
-        : null;
+      this.moveHandler =
+        typeof callback === "function" ? callback : null;
     },
 
     setPromotionHandler(callback) {
-      this.promotionHandler = typeof callback === "function"
-        ? callback
-        : null;
+      this.promotionHandler =
+        typeof callback === "function" ? callback : null;
     },
 
-    /* ---------- LEGAL MOVE HIGHLIGHTS ---------- */
+    /* ---------- HIGHLIGHTS ---------- */
 
     updateHighlights() {
       if (!this.boardElement) return;
@@ -462,13 +496,14 @@
 
         const name = square.dataset.square;
 
-        if (this.lastMove) {
-          if (
+        if (
+          this.lastMove &&
+          (
             name === this.lastMove.from ||
             name === this.lastMove.to
-          ) {
-            square.classList.add("last-move");
-          }
+          )
+        ) {
+          square.classList.add("last-move");
         }
 
         if (name === this.selectedSquare) {
@@ -499,9 +534,13 @@
       if (!this.boardElement) return;
 
       this.boardElement.querySelectorAll(
-        ".in-check"
+        ".in-check, .check, .king-in-check"
       ).forEach((element) => {
-        element.classList.remove("in-check");
+        element.classList.remove(
+          "in-check",
+          "check",
+          "king-in-check"
+        );
       });
 
       const engine = window.APPARA_ENGINE;
@@ -540,7 +579,10 @@
     /* ---------- LAST MOVE ---------- */
 
     setLastMove(from, to) {
-      if (!this.isValidSquare(from) || !this.isValidSquare(to)) {
+      if (
+        !this.isValidSquare(from) ||
+        !this.isValidSquare(to)
+      ) {
         return false;
       }
 
@@ -558,19 +600,14 @@
     /* ---------- DRAG AND DROP ---------- */
 
     handleDragStart(event) {
-      const pieceElement = event.target.closest(
-        ".chess-piece"
-      );
+      const pieceElement = event.target.closest(".chess-piece");
 
       if (!pieceElement || !this.draggable) {
         event.preventDefault();
         return;
       }
 
-      const squareElement = pieceElement.closest(
-        "[data-square]"
-      );
-
+      const squareElement = pieceElement.closest("[data-square]");
       if (!squareElement) {
         event.preventDefault();
         return;
@@ -590,11 +627,7 @@
       this.setSelection(squareName);
 
       if (event.dataTransfer) {
-        event.dataTransfer.setData(
-          "text/plain",
-          squareName
-        );
-
+        event.dataTransfer.setData("text/plain", squareName);
         event.dataTransfer.effectAllowed = "move";
       }
     },
@@ -633,12 +666,11 @@
       }
     },
 
-    /* ---------- BOARD ORIENTATION ---------- */
+    /* ---------- ORIENTATION ---------- */
 
     flip() {
-      this.orientation = this.orientation === "white"
-        ? "black"
-        : "white";
+      this.orientation =
+        this.orientation === "white" ? "black" : "white";
 
       this.clearSelection();
       this.render();
@@ -647,9 +679,7 @@
     },
 
     setOrientation(color) {
-      this.orientation = color === "black"
-        ? "black"
-        : "white";
+      this.orientation = color === "black" ? "black" : "white";
 
       this.clearSelection();
       this.render();
@@ -661,7 +691,7 @@
       return this.orientation;
     },
 
-    /* ---------- BOARD THEME ---------- */
+    /* ---------- THEMES ---------- */
 
     setTheme(theme) {
       const allowedThemes = [
@@ -672,14 +702,12 @@
         "dark"
       ];
 
-      const selectedTheme = allowedThemes.includes(theme)
+      this.theme = allowedThemes.includes(theme)
         ? theme
         : "classic";
 
-      this.theme = selectedTheme;
-
       if (this.boardElement) {
-        this.boardElement.dataset.theme = selectedTheme;
+        this.boardElement.dataset.theme = this.theme;
 
         this.boardElement.classList.remove(
           "theme-classic",
@@ -690,11 +718,11 @@
         );
 
         this.boardElement.classList.add(
-          "theme-" + selectedTheme
+          "theme-" + this.theme
         );
       }
 
-      return selectedTheme;
+      return this.theme;
     },
 
     getTheme() {
@@ -744,11 +772,17 @@
         this.boundDropHandler
       );
 
+      this.boardElement.removeEventListener(
+        "keydown",
+        this.boundKeyHandler
+      );
+
       this.boardElement.replaceChildren();
 
       this.initialized = false;
       this.selectedSquare = null;
       this.legalMoves = [];
+      this.lastMove = null;
 
       return true;
     }
@@ -759,6 +793,5 @@
 })();
 
 /* =========================================================
-   APPARA CHESS — BOARD CONTROLLER
-   PART 09 END
-   ========================================================= */
+   END OF APPARA CHESS BOARD CONTROLLER
+========================================================= */
