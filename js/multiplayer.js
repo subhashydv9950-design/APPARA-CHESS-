@@ -1,16 +1,12 @@
 /* =========================================================
    APPARA CHESS — MULTIPLAYER CONTROLLER
-   PART 21J — ONLINE INTEGRATION REBUILD
+   REBUILT INTEGRATION
    FILE: js/multiplayer.js
-   PART 1/3
+   PART 1/3 START
 ========================================================= */
 
 window.APPARA_MULTIPLAYER = (function () {
     "use strict";
-
-    /* =====================================================
-       01. STATE
-    ===================================================== */
 
     const state = {
         mode: "offline",
@@ -24,20 +20,18 @@ window.APPARA_MULTIPLAYER = (function () {
         roomCode: null,
         difficulty: "medium",
 
-        roomHandlerBound: false,
         moveInProgress: false,
+        roomHandlerBound: false,
 
         onStateChange: null,
         onGameEnd: null,
 
-        lastPosition: null,
-        lastMove: null
+        lastMove: null,
+        lastPosition: null
     };
 
 
-    /* =====================================================
-       02. MODULE REFERENCES
-    ===================================================== */
+    /* MODULE REFERENCES */
 
     function getEngine() {
         return window.APPARA_ENGINE || null;
@@ -64,9 +58,7 @@ window.APPARA_MULTIPLAYER = (function () {
     }
 
 
-    /* =====================================================
-       03. NOTIFICATION
-    ===================================================== */
+    /* NOTIFICATIONS */
 
     function notify(message, type) {
         if (
@@ -74,21 +66,49 @@ window.APPARA_MULTIPLAYER = (function () {
             typeof window.APPARA_APP.notify === "function"
         ) {
             window.APPARA_APP.notify(message, type || "info");
-            return;
+        } else {
+            console.log("[APPARA MULTIPLAYER]", message);
         }
-
-        if (typeof window.showNotification === "function") {
-            window.showNotification(message, type || "info");
-            return;
-        }
-
-        console.log("[APPARA MULTIPLAYER]", message);
     }
 
 
-    /* =====================================================
-       04. STATE CHANGE
-    ===================================================== */
+    /* COLOR HELPERS */
+
+    function normalizeColor(color) {
+        if (color === "b" || color === "black") {
+            return "b";
+        }
+
+        return "w";
+    }
+
+    function getRoomColor() {
+        return state.playerColor === "w" ? "white" : "black";
+    }
+
+
+    /* STATE EVENTS */
+
+    function getState() {
+        return {
+            mode: state.mode,
+            active: state.active,
+            finished: state.finished,
+            paused: state.paused,
+
+            playerColor: state.playerColor,
+            opponentColor: state.opponentColor,
+
+            roomCode: state.roomCode,
+            difficulty: state.difficulty,
+
+            moveInProgress: state.moveInProgress,
+            roomHandlerBound: state.roomHandlerBound,
+
+            lastMove: state.lastMove,
+            lastPosition: state.lastPosition
+        };
+    }
 
     function emitStateChange() {
         if (typeof state.onStateChange === "function") {
@@ -107,9 +127,7 @@ window.APPARA_MULTIPLAYER = (function () {
     }
 
 
-    /* =====================================================
-       05. RESET STATE
-    ===================================================== */
+    /* RESET CONTROLLER */
 
     function resetState(mode) {
         state.mode = mode || "offline";
@@ -118,19 +136,17 @@ window.APPARA_MULTIPLAYER = (function () {
         state.paused = false;
 
         state.roomCode = null;
-        state.roomHandlerBound = false;
         state.moveInProgress = false;
+        state.roomHandlerBound = false;
 
-        state.lastPosition = null;
         state.lastMove = null;
+        state.lastPosition = null;
 
         emitStateChange();
     }
 
 
-    /* =====================================================
-       06. CHECK CONTROLLER AVAILABILITY
-    ===================================================== */
+    /* VALIDATE REQUIRED MODULES */
 
     function validateModules() {
         const engine = getEngine();
@@ -138,7 +154,7 @@ window.APPARA_MULTIPLAYER = (function () {
 
         if (!engine || !board) {
             notify(
-                "Chess engine or board controller is unavailable.",
+                "Chess Engine या Board उपलब्ध नहीं है।",
                 "error"
             );
 
@@ -149,28 +165,27 @@ window.APPARA_MULTIPLAYER = (function () {
     }
 
 
-    /* =====================================================
-       07. CONNECT BOARD
-    ===================================================== */
+    /* CONNECT BOARD */
 
     function connectBoard() {
         const board = getBoard();
 
-        if (!board || typeof board.setMoveHandler !== "function") {
+        if (
+            !board ||
+            typeof board.setMoveHandler !== "function"
+        ) {
             return false;
         }
 
         board.setMoveHandler(function (move) {
-            handlePlayerMove(move);
+            return handlePlayerMove(move);
         });
 
         return true;
     }
 
 
-    /* =====================================================
-       08. START OFFLINE GAME
-    ===================================================== */
+    /* START OFFLINE GAME */
 
     function startOffline(options) {
         options = options || {};
@@ -186,9 +201,7 @@ window.APPARA_MULTIPLAYER = (function () {
         state.playerColor = "w";
         state.opponentColor = "b";
 
-        if (typeof engine.reset === "function") {
-            engine.reset();
-        }
+        engine.reset();
 
         connectBoard();
 
@@ -213,9 +226,7 @@ window.APPARA_MULTIPLAYER = (function () {
     }
 
 
-    /* =====================================================
-       09. START COMPUTER GAME
-    ===================================================== */
+    /* START COMPUTER GAME */
 
     function startComputer(options) {
         options = options || {};
@@ -229,18 +240,13 @@ window.APPARA_MULTIPLAYER = (function () {
 
         resetState("computer");
 
-        state.playerColor =
-            options.playerColor === "b" ? "b" : "w";
-
+        state.playerColor = normalizeColor(options.playerColor);
         state.opponentColor =
             state.playerColor === "w" ? "b" : "w";
 
-        state.difficulty =
-            options.difficulty || "medium";
+        state.difficulty = options.difficulty || "medium";
 
-        if (typeof engine.reset === "function") {
-            engine.reset();
-        }
+        engine.reset();
 
         if (ai) {
             if (typeof ai.setDifficulty === "function") {
@@ -283,12 +289,14 @@ window.APPARA_MULTIPLAYER = (function () {
     }
 
 
-    /* =====================================================
-       10. CHECK PLAYER TURN
-    ===================================================== */
+    /* CHECK PLAYER TURN */
 
     function isPlayerTurn() {
-        if (!state.active || state.finished || state.paused) {
+        if (
+            !state.active ||
+            state.finished ||
+            state.paused
+        ) {
             return false;
         }
 
@@ -306,26 +314,19 @@ window.APPARA_MULTIPLAYER = (function () {
     }
 
 
-    /* =====================================================
-       11. CHECK GAME STATE
-    ===================================================== */
+    /* CHECK WHETHER A MOVE CAN START */
 
     function canPlayMove() {
-        if (!state.active || state.finished || state.paused) {
-            return false;
-        }
-
-        if (state.moveInProgress) {
-            return false;
-        }
-
-        return true;
+        return (
+            state.active &&
+            !state.finished &&
+            !state.paused &&
+            !state.moveInProgress
+        );
     }
 
 
-    /* =====================================================
-       12. PLAYER MOVE ENTRY
-    ===================================================== */
+    /* PLAYER MOVE ENTRY */
 
     function handlePlayerMove(move) {
         if (!canPlayMove()) {
@@ -337,7 +338,7 @@ window.APPARA_MULTIPLAYER = (function () {
         }
 
         if (!isPlayerTurn()) {
-            notify("It is not your turn.", "warning");
+            notify("अभी आपकी चाल नहीं है।", "warning");
             return false;
         }
 
@@ -353,164 +354,144 @@ window.APPARA_MULTIPLAYER = (function () {
     }
 
 
-    /* =====================================================
-       PART 1/3 END
-       CONTINUE PART 2/3 BELOW THIS LINE
-    ===================================================== */
+    /* LOCAL PLAYER MOVE */
 
-             /* =========================================================
+    function handleLocalMove(move) {
+        const engine = getEngine();
+
+        if (!engine) return false;
+
+        state.moveInProgress = true;
+
+        try {
+            const result = engine.move(
+                move.from,
+                move.to,
+                move.promotion || "q"
+            );
+
+            if (!result) {
+                return false;
+            }
+
+            afterSuccessfulMove(result);
+            return true;
+
+        } catch (error) {
+            console.error("[APPARA] Local move failed:", error);
+            return false;
+
+        } finally {
+            state.moveInProgress = false;
+        }
+    }
+
+
+    /* COMPUTER GAME PLAYER MOVE */
+
+    function handleComputerPlayerMove(move) {
+        const engine = getEngine();
+
+        if (!engine) return false;
+
+        state.moveInProgress = true;
+
+        try {
+            const result = engine.move(
+                move.from,
+                move.to,
+                move.promotion || "q"
+            );
+
+            if (!result) {
+                return false;
+            }
+
+            afterSuccessfulMove(result);
+
+            if (!state.finished && state.active) {
+                window.setTimeout(function () {
+                    playComputerTurn();
+                }, 350);
+            }
+
+            return true;
+
+        } catch (error) {
+            console.error("[APPARA] Player move failed:", error);
+            return false;
+
+        } finally {
+            state.moveInProgress = false;
+        }
+    }
+
+
+    /* ONLINE PLAYER MOVE */
+
+    async function handleOnlineMove(move) {
+        const online = getOnline();
+        const engine = getEngine();
+
+        if (
+            !online ||
+            !engine ||
+            typeof online.sendMove !== "function"
+        ) {
+            notify("Online connection उपलब्ध नहीं है।", "error");
+            return false;
+        }
+
+        state.moveInProgress = true;
+
+        try {
+            const result = await online.sendMove({
+                from: move.from,
+                to: move.to,
+                promotion: move.promotion || "q",
+                expectedFen: engine.getFEN()
+            });
+
+            if (!result || result.success !== true) {
+                notify(
+                    result && result.error
+                        ? result.error
+                        : "Move स्वीकार नहीं हुआ।",
+                    "warning"
+                );
+
+                return false;
+            }
+
+            return true;
+
+        } catch (error) {
+            console.error("[APPARA] Online move failed:", error);
+            notify("Online Move भेजने में समस्या हुई।", "error");
+            return false;
+
+        } finally {
+            state.moveInProgress = false;
+        }
+    }
+
+
+    /* =========================================================
+       PART 1/3 END
+       PART 2/3 इसी फाइल में नीचे जोड़ा जाएगा।
+   ========================================================= */
+
+        /* =========================================================
    APPARA CHESS — MULTIPLAYER CONTROLLER
-   PART 21J — MOVE HANDLING & ONLINE SYNC
-   FILE: js/multiplayer.js
-   PART 2/3
+   PART 2/3 START
 ========================================================= */
 
 
-/* =====================================================
-   13. LOCAL PLAYER MOVE
-===================================================== */
-
-function handleLocalMove(move) {
-    const engine = getEngine();
-
-    if (!engine) {
-        return false;
-    }
-
-    state.moveInProgress = true;
-
-    try {
-        const result = engine.move({
-            from: move.from,
-            to: move.to,
-            promotion: move.promotion || "q"
-        });
-
-        if (!result) {
-            return false;
-        }
-
-        afterSuccessfulMove(result);
-
-        return true;
-
-    } catch (error) {
-        console.error("Local move failed:", error);
-        return false;
-
-    } finally {
-        state.moveInProgress = false;
-    }
-}
-
-
-/* =====================================================
-   14. COMPUTER PLAYER MOVE
-===================================================== */
-
-function handleComputerPlayerMove(move) {
-    const engine = getEngine();
-
-    if (!engine) {
-        return false;
-    }
-
-    state.moveInProgress = true;
-
-    try {
-        const result = engine.move({
-            from: move.from,
-            to: move.to,
-            promotion: move.promotion || "q"
-        });
-
-        if (!result) {
-            return false;
-        }
-
-        afterSuccessfulMove(result);
-
-        if (!state.finished && state.active) {
-            window.setTimeout(function () {
-                playComputerTurn();
-            }, 350);
-        }
-
-        return true;
-
-    } catch (error) {
-        console.error("Player move failed:", error);
-        return false;
-
-    } finally {
-        state.moveInProgress = false;
-    }
-}
-
-
-/* =====================================================
-   15. ONLINE PLAYER MOVE
-===================================================== */
-
-async function handleOnlineMove(move) {
-    const online = getOnline();
-    const engine = getEngine();
-
-    if (
-        !online ||
-        !engine ||
-        typeof online.sendMove !== "function"
-    ) {
-        notify("Online connection is unavailable.", "error");
-        return false;
-    }
-
-    state.moveInProgress = true;
-
-    try {
-        const expectedFen = engine.getFEN();
-
-        const accepted = await online.sendMove({
-            from: move.from,
-            to: move.to,
-            promotion: move.promotion || "q",
-            expectedFen: expectedFen
-        });
-
-        if (!accepted) {
-            notify("Move was not accepted.", "warning");
-            return false;
-        }
-
-        /*
-         * Do not modify the local chess engine here.
-         * Firebase room listener will deliver the
-         * authoritative updated FEN to both players.
-         */
-
-        return true;
-
-    } catch (error) {
-        console.error("Online move failed:", error);
-        notify("Unable to send move.", "error");
-        return false;
-
-    } finally {
-        state.moveInProgress = false;
-    }
-}
-
-
-/* =====================================================
-   16. COMPUTER AI TURN
-===================================================== */
-
+/* PLAY COMPUTER TURN */
 function playComputerTurn() {
     if (
         state.mode !== "computer" ||
-        !state.active ||
-        state.finished ||
-        state.paused
+        !canPlayMove()
     ) {
         return false;
     }
@@ -519,38 +500,35 @@ function playComputerTurn() {
     const ai = getAI();
 
     if (!engine || !ai) {
+        notify("Computer Player उपलब्ध नहीं है।", "error");
         return false;
     }
 
-    if (engine.turn() === state.playerColor) {
-        return false;
-    }
-
-    if (
-        typeof ai.getBestMove !== "function" ||
-        typeof engine.move !== "function"
-    ) {
+    if (engine.turn() !== state.opponentColor) {
         return false;
     }
 
     state.moveInProgress = true;
 
     try {
-        const bestMove = ai.getBestMove();
+        let result = null;
 
-        if (!bestMove) {
-            checkGameEnd();
-            return false;
+        if (typeof ai.getBestMove === "function") {
+            const bestMove = ai.getBestMove();
+
+            if (bestMove && bestMove.from && bestMove.to) {
+                result = engine.move(
+                    bestMove.from,
+                    bestMove.to,
+                    bestMove.promotion || "q"
+                );
+            }
+        } else if (typeof ai.playMove === "function") {
+            result = ai.playMove();
         }
 
-        const result = engine.move({
-            from: bestMove.from,
-            to: bestMove.to,
-            promotion: bestMove.promotion || "q"
-        });
-
         if (!result) {
-            notify("Computer could not complete its move.", "warning");
+            checkGameEnd();
             return false;
         }
 
@@ -559,7 +537,8 @@ function playComputerTurn() {
         return true;
 
     } catch (error) {
-        console.error("Computer turn failed:", error);
+        console.error("[APPARA] Computer move failed:", error);
+        notify("Computer की चाल में समस्या हुई।", "error");
         return false;
 
     } finally {
@@ -568,150 +547,18 @@ function playComputerTurn() {
 }
 
 
-/* =====================================================
-   17. SUCCESSFUL MOVE PROCESSOR
-===================================================== */
-
-function afterSuccessfulMove(move) {
-    const engine = getEngine();
-    const board = getBoard();
-    const timer = getTimer();
-
-    if (!engine) {
-        return false;
-    }
-
-    state.lastMove = move;
-
-    state.lastPosition = engine.getFEN();
-
-    if (board) {
-        if (typeof board.setLastMove === "function") {
-            board.setLastMove(move.from, move.to);
-        }
-
-        if (typeof board.clearSelection === "function") {
-            board.clearSelection();
-        }
-
-        if (typeof board.refresh === "function") {
-            board.refresh();
-        }
-    }
-
-    if (timer && typeof timer.switchTurn === "function") {
-        timer.switchTurn();
-    }
-
-    if (window.APPARA_SOUND) {
-        if (move.captured) {
-            window.APPARA_SOUND.capture();
-        } else {
-            window.APPARA_SOUND.move();
-        }
-
-        if (engine.isCheck && engine.isCheck()) {
-            window.APPARA_SOUND.check();
-        }
-    }
-
-    const game = getGame();
-
-    if (game && typeof game.onMultiplayerMove === "function") {
-        game.onMultiplayerMove(move);
-    }
-
-    checkGameEnd();
-
-    emitStateChange();
-
-    return true;
-}
-
-
-/* =====================================================
-   18. REGISTER ONLINE ROOM HANDLER
-===================================================== */
-
-function registerRoomUpdateHandler() {
-    const online = getOnline();
-
-    if (
-        !online ||
-        typeof online.setRoomUpdateHandler !== "function"
-    ) {
-        return false;
-    }
-
-    online.setRoomUpdateHandler(function (roomData) {
-        handleRoomUpdate(roomData);
-    });
-
-    state.roomHandlerBound = true;
-
-    return true;
-}
-
-
-/* =====================================================
-   19. RECEIVE ONLINE ROOM UPDATE
-===================================================== */
-
-function handleRoomUpdate(roomData) {
-    if (
-        !roomData ||
-        state.mode !== "online" ||
-        !state.active ||
-        state.finished
-    ) {
-        return false;
-    }
-
+/* PROCESS A SUCCESSFUL MOVE */
+function afterSuccessfulMove(moveResult) {
     const engine = getEngine();
 
-    if (!engine) {
-        return false;
-    }
+    if (!engine) return;
 
-    if (roomData.status === "finished") {
-        state.finished = true;
-        state.active = false;
+    state.lastMove = moveResult;
 
-        const game = getGame();
-
-        if (game && typeof game.onMultiplayerGameEnd === "function") {
-            game.onMultiplayerGameEnd(
-                roomData.result,
-                roomData.reason
-            );
-        }
-
-        emitStateChange();
-
-        return true;
-    }
-
-    if (
-        roomData.status !== "playing" ||
-        !roomData.fen
-    ) {
-        return false;
-    }
-
-    const localFen = engine.getFEN();
-
-    if (localFen === roomData.fen) {
-        return true;
-    }
-
-    const loaded = engine.load(roomData.fen);
-
-    if (!loaded) {
-        console.error("Invalid FEN received from room.");
-        return false;
-    }
-
-    state.lastPosition = roomData.fen;
+    state.lastPosition =
+        typeof engine.getFEN === "function"
+            ? engine.getFEN()
+            : null;
 
     const board = getBoard();
 
@@ -719,16 +566,46 @@ function handleRoomUpdate(roomData) {
         board.refresh();
     }
 
-    const game = getGame();
+    const timer = getTimer();
 
-    if (game && typeof game.onMultiplayerMove === "function") {
-        game.onMultiplayerMove({
-            remote: true,
-            fen: roomData.fen
-        });
+    if (timer && typeof timer.switchTurn === "function") {
+        timer.switchTurn();
     }
 
     checkGameEnd();
+
+    emitStateChange();
+}
+
+
+/* CHECK GAME END */
+function checkGameEnd() {
+    const engine = getEngine();
+
+    if (!engine) return false;
+
+    let status = null;
+
+    if (typeof engine.getGameStatus === "function") {
+        status = engine.getGameStatus();
+    }
+
+    if (!status || !status.over) {
+        return false;
+    }
+
+    state.finished = true;
+    state.active = false;
+
+    const timer = getTimer();
+
+    if (timer && typeof timer.stop === "function") {
+        timer.stop();
+    }
+
+    if (typeof state.onGameEnd === "function") {
+        state.onGameEnd(status);
+    }
 
     emitStateChange();
 
@@ -736,59 +613,7 @@ function handleRoomUpdate(roomData) {
 }
 
 
-/* =====================================================
-   20. CHECK GAME END
-===================================================== */
-
-function checkGameEnd() {
-    const engine = getEngine();
-
-    if (!engine || state.finished) {
-        return false;
-    }
-
-    if (
-        typeof engine.isGameOver === "function" &&
-        engine.isGameOver()
-    ) {
-        state.finished = true;
-        state.active = false;
-
-        const game = getGame();
-
-        if (game && typeof game.checkGameEnd === "function") {
-            game.checkGameEnd();
-        }
-
-        if (typeof state.onGameEnd === "function") {
-            state.onGameEnd(engine.getGameStatus());
-        }
-
-        emitStateChange();
-
-        return true;
-    }
-
-    return false;
-}
-
-
-/* =====================================================
-   PART 2/3 END
-   CONTINUE PART 3/3 BELOW THIS LINE
-========================================================= */   
-   /* =========================================================
-   APPARA CHESS — MULTIPLAYER CONTROLLER
-   PART 21J — FINAL CONTROLS & PUBLIC API
-   FILE: js/multiplayer.js
-   PART 3/3
-========================================================= */
-
-
-/* =====================================================
-   21. START ONLINE GAME
-===================================================== */
-
+/* START ONLINE GAME */
 function startOnline(options) {
     options = options || {};
 
@@ -796,28 +621,29 @@ function startOnline(options) {
         return false;
     }
 
-    const engine = getEngine();
-    const online = getOnline();
-
-    if (!online) {
-        notify("Online controller is unavailable.", "error");
-        return false;
-    }
-
     resetState("online");
 
-    state.playerColor =
-        options.playerColor === "b" ? "b" : "w";
+    state.playerColor = normalizeColor(
+        options.playerColor || options.color
+    );
 
     state.opponentColor =
         state.playerColor === "w" ? "b" : "w";
 
     state.roomCode =
-        options.roomCode || online.getRoomCode();
+        options.roomCode || options.code || null;
 
-    if (!state.roomCode) {
-        notify("Room code is missing.", "error");
-        return false;
+    const engine = getEngine();
+
+    if (options.fen) {
+        try {
+            engine.load(options.fen);
+        } catch (error) {
+            console.error("[APPARA] Invalid online FEN:", error);
+            engine.reset();
+        }
+    } else {
+        engine.reset();
     }
 
     connectBoard();
@@ -828,14 +654,13 @@ function startOnline(options) {
         board.setOrientation(state.playerColor);
     }
 
-    registerRoomUpdateHandler();
+    const timer = getTimer();
 
-    const room = online.getRoom
-        ? online.getRoom()
-        : null;
-
-    if (room) {
-        handleRoomUpdate(room);
+    if (timer && typeof timer.reset === "function") {
+        timer.reset({
+            minutes: options.minutes || 10,
+            increment: options.increment || 0
+        });
     }
 
     emitStateChange();
@@ -844,132 +669,128 @@ function startOnline(options) {
 }
 
 
-/* =====================================================
-   22. CONNECT ONLINE ROOM
-===================================================== */
-
-function connectOnlineRoom(roomCode, playerColor) {
-    const online = getOnline();
-
-    if (!online) {
+/* CONNECT TO ONLINE ROOM */
+function connectOnlineRoom(room, roomCode, playerColor) {
+    if (!room) {
+        notify("Online Room की जानकारी उपलब्ध नहीं है।", "error");
         return false;
     }
 
-    if (playerColor) {
-        state.playerColor =
-            playerColor === "b" ? "b" : "w";
+    const color = normalizeColor(playerColor);
 
-        state.opponentColor =
-            state.playerColor === "w" ? "b" : "w";
-    }
+    const started = startOnline({
+        room: room,
+        roomCode: roomCode,
+        playerColor: color,
+        fen: room.fen || null
+    });
 
-    state.roomCode =
-        roomCode || online.getRoomCode();
+    if (!started) return false;
 
-    if (!state.roomCode) {
-        return false;
-    }
+    state.roomCode = roomCode || null;
 
-    registerRoomUpdateHandler();
-
-    const room = online.getRoom
-        ? online.getRoom()
-        : null;
-
-    if (room) {
-        handleRoomUpdate(room);
-    }
+    bindRoomUpdates();
 
     return true;
 }
 
 
-/* =====================================================
-   23. RESIGN
-===================================================== */
+/* BIND ROOM UPDATE HANDLER */
+function bindRoomUpdates() {
+    const online = getOnline();
 
-async function resign() {
-    if (!state.active || state.finished) {
+    if (
+        !online ||
+        typeof online.setRoomUpdateHandler !== "function"
+    ) {
         return false;
     }
 
-    if (state.mode === "online") {
-        const online = getOnline();
+    if (state.roomHandlerBound) {
+        return true;
+    }
 
-        if (!online || typeof online.resign !== "function") {
-            return false;
+    online.setRoomUpdateHandler(function (room) {
+        handleRoomUpdate(room);
+    });
+
+    state.roomHandlerBound = true;
+
+    return true;
+}
+
+
+/* APPLY REMOTE ROOM UPDATE */
+function handleRoomUpdate(room) {
+    if (!room || state.mode !== "online") {
+        return false;
+    }
+
+    const engine = getEngine();
+
+    if (!engine) return false;
+
+    const roomStatus = room.status;
+
+    if (roomStatus === "finished" || roomStatus === "cancelled") {
+        state.finished = true;
+        state.active = false;
+
+        const timer = getTimer();
+
+        if (timer && typeof timer.stop === "function") {
+            timer.stop();
         }
 
-        return await online.resign();
+        emitStateChange();
+        return true;
     }
 
-    state.finished = true;
-    state.active = false;
-
-    const game = getGame();
-
-    if (game && typeof game.onMultiplayerGameEnd === "function") {
-        game.onMultiplayerGameEnd(
-            state.opponentColor,
-            "resignation"
-        );
+    if (roomStatus !== "playing") {
+        return false;
     }
 
+    if (room.fen && room.fen !== engine.getFEN()) {
+        try {
+            engine.load(room.fen);
+
+            const board = getBoard();
+
+            if (board && typeof board.refresh === "function") {
+                board.refresh();
+            }
+
+            state.lastPosition = room.fen;
+
+            const timer = getTimer();
+
+            if (timer && typeof timer.switchTurn === "function") {
+                const currentTurn = engine.turn();
+
+                if (currentTurn === state.playerColor) {
+                    timer.switchTurn(state.playerColor === "w" ? "white" : "black");
+                } else {
+                    timer.switchTurn(state.opponentColor === "w" ? "white" : "black");
+                }
+            }
+
+        } catch (error) {
+            console.error("[APPARA] Room position update failed:", error);
+            notify("Online Board अपडेट नहीं हो पाया।", "error");
+            return false;
+        }
+    }
+
+    checkGameEnd();
     emitStateChange();
 
     return true;
 }
 
 
-/* =====================================================
-   24. OFFER DRAW
-===================================================== */
-
-async function offerDraw() {
-    if (!state.active || state.finished) {
-        return false;
-    }
-
-    if (state.mode !== "online") {
-        notify("Draw offers are available in online games.", "info");
-        return false;
-    }
-
-    const online = getOnline();
-
-    if (!online || typeof online.offerDraw !== "function") {
-        return false;
-    }
-
-    return await online.offerDraw();
-}
-
-
-/* =====================================================
-   25. RESPOND TO DRAW
-===================================================== */
-
-async function respondToDraw(accept) {
-    if (state.mode !== "online") {
-        return false;
-    }
-
-    const online = getOnline();
-
-    if (!online || typeof online.respondToDraw !== "function") {
-        return false;
-    }
-
-    return await online.respondToDraw(Boolean(accept));
-}
-
-
-/* =====================================================
-   26. PAUSE GAME
-===================================================== */
-
+/* PAUSE GAME */
 function pause() {
-    if (!state.active || state.finished || state.paused) {
+    if (!state.active || state.finished) {
         return false;
     }
 
@@ -987,12 +808,9 @@ function pause() {
 }
 
 
-/* =====================================================
-   27. RESUME GAME
-===================================================== */
-
+/* RESUME GAME */
 function resume() {
-    if (!state.active || state.finished || !state.paused) {
+    if (!state.active || state.finished) {
         return false;
     }
 
@@ -1010,20 +828,116 @@ function resume() {
 }
 
 
-/* =====================================================
-   28. STOP GAME
-===================================================== */
+/* =========================================================
+   APPARA CHESS — MULTIPLAYER CONTROLLER
+   PART 2/3 END
+========================================================= */
 
-function stop() {
-    state.active = false;
+     /* =========================================================
+   APPARA CHESS — MULTIPLAYER CONTROLLER
+   PART 3/3 START
+========================================================= */
+
+
+/* UNDO MOVE */
+function undoMove() {
+    if (
+        !state.active ||
+        state.finished ||
+        state.mode === "online"
+    ) {
+        notify("इस Game Mode में Undo उपलब्ध नहीं है।", "warning");
+        return false;
+    }
+
+    const engine = getEngine();
+
+    if (!engine || typeof engine.undo !== "function") {
+        return false;
+    }
+
+    try {
+        const firstUndo = engine.undo();
+
+        if (!firstUndo) {
+            notify("Undo करने के लिए कोई चाल नहीं है।", "warning");
+            return false;
+        }
+
+        /* Computer Game में खिलाड़ी और AI दोनों की चाल Undo करें */
+        if (state.mode === "computer") {
+            engine.undo();
+        }
+
+        const board = getBoard();
+
+        if (board && typeof board.refresh === "function") {
+            board.refresh();
+        }
+
+        state.lastMove = null;
+        state.lastPosition = engine.getFEN();
+
+        state.finished = false;
+        state.active = true;
+
+        emitStateChange();
+
+        return true;
+
+    } catch (error) {
+        console.error("[APPARA] Undo failed:", error);
+        notify("Undo नहीं हो पाया।", "error");
+        return false;
+    }
+}
+
+
+/* RESIGN GAME */
+async function resign() {
+    if (!state.active || state.finished) {
+        return false;
+    }
+
+    if (state.mode === "online") {
+        const online = getOnline();
+
+        if (!online || typeof online.resign !== "function") {
+            notify("Online Resign उपलब्ध नहीं है।", "error");
+            return false;
+        }
+
+        const result = await online.resign();
+
+        if (result) {
+            state.finished = true;
+            state.active = false;
+            emitStateChange();
+        }
+
+        return result;
+    }
+
     state.finished = true;
-    state.paused = false;
-    state.moveInProgress = false;
+    state.active = false;
 
     const timer = getTimer();
 
     if (timer && typeof timer.stop === "function") {
         timer.stop();
+    }
+
+    const result = {
+        over: true,
+        type: "resignation",
+        winner: state.mode === "computer"
+            ? "black"
+            : null,
+        message: "Game resigned"
+    };
+
+    if (typeof state.onGameEnd === "function") {
+        state.onGameEnd(result);
     }
 
     emitStateChange();
@@ -1032,20 +946,71 @@ function stop() {
 }
 
 
-/* =====================================================
-   29. LEAVE ONLINE ROOM
-===================================================== */
-
-async function leaveRoom() {
-    const online = getOnline();
-
-    if (online && typeof online.leaveRoom === "function") {
-        await online.leaveRoom();
+/* OFFER DRAW */
+async function offerDraw() {
+    if (!state.active || state.finished) {
+        return false;
     }
 
-    stop();
+    if (state.mode !== "online") {
+        notify("Draw Offer केवल Online Game में उपलब्ध है।", "warning");
+        return false;
+    }
 
-    state.mode = "offline";
+    const online = getOnline();
+
+    if (!online || typeof online.offerDraw !== "function") {
+        return false;
+    }
+
+    return await online.offerDraw();
+}
+
+
+/* RESPOND TO DRAW */
+async function respondToDraw(accept) {
+    if (state.mode !== "online") {
+        return false;
+    }
+
+    const online = getOnline();
+
+    if (!online || typeof online.respondToDraw !== "function") {
+        return false;
+    }
+
+    const result = await online.respondToDraw(Boolean(accept));
+
+    if (result && accept) {
+        state.finished = true;
+        state.active = false;
+        emitStateChange();
+    }
+
+    return result;
+}
+
+
+/* EXIT CURRENT GAME */
+async function exitGame() {
+    const online = getOnline();
+
+    if (state.mode === "online" && online) {
+        if (typeof online.leaveRoom === "function") {
+            await online.leaveRoom();
+        }
+    }
+
+    const timer = getTimer();
+
+    if (timer && typeof timer.stop === "function") {
+        timer.stop();
+    }
+
+    state.active = false;
+    state.finished = true;
+    state.paused = false;
+    state.moveInProgress = false;
     state.roomCode = null;
     state.roomHandlerBound = false;
 
@@ -1055,94 +1020,177 @@ async function leaveRoom() {
 }
 
 
-/* =====================================================
-   30. GET CURRENT STATE
-===================================================== */
-
-function getState() {
-    return {
-        mode: state.mode,
-        active: state.active,
-        finished: state.finished,
-        paused: state.paused,
-
-        playerColor: state.playerColor,
-        opponentColor: state.opponentColor,
-
-        roomCode: state.roomCode,
-        difficulty: state.difficulty,
-
-        roomHandlerBound: state.roomHandlerBound,
-        moveInProgress: state.moveInProgress,
-
-        lastPosition: state.lastPosition,
-        lastMove: state.lastMove
-    };
+/* GET CURRENT GAME MODE */
+function getMode() {
+    return state.mode;
 }
 
 
-/* =====================================================
-   31. DESTROY CONTROLLER
-===================================================== */
+/* CHECK ACTIVE GAME */
+function isActive() {
+    return Boolean(state.active && !state.finished);
+}
 
-function destroy() {
-    stop();
 
-    const board = getBoard();
+/* CHECK ONLINE GAME */
+function isOnline() {
+    return state.mode === "online";
+}
 
-    if (board && typeof board.setMoveHandler === "function") {
-        board.setMoveHandler(null);
+
+/* CHECK COMPUTER GAME */
+function isComputerGame() {
+    return state.mode === "computer";
+}
+
+
+/* GET CURRENT PLAYER COLOR */
+function getPlayerColor() {
+    return state.playerColor;
+}
+
+
+/* CHANGE AI DIFFICULTY */
+function setDifficulty(level) {
+    const allowed = ["easy", "medium", "hard", "expert"];
+
+    if (!allowed.includes(level)) {
+        return false;
     }
 
-    state.onStateChange = null;
-    state.onGameEnd = null;
-    state.roomHandlerBound = false;
+    state.difficulty = level;
+
+    const ai = getAI();
+
+    if (ai && typeof ai.setDifficulty === "function") {
+        ai.setDifficulty(level);
+    }
+
+    emitStateChange();
 
     return true;
 }
 
 
-/* =====================================================
-   32. PUBLIC API
-===================================================== */
+/* RESET CURRENT GAME */
+function resetGame() {
+    const engine = getEngine();
 
-return {
+    if (!engine) return false;
+
+    try {
+        engine.reset();
+
+        state.finished = false;
+        state.active = true;
+        state.paused = false;
+        state.moveInProgress = false;
+        state.lastMove = null;
+        state.lastPosition = engine.getFEN();
+
+        const board = getBoard();
+
+        if (board && typeof board.refresh === "function") {
+            board.refresh();
+        }
+
+        const timer = getTimer();
+
+        if (timer && typeof timer.reset === "function") {
+            timer.reset();
+        }
+
+        emitStateChange();
+
+        return true;
+
+    } catch (error) {
+        console.error("[APPARA] Reset failed:", error);
+        return false;
+    }
+}
+
+
+/* CLEANUP */
+function destroy() {
+    const online = getOnline();
+
+    if (
+        online &&
+        typeof online.setRoomUpdateHandler === "function"
+    ) {
+        online.setRoomUpdateHandler(null);
+    }
+
+    const timer = getTimer();
+
+    if (timer && typeof timer.stop === "function") {
+        timer.stop();
+    }
+
+    state.mode = "offline";
+    state.active = false;
+    state.finished = false;
+    state.paused = false;
+    state.roomCode = null;
+    state.moveInProgress = false;
+    state.roomHandlerBound = false;
+    state.lastMove = null;
+    state.lastPosition = null;
+
+    emitStateChange();
+
+    return true;
+}
+
+
+/* PUBLIC API */
+return Object.freeze({
+
+    /* Game start */
     startOffline: startOffline,
     startComputer: startComputer,
     startOnline: startOnline,
-
-    connectBoard: connectBoard,
     connectOnlineRoom: connectOnlineRoom,
-    registerRoomUpdateHandler: registerRoomUpdateHandler,
 
+    /* Moves */
     handlePlayerMove: handlePlayerMove,
-    handleOnlineMove: handleOnlineMove,
-    handleRoomUpdate: handleRoomUpdate,
-
     playComputerTurn: playComputerTurn,
-    afterSuccessfulMove: afterSuccessfulMove,
-    checkGameEnd: checkGameEnd,
+    undoMove: undoMove,
 
+    /* Game controls */
+    pause: pause,
+    resume: resume,
+    resetGame: resetGame,
+    exitGame: exitGame,
     resign: resign,
+
+    /* Online draw controls */
     offerDraw: offerDraw,
     respondToDraw: respondToDraw,
 
-    pause: pause,
-    resume: resume,
-    stop: stop,
-    leaveRoom: leaveRoom,
+    /* State */
+    getState: getState,
+    getMode: getMode,
+    isActive: isActive,
+    isOnline: isOnline,
+    isComputerGame: isComputerGame,
+    isPlayerTurn: isPlayerTurn,
+    getPlayerColor: getPlayerColor,
 
+    /* Settings and callbacks */
+    setDifficulty: setDifficulty,
     setStateChangeHandler: setStateChangeHandler,
     setGameEndHandler: setGameEndHandler,
-    getState: getState,
 
+    /* Cleanup */
     destroy: destroy
-};
+
+});
 
 })();
 
-
 /* =========================================================
    APPARA CHESS — MULTIPLAYER CONTROLLER
-   PART 21J COMPLETE
-========================================================= */
+   PART 3/3 END
+========================================================= */                        
