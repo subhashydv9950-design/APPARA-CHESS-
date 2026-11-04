@@ -1,0 +1,160 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ========================================
+    // COMMON AUTHENTICATION HELPERS
+    // ========================================
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function isRoomMember() {
+      return signedIn()
+        && request.auth.uid in resource.data.playerUids;
+    }
+
+    function isMatchMember() {
+      return signedIn()
+        && request.auth.uid in resource.data.playerUids;
+    }
+
+    // ========================================
+    // PLAYER PROFILES
+    // ========================================
+
+    match /players/{uid} {
+
+      // A player can read their own complete profile.
+      allow read: if isOwner(uid);
+
+      // All profile creation and changes must use
+      // authenticated Cloud Functions.
+      allow create, update, delete: if false;
+    }
+
+    // ========================================
+    // FRIEND REQUESTS
+    // ========================================
+
+    match /friendRequests/{requestId} {
+
+      allow read: if signedIn()
+        && (
+          resource.data.fromUid == request.auth.uid
+          || resource.data.toUid == request.auth.uid
+        );
+
+      // Friend request operations use Cloud Functions.
+      allow create, update, delete: if false;
+    }
+
+    // ========================================
+    // FRIENDSHIPS
+    // ========================================
+
+    match /friendships/{friendshipId} {
+
+      allow read: if signedIn()
+        && request.auth.uid in resource.data.playerUids;
+
+      allow create, update, delete: if false;
+    }
+
+    // ========================================
+    // PRIVATE CHESS ROOMS
+    // ========================================
+
+    match /rooms/{roomId} {
+
+      allow read: if isRoomMember();
+
+      // Room creation and membership changes must
+      // be performed through secure backend functions.
+      allow create, update, delete: if false;
+    }
+
+    // ========================================
+    // MATCHMAKING QUEUES
+    // ========================================
+
+    match /matchmakingQueues/{queueId} {
+
+      // Queue operations are backend controlled.
+      allow read, write: if false;
+    }
+
+    // ========================================
+    // CHESS MATCHES
+    // ========================================
+
+    match /matches/{matchId} {
+
+      allow read: if isMatchMember();
+
+      // Never trust client-submitted match results,
+      // ratings, clocks or move history.
+      allow create, update, delete: if false;
+    }
+
+    // ========================================
+    // PLAYER TRANSACTIONS
+    // ========================================
+
+    match /transactions/{transactionId} {
+
+      allow read: if signedIn()
+        && resource.data.uid == request.auth.uid;
+
+      // Coins and diamonds must be managed by backend.
+      allow create, update, delete: if false;
+    }
+
+    // ========================================
+    // TOURNAMENTS
+    // ========================================
+
+    match /tournaments/{tournamentId} {
+
+      // Tournament information can be read by
+      // authenticated players.
+      allow read: if signedIn();
+
+      // Registration, rewards and results are backend
+      // controlled.
+      allow create, update, delete: if false;
+    }
+
+    // ========================================
+    // PLAYER REPORTS
+    // ========================================
+
+    match /reports/{reportId} {
+
+      // Reports are private moderation records.
+      allow read, write: if false;
+    }
+
+    // ========================================
+    // DEFAULT DENY
+    // ========================================
+
+    // Any collection not explicitly listed above
+    // is inaccessible to client applications.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+  }
+}
+
+// ============================================
+// APPARA CHESS — FILE 76 COMPLETE
+// ============================================
