@@ -1,6 +1,8 @@
+
 /* =========================================================
-   APPARA CHESS — MAIN APPLICATION
-   FILE 64: js/app.js
+   APPARA CHESS
+   FILE 67: MAIN APPLICATION
+   Path: js/app.js
    PART 1/2
    ========================================================= */
 
@@ -18,6 +20,7 @@ import { SettingsService } from "./services/settings-service.js";
 import { RankService } from "./services/rank-service.js";
 
 import { HomeScreen } from "./screens/home-screen.js";
+import { GameScreen } from "./screens/game-screen.js";
 import { OnlineScreen } from "./screens/online-screen.js";
 import { TrainingScreen } from "./screens/training-screen.js";
 import { PuzzlesScreen } from "./screens/puzzles-screen.js";
@@ -29,7 +32,14 @@ import { ProfileScreen } from "./screens/profile-screen.js";
 import { SettingsScreen } from "./screens/settings-screen.js";
 import { AboutScreen } from "./screens/about-screen.js";
 
-const APP_VERSION = "1.0.0";
+import { createGameSession } from "./chess/game-session.js";
+
+const APP_VERSION = "1.1.0";
+
+
+/* ---------------------------------------------------------
+   1. OFFLINE GUEST PLAYER
+--------------------------------------------------------- */
 
 class GuestPlayerService {
   constructor() {
@@ -43,11 +53,30 @@ class GuestPlayerService {
     try {
       saved = StorageService.getGuestProfile();
     } catch (error) {
-      console.warn("Guest profile could not be loaded:", error);
+      console.warn("Guest profile load failed:", error);
     }
 
     this.profile = saved || this.createProfile();
+
     this.profile.isGuest = true;
+    this.profile.stats ||= {
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      gamesPlayed: 0
+    };
+
+    this.profile.ratings ||= {
+      bullet: 1000,
+      blitz: 1000,
+      rapid: 1000,
+      classical: 1000
+    };
+
+    this.profile.coins ??= 2500;
+    this.profile.diamonds ??= 0;
+    this.profile.level ??= 1;
+    this.profile.xp ??= 0;
 
     StorageService.saveGuestProfile(this.profile);
 
@@ -124,7 +153,9 @@ class GuestPlayerService {
   }
 
   getProfileSnapshot() {
-    return JSON.parse(JSON.stringify(this.profile));
+    return this.profile
+      ? JSON.parse(JSON.stringify(this.profile))
+      : null;
   }
 
   getPlayerId() {
@@ -180,6 +211,7 @@ class GuestPlayerService {
     }
 
     this.profile.displayName = value;
+
     return this.saveProfile();
   }
 
@@ -243,11 +275,16 @@ class GuestPlayerService {
   }
 }
 
+
+/* ---------------------------------------------------------
+   2. MAIN APP CLASS
+--------------------------------------------------------- */
+
 class App {
   constructor() {
     this.document = document;
-
     this.eventBus = EventBus;
+
     this.playerService = new GuestPlayerService();
 
     this.navigation = null;
@@ -261,11 +298,17 @@ class App {
     this.rankService = null;
 
     this.screenInstances = new Map();
+    this.activeGameSession = null;
 
     this.initialized = false;
     this.destroyed = false;
     this.loadingElement = null;
   }
+
+
+  /* -------------------------------------------------------
+     3. INITIALIZE APPLICATION
+  ------------------------------------------------------- */
 
   async initialize() {
     if (this.initialized) return this;
@@ -339,10 +382,18 @@ class App {
 
       this.registerRoutes();
 
-      await this.navigation.navigate("home", {}, {
-        skipHistory: true,
-        force: true
-      });
+      const opened = await this.navigation.navigate(
+        "home",
+        {},
+        {
+          skipHistory: true,
+          force: true
+        }
+      );
+
+      if (!opened) {
+        throw new Error("Home screen could not be opened.");
+      }
 
       this.initialized = true;
       this.hideLoading();
@@ -352,12 +403,18 @@ class App {
       });
 
       return this;
+
     } catch (error) {
       console.error("[APPARA CHESS] Startup failed:", error);
       this.showFatalError(error);
       throw error;
     }
   }
+
+
+  /* -------------------------------------------------------
+     4. SCREEN OPTIONS
+  ------------------------------------------------------- */
 
   getScreenOptions(container, extra = {}) {
     return {
@@ -376,348 +433,351 @@ class App {
     };
   }
 
-/* =========================================================
-   FILE 64 — PART 1 END
-   PART 2 इसी के तुरंत बाद पेस्ट करें।
-   ========================================================= */
 
-   /* =========================================================
-   APPARA CHESS — MAIN APPLICATION
-   FILE 64: js/app.js
-   PART 2/2
-   ========================================================= */
-
-  createScreen(container, ScreenClass, extra = {}) {
-    const screen = new ScreenClass(
-      this.getScreenOptions(container, extra)
-    );
-
-    this.screenInstances.set(
-      this.navigation.getCurrentRoute() || "pending",
-      screen
-    );
-
-    return screen;
-  }
-
-  async renderScreen(ScreenClass, extra = {}) {
-    const container = this.document.createElement("div");
-
-    container.className = "ac-screen-content";
-
-    const screen = this.createScreen(
-      container,
-      ScreenClass,
-      extra
-    );
-
-    if (typeof screen.mount === "function") {
-      await screen.mount(container);
-    } else if (typeof screen.initialize === "function") {
-      await screen.initialize(container);
-    } else {
-      throw new Error("Screen has no mount or initialize method.");
-    }
-
-    return container;
-  }
+  /* =======================================================
+     FILE 67 — PART 1 END
+     PART 2 इसी के नीचे जोड़ना है।
+     अभी Commit मत करना।
+  ======================================================= */
+  /* -------------------------------------------------------
+     8. SCREEN ROUTE REGISTRATION
+  ------------------------------------------------------- */
 
   registerRoutes() {
     const routes = [
-      {
-        name: "home",
-        title: "Home",
-        Screen: HomeScreen,
-        method: "initialize"
-      },
-      {
-        name: "online",
-        title: "Online Arena",
-        Screen: OnlineScreen,
-        method: "mount"
-      },
-      {
-        name: "training",
-        title: "Training",
-        Screen: TrainingScreen,
-        method: "mount"
-      },
-      {
-        name: "puzzles",
-        title: "Puzzles",
-        Screen: PuzzlesScreen,
-        method: "mount"
-      },
-      {
-        name: "tournaments",
-        title: "Tournaments",
-        Screen: TournamentScreen,
-        method: "mount"
-      },
-      {
-        name: "world",
-        title: "Chess World",
-        Screen: WorldScreen,
-        method: "mount"
-      },
-      {
-        name: "shop",
-        title: "Royal Shop",
-        Screen: ShopScreen,
-        method: "mount"
-      },
-      {
-        name: "leaderboard",
-        title: "Leaderboard",
-        Screen: LeaderboardScreen,
-        method: "mount"
-      },
-      {
-        name: "profile",
-        title: "Player Profile",
-        Screen: ProfileScreen,
-        method: "mount"
-      },
-      {
-        name: "settings",
-        title: "Settings",
-        Screen: SettingsScreen,
-        method: "mount"
-      },
-      {
-        name: "about",
-        title: "About APPARA CHESS",
-        Screen: AboutScreen,
-        method: "mount"
-      }
+      ["home", HomeScreen, "APPARA CHESS"],
+      ["online", OnlineScreen, "Online Chess"],
+      ["training", TrainingScreen, "Training"],
+      ["puzzles", PuzzlesScreen, "Chess Puzzles"],
+      ["tournaments", TournamentScreen, "Tournaments"],
+      ["world", WorldScreen, "Chess World"],
+      ["shop", ShopScreen, "Royal Shop"],
+      ["leaderboard", LeaderboardScreen, "Leaderboard"],
+      ["profile", ProfileScreen, "Player Profile"],
+      ["settings", SettingsScreen, "Settings"],
+      ["about", AboutScreen, "About APPARA CHESS"]
     ];
 
-    for (const route of routes) {
-      this.navigation.register(route.name, {
-        title: route.title,
-
-        render: async ({ params }) => {
-          const screenContainer = this.document.createElement("div");
-
-          screenContainer.className = "ac-screen-content";
-
-          const screen = this.createScreen(
-            screenContainer,
-            route.Screen,
-            {
-              routeParams: params
-            }
-          );
-
-          if (typeof screen[route.method] !== "function") {
-            throw new Error(
-              `${route.name} screen is missing ${route.method}().`
-            );
-          }
-
-          await screen[route.method](screenContainer);
-
-          return screenContainer;
+    for (const [name, ScreenClass, title] of routes) {
+      this.navigation.register(name, {
+        title,
+        render: async ({ params = {} }) => {
+          return this.renderScreen(name, ScreenClass, params);
+        },
+        afterLeave: async () => {
+          this.destroyScreen(name);
         }
       });
     }
 
     this.navigation.register("game", {
-      title: "Chess Game",
-
-      render: async () => {
-        const container = this.document.createElement("section");
-
-        container.className = "ac-screen-content ac-screen-placeholder";
-
-        container.innerHTML = `
-          <div class="ac-feature-placeholder">
-            <div class="ac-feature-placeholder__icon">♟</div>
-            <h1>Chess Arena</h1>
-            <p>The game arena is being connected.</p>
-            <button type="button" data-app-home>
-              Back to Home
-            </button>
-          </div>
-        `;
-
-        container.querySelector("[data-app-home]")
-          ?.addEventListener("click", () => {
-            this.navigation.navigate("home");
-          });
-
-        return container;
+      title: "Chess Match",
+      render: async ({ params = {} }) => {
+        return this.renderGameScreen(params);
+      },
+      afterLeave: async () => {
+        this.destroyGameScreen();
       }
     });
 
     this.navigation.register("auth", {
-      title: "Player Account",
-
-      render: async () => {
-        const container = this.document.createElement("section");
-
-        container.className = "ac-screen-content ac-screen-placeholder";
-
-        container.innerHTML = `
-          <div class="ac-feature-placeholder">
-            <div class="ac-feature-placeholder__icon">♔</div>
-            <h1>Player Account</h1>
-            <p>Guest mode is active. Account sign-in will be connected separately.</p>
-            <button type="button" data-app-home>
-              Continue as Guest
-            </button>
-          </div>
-        `;
-
-        container.querySelector("[data-app-home]")
-          ?.addEventListener("click", () => {
-            this.navigation.navigate("home");
-          });
-
-        return container;
-      }
+      title: "Player Login",
+      render: async () => this.createMessageScreen(
+        "Player Login",
+        "Account sign-in will be available after authentication is configured."
+      )
     });
 
     this.navigation.register("review", {
       title: "Game Review",
-
-      render: async () => {
-        const container = this.document.createElement("section");
-
-        container.className = "ac-screen-content ac-screen-placeholder";
-
-        container.innerHTML = `
-          <div class="ac-feature-placeholder">
-            <div class="ac-feature-placeholder__icon">♜</div>
-            <h1>Game Review</h1>
-            <p>Game review will be available after the game arena integration.</p>
-            <button type="button" data-app-home>
-              Back to Home
-            </button>
-          </div>
-        `;
-
-        container.querySelector("[data-app-home]")
-          ?.addEventListener("click", () => {
-            this.navigation.navigate("home");
-          });
-
-        return container;
-      }
+      render: async () => this.createMessageScreen(
+        "Game Review",
+        "Game review screen is being prepared."
+      )
     });
   }
 
-  showLoading(message = "Loading...") {
-    const loading = this.document.getElementById("loading-screen");
 
-    if (!loading) return;
+  /* -------------------------------------------------------
+     9. CREATE SCREEN
+  ------------------------------------------------------- */
 
-    this.loadingElement = loading;
-    loading.style.display = "flex";
-    loading.setAttribute("aria-hidden", "false");
+  renderScreen(name, ScreenClass, params = {}) {
+    this.destroyScreen(name);
 
-    const status = loading.querySelector(".loading-status");
+    const mountNode = this.document.createElement("div");
+    mountNode.className = "ac-screen-content";
 
-    if (status) {
-      status.textContent = message;
+    const options = this.getScreenOptions(mountNode, {
+      ...params,
+      navigation: this.navigation,
+      playerService: this.playerService,
+      progressionService: this.progressionService,
+      economyService: this.economyService,
+      inventoryService: this.inventoryService,
+      settingsService: this.settingsService,
+      rankService: this.rankService,
+      components: this.components,
+      modalManager: this.modalManager,
+      eventBus: this.eventBus
+    });
+
+    const screen = new ScreenClass(options);
+
+    this.screenInstances.set(name, screen);
+
+    if (name === "home" && typeof screen.initialize === "function") {
+      screen.initialize(mountNode);
+    } else if (typeof screen.mount === "function") {
+      screen.mount(mountNode);
+    } else if (typeof screen.initialize === "function") {
+      screen.initialize(mountNode);
+    }
+
+    return screen.root || mountNode;
+  }
+
+
+  /* -------------------------------------------------------
+     10. GAME SCREEN
+  ------------------------------------------------------- */
+
+  renderGameScreen(params = {}) {
+    this.destroyGameScreen();
+
+    const mountNode = this.document.createElement("div");
+    mountNode.className = "ac-game-container";
+
+    const mode = params.mode === "training"
+      ? "training"
+      : "offline";
+
+    const difficulty = params.difficulty || "medium";
+
+    const timeControl = this.getTimeControl(params.timeControl);
+
+    this.activeGameSession = createGameSession({
+      mode,
+      difficulty,
+      timeControl,
+      playerName: this.playerService?.getDisplayName?.() || "You",
+      opponentName: "APPARA AI",
+      rated: false
+    });
+
+    const gameScreen = new GameScreen({
+      document: this.document,
+      container: mountNode,
+      navigation: this.navigation,
+      gameState: this.activeGameSession.gameState,
+      aiEngine: this.activeGameSession.aiEngine,
+      playerService: this.playerService,
+      modalManager: this.modalManager,
+      mode,
+      difficulty,
+      playerColor: "white",
+      timeControl
+    });
+
+    this.screenInstances.set("game", gameScreen);
+
+    const result = gameScreen.mount(mountNode);
+
+    return result || gameScreen.root || mountNode;
+  }
+
+
+  /* -------------------------------------------------------
+     11. TIME CONTROL
+  ------------------------------------------------------- */
+
+  getTimeControl(value) {
+    const controls = {
+      "1+0": { id: "1+0", label: "Bullet 1+0", minutes: 1, increment: 0 },
+      "2+1": { id: "2+1", label: "Bullet 2+1", minutes: 2, increment: 1 },
+      "3+0": { id: "3+0", label: "Blitz 3+0", minutes: 3, increment: 0 },
+      "3+2": { id: "3+2", label: "Blitz 3+2", minutes: 3, increment: 2 },
+      "5+0": { id: "5+0", label: "Blitz 5+0", minutes: 5, increment: 0 },
+      "5+3": { id: "5+3", label: "Blitz 5+3", minutes: 5, increment: 3 },
+      "10+0": { id: "10+0", label: "Rapid 10+0", minutes: 10, increment: 0 },
+      "10+5": { id: "10+5", label: "Rapid 10+5", minutes: 10, increment: 5 },
+      "15+10": { id: "15+10", label: "Rapid 15+10", minutes: 15, increment: 10 },
+      "30+0": { id: "30+0", label: "Classical 30+0", minutes: 30, increment: 0 }
+    };
+
+    return controls[value] || controls["10+0"];
+  }
+
+
+  /* -------------------------------------------------------
+     12. SCREEN CLEANUP
+  ------------------------------------------------------- */
+
+  destroyScreen(name) {
+    const screen = this.screenInstances.get(name);
+
+    if (!screen) return;
+
+    try {
+      if (typeof screen.destroy === "function") {
+        screen.destroy();
+      } else if (typeof screen.dispose === "function") {
+        screen.dispose();
+      }
+    } catch (error) {
+      console.error(`[APPARA CHESS] ${name} cleanup failed:`, error);
+    }
+
+    this.screenInstances.delete(name);
+  }
+
+
+  destroyGameScreen() {
+    this.destroyScreen("game");
+
+    if (this.activeGameSession) {
+      this.activeGameSession.dispose();
+      this.activeGameSession = null;
     }
   }
 
-  hideLoading() {
-    const loading = this.loadingElement ||
-      this.document.getElementById("loading-screen");
 
-    if (!loading) return;
+  /* -------------------------------------------------------
+     13. MESSAGE SCREEN
+  ------------------------------------------------------- */
 
-    loading.style.display = "none";
-    loading.setAttribute("aria-hidden", "true");
-  }
-
-  showFatalError(error) {
-    this.hideLoading();
-
-    const container = this.document.getElementById("screen-container");
-
-    if (!container) return;
-
-    const message = String(
-      error?.message || "An unexpected startup error occurred."
-    );
-
+  createMessageScreen(title, message) {
     const section = this.document.createElement("section");
-
-    section.className = "ac-fatal-error";
+    section.className = "ac-screen-content ac-placeholder-screen";
 
     const heading = this.document.createElement("h1");
-    heading.textContent = "APPARA CHESS";
+    heading.textContent = title;
 
-    const title = this.document.createElement("h2");
-    title.textContent = "Unable to start the game";
+    const paragraph = this.document.createElement("p");
+    paragraph.textContent = message;
 
-    const description = this.document.createElement("p");
-    description.textContent = message;
-
-    const retry = this.document.createElement("button");
-    retry.type = "button";
-    retry.textContent = "Try Again";
-
-    retry.addEventListener("click", () => {
-      window.location.reload();
+    const backButton = this.document.createElement("button");
+    backButton.type = "button";
+    backButton.textContent = "Back to Home";
+    backButton.addEventListener("click", () => {
+      this.navigation.navigate("home");
     });
 
-    section.append(heading, title, description, retry);
+    section.append(heading, paragraph, backButton);
 
-    container.replaceChildren(section);
+    return section;
   }
 
-  async destroy() {
+
+  /* -------------------------------------------------------
+     14. LOADING SCREEN
+  ------------------------------------------------------- */
+
+  showLoading() {
+    const loading = this.document.getElementById("loading-screen");
+
+    if (loading) {
+      loading.hidden = false;
+      loading.style.display = "flex";
+    }
+
+    const appView = this.document.getElementById("app-view");
+
+    if (appView) {
+      appView.setAttribute("aria-busy", "true");
+    }
+  }
+
+
+  hideLoading() {
+    const loading = this.document.getElementById("loading-screen");
+
+    if (loading) {
+      loading.hidden = true;
+      loading.style.display = "none";
+    }
+
+    const appView = this.document.getElementById("app-view");
+
+    if (appView) {
+      appView.removeAttribute("aria-busy");
+      appView.hidden = false;
+    }
+  }
+
+
+  /* -------------------------------------------------------
+     15. FATAL ERROR
+  ------------------------------------------------------- */
+
+  showFatalError(error) {
+    console.error("[APPARA CHESS] Startup failed:", error);
+
+    const loading = this.document.getElementById("loading-screen");
+
+    if (loading) {
+      loading.innerHTML = `
+        <div class="ac-error-screen">
+          <h2>APPARA CHESS</h2>
+          <p>Game start nahi ho paya.</p>
+          <button type="button" id="ac-retry-button">
+            Try Again
+          </button>
+        </div>
+      `;
+
+      loading.hidden = false;
+      loading.style.display = "flex";
+
+      loading.querySelector("#ac-retry-button")
+        ?.addEventListener("click", () => {
+          globalThis.location.reload();
+        });
+    }
+
+    this.eventBus?.emit?.(APP_EVENTS.APP.ERROR, {
+      message: error?.message || "Application startup failed."
+    });
+  }
+
+
+  /* -------------------------------------------------------
+     16. APP DISPOSAL
+  ------------------------------------------------------- */
+
+  destroy() {
     if (this.destroyed) return;
 
     this.destroyed = true;
 
-    for (const screen of this.screenInstances.values()) {
-      try {
-        if (typeof screen.destroy === "function") {
-          screen.destroy();
-        } else if (typeof screen.dispose === "function") {
-          screen.dispose();
-        }
-      } catch (error) {
-        console.warn("Screen cleanup failed:", error);
-      }
+    this.destroyGameScreen();
+
+    for (const name of [...this.screenInstances.keys()]) {
+      this.destroyScreen(name);
     }
 
-    this.screenInstances.clear();
+    this.navigation?.dispose?.();
+    this.modalManager?.destroy?.();
+    this.components?.destroy?.();
 
-    const services = [
-      this.rankService,
-      this.inventoryService,
-      this.economyService,
-      this.progressionService,
-      this.settingsService,
-      this.components,
-      this.modalManager,
-      this.navigation,
-      this.playerService
-    ];
+    this.progressionService?.destroy?.();
+    this.economyService?.destroy?.();
+    this.inventoryService?.destroy?.();
+    this.settingsService?.destroy?.();
+    this.rankService?.destroy?.();
 
-    for (const service of services) {
-      try {
-        if (typeof service?.dispose === "function") {
-          service.dispose();
-        }
-      } catch (error) {
-        console.warn("Service cleanup failed:", error);
-      }
-    }
+    this.playerService?.dispose?.();
 
-    this.initialized = false;
+    this.eventBus?.emit?.(APP_EVENTS.APP.ERROR, {
+      message: "Application stopped."
+    });
   }
 }
 
+
 /* =========================================================
-   APPLICATION STARTUP
-   ========================================================= */
+   17. APPLICATION INSTANCE
+========================================================= */
 
 let appInstance = null;
 
@@ -732,52 +792,61 @@ export async function startApp() {
 
   appInstance = new App();
 
-  await appInstance.initialize();
-
-  return appInstance;
+  try {
+    await appInstance.initialize();
+    return appInstance;
+  } catch (error) {
+    appInstance.showFatalError(error);
+    throw error;
+  }
 }
 
-export async function stopApp() {
+export function stopApp() {
   if (!appInstance) return;
 
-  await appInstance.destroy();
-
+  appInstance.destroy();
   appInstance = null;
 }
 
-/* =========================================================
-   GLOBAL ERROR HANDLING
-   ========================================================= */
-
-window.addEventListener("error", event => {
-  console.error("[APPARA CHESS] Runtime error:", event.error || event.message);
-});
-
-window.addEventListener("unhandledrejection", event => {
-  console.error("[APPARA CHESS] Unhandled promise:", event.reason);
-});
 
 /* =========================================================
-   START APPLICATION WHEN DOM IS READY
-   ========================================================= */
+   18. GLOBAL ERROR HANDLING
+========================================================= */
 
-if (document.readyState === "loading") {
-  document.addEventListener(
-    "DOMContentLoaded",
-    () => {
-      startApp().catch(error => {
-        console.error("[APPARA CHESS] Could not start:", error);
-      });
-    },
-    { once: true }
-  );
-} else {
-  startApp().catch(error => {
-    console.error("[APPARA CHESS] Could not start:", error);
+if (typeof globalThis.addEventListener === "function") {
+  globalThis.addEventListener("unhandledrejection", event => {
+    console.error("[APPARA CHESS] Unhandled promise:", event.reason);
+  });
+
+  globalThis.addEventListener("error", event => {
+    console.error("[APPARA CHESS] Runtime error:", event.error || event.message);
   });
 }
 
+
 /* =========================================================
-   FILE 64 COMPLETE
-   PATH: js/app.js
+   19. START APPLICATION
+========================================================= */
+
+function bootApp() {
+  startApp().catch(error => {
+    console.error("[APPARA CHESS] Boot failed:", error);
+  });
+}
+
+if (globalThis.document) {
+  if (globalThis.document.readyState === "loading") {
+    globalThis.document.addEventListener("DOMContentLoaded", bootApp, {
+      once: true
+    });
+  } else {
+    bootApp();
+  }
+}
+
+
+/* =========================================================
+   FILE 67 COMPLETE
+   FILE: js/app.js
+   PART 2/2
    ========================================================= */
