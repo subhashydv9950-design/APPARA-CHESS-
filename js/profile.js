@@ -1,500 +1,737 @@
-
 /* =========================================================
-   APPARA CHESS — PLAYER PROFILE MANAGER
-   PART 15 — js/profile.js
-   ========================================================= */
+   APPARA CHESS — PART 21L
+   PROFILE CONTROLLER
+   FILE: js/profile.js
+   PART 1/3 — STATE, HELPERS, LOAD & SAVE
+========================================================= */
 
 window.APPARA_PROFILE = (function () {
   "use strict";
 
-  const CONFIG = window.APPARA_CONFIG || {};
-  const STORAGE_KEY =
-    (CONFIG.storageKeys && CONFIG.storageKeys.profile) ||
-    "appara_chess_profile_v1";
+  const STORAGE_KEY = "appara_chess_profile_v1";
+  const HISTORY_LIMIT = 50;
 
-  const DEFAULTS = {
-    name: "Guest Player",
-    avatar: "♟",
-    id: "",
-    rating: 1000,
-    games: 0,
-    wins: 0,
-    losses: 0,
-    draws: 0,
-    coins: 2500,
+  const config = window.APPARA_CONFIG || {};
+  const playerConfig = config.player || {};
+
+  const state = {
+    initialized: false,
+    profile: null,
     history: [],
-    createdAt: null,
-    updatedAt: null
+    elements: {},
+    eventsBound: false
   };
 
-  let profile = null;
-  let initialized = false;
-
-  /* ---------- SAFE STORAGE ---------- */
-
-  function readStorage() {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : null;
-    } catch (error) {
-      console.warn("Profile storage read failed:", error);
-      return null;
-    }
-  }
-
-  function writeStorage() {
-    try {
-      profile.updatedAt = new Date().toISOString();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
-      return true;
-    } catch (error) {
-      console.warn("Profile storage save failed:", error);
-      return false;
-    }
-  }
-
-  /* ---------- PLAYER ID ---------- */
-
-  function generatePlayerId() {
+  function createPlayerId() {
+    const prefix = playerConfig.idPrefix || "AP";
     const random = Math.floor(100000 + Math.random() * 900000);
-    return "AP" + random;
+    return prefix + "-" + random;
   }
 
-  function ensurePlayerId() {
-    if (!profile.id) {
-      profile.id = generatePlayerId();
-    }
-  }
+  function getDefaultProfile() {
+    return {
+      id: createPlayerId(),
+      name: playerConfig.defaultName || "Guest Player",
+      avatar: playerConfig.defaultAvatar || "♟",
+      rating: Number(playerConfig.defaultRating) || 1000,
+      coins: Number(playerConfig.startingCoins) || 2500,
 
-  /* ---------- PROFILE DATA ---------- */
+      games: 0,
+      wins: 0,
+      losses: 0,
+      draws: 0,
 
-  function normalizeProfile(data) {
-    const result = Object.assign({}, DEFAULTS, data || {});
+      puzzlesSolved: 0,
+      tournamentsPlayed: 0,
 
-    result.name =
-      typeof result.name === "string" && result.name.trim()
-        ? result.name.trim().slice(0, 30)
-        : DEFAULTS.name;
-
-    result.avatar =
-      typeof result.avatar === "string" && result.avatar
-        ? result.avatar
-        : DEFAULTS.avatar;
-
-    result.rating = Math.max(0, Number(result.rating) || 1000);
-    result.games = Math.max(0, Number(result.games) || 0);
-    result.wins = Math.max(0, Number(result.wins) || 0);
-    result.losses = Math.max(0, Number(result.losses) || 0);
-    result.draws = Math.max(0, Number(result.draws) || 0);
-    result.coins = Math.max(0, Number(result.coins) || 2500);
-
-    result.history = Array.isArray(result.history)
-      ? result.history.slice(0, 50)
-      : [];
-
-    return result;
-  }
-
-  function load() {
-    profile = normalizeProfile(readStorage());
-
-    if (!profile.createdAt) {
-      profile.createdAt = new Date().toISOString();
-    }
-
-    ensurePlayerId();
-    writeStorage();
-
-    return getProfile();
-  }
-
-  function save() {
-    if (!profile) load();
-
-    const saved = writeStorage();
-    render();
-
-    return saved;
-  }
-
-  function getProfile() {
-    if (!profile) load();
-
-    return JSON.parse(JSON.stringify(profile));
-  }
-
-  /* ---------- PROFILE UPDATES ---------- */
-
-  function updateProfile(changes) {
-    if (!profile) load();
-
-    if (!changes || typeof changes !== "object") {
-      return false;
-    }
-
-    if (typeof changes.name === "string") {
-      const name = changes.name.trim().slice(0, 30);
-      if (name) profile.name = name;
-    }
-
-    if (typeof changes.avatar === "string" && changes.avatar.trim()) {
-      profile.avatar = changes.avatar.trim().slice(0, 12);
-    }
-
-    if (Number.isFinite(Number(changes.coins))) {
-      profile.coins = Math.max(0, Number(changes.coins));
-    }
-
-    save();
-    return true;
-  }
-
-  function setAvatar(avatar) {
-    return updateProfile({ avatar: avatar });
-  }
-
-  function setName(name) {
-    return updateProfile({ name: name });
-  }
-
-  function addCoins(amount) {
-    if (!profile) load();
-
-    const value = Number(amount);
-
-    if (!Number.isFinite(value)) return false;
-
-    profile.coins = Math.max(0, profile.coins + value);
-    save();
-
-    return profile.coins;
-  }
-
-  function spendCoins(amount) {
-    if (!profile) load();
-
-    const value = Number(amount);
-
-    if (!Number.isFinite(value) || value < 0) {
-      return false;
-    }
-
-    if (profile.coins < value) {
-      return false;
-    }
-
-    profile.coins -= value;
-    save();
-
-    return true;
-  }
-
-  /* ---------- GAME STATISTICS ---------- */
-
-  function recordGame(result, details) {
-    if (!profile) load();
-
-    const outcome = String(result || "").toLowerCase();
-    const info = details || {};
-
-    if (!["win", "loss", "draw"].includes(outcome)) {
-      return false;
-    }
-
-    profile.games += 1;
-
-    if (outcome === "win") {
-      profile.wins += 1;
-    } else if (outcome === "loss") {
-      profile.losses += 1;
-    } else {
-      profile.draws += 1;
-    }
-
-    const historyItem = {
-      result: outcome,
-      opponent: String(info.opponent || "Opponent").slice(0, 30),
-      mode: String(info.mode || "Offline").slice(0, 20),
-      date: new Date().toISOString(),
-      moves: Math.max(0, Number(info.moves) || 0),
-      resultText: String(info.resultText || "").slice(0, 50)
+      createdAt: Date.now(),
+      updatedAt: Date.now()
     };
-
-    profile.history.unshift(historyItem);
-    profile.history = profile.history.slice(0, 50);
-
-    save();
-
-    return true;
   }
 
-  function updateRating(newRating) {
-    if (!profile) load();
+  function normalizeProfile(profile) {
+    const defaults = getDefaultProfile();
+    const source = profile && typeof profile === "object"
+      ? profile
+      : {};
 
-    const rating = Number(newRating);
+    return {
+      ...defaults,
+      ...source,
 
-    if (!Number.isFinite(rating)) return false;
+      id: String(source.id || defaults.id),
+      name: String(source.name || defaults.name).slice(0, 24),
+      avatar: String(source.avatar || defaults.avatar),
 
-    profile.rating = Math.max(0, Math.round(rating));
-    save();
+      rating: Math.max(0, Number(source.rating) || defaults.rating),
+      coins: Math.max(0, Number(source.coins) || 0),
 
-    return profile.rating;
+      games: Math.max(0, Number(source.games) || 0),
+      wins: Math.max(0, Number(source.wins) || 0),
+      losses: Math.max(0, Number(source.losses) || 0),
+      draws: Math.max(0, Number(source.draws) || 0),
+
+      puzzlesSolved: Math.max(0, Number(source.puzzlesSolved) || 0),
+      tournamentsPlayed: Math.max(
+        0,
+        Number(source.tournamentsPlayed) || 0
+      ),
+
+      createdAt: Number(source.createdAt) || Date.now(),
+      updatedAt: Number(source.updatedAt) || Date.now()
+    };
   }
-
-  function updateStats(stats) {
-    if (!profile) load();
-    if (!stats || typeof stats !== "object") return false;
-
-    ["games", "wins", "losses", "draws", "rating", "coins"].forEach(
-      function (key) {
-        if (stats[key] !== undefined && Number.isFinite(Number(stats[key]))) {
-          profile[key] = Math.max(0, Number(stats[key]));
-        }
-      }
-    );
-
-    save();
-    return true;
-  }
-
-  /* ---------- PROFILE RENDERING ---------- */
-
-  function setText(id, value) {
-    const element = document.getElementById(id);
-    if (element) element.textContent = String(value);
-  }
-
-  function setAvatarElement(id, avatar) {
-    const element = document.getElementById(id);
-    if (element) element.textContent = avatar;
-  }
-
-  function renderHistory() {
-    const container = document.getElementById("profile-history");
-    if (!container) return;
-
-    container.innerHTML = "";
-
-    if (!profile.history.length) {
-      const empty = document.createElement("div");
-      empty.className = "empty-state";
-      empty.textContent = "No games played yet.";
-      container.appendChild(empty);
-      return;
-    }
-
-    profile.history.forEach(function (game) {
-      const item = document.createElement("div");
-      item.className = "history-item";
-
-      const result = document.createElement("span");
-      result.className = "history-result " + game.result;
-      result.textContent = game.result.toUpperCase();
-
-      const details = document.createElement("div");
-      details.className = "history-details";
-
-      const opponent = document.createElement("strong");
-      opponent.textContent = "vs " + game.opponent;
-
-      const mode = document.createElement("small");
-      mode.textContent = game.mode + " • " + game.moves + " moves";
-
-      const date = document.createElement("small");
-      const parsedDate = new Date(game.date);
-
-      date.textContent = Number.isNaN(parsedDate.getTime())
-        ? ""
-        : parsedDate.toLocaleDateString();
-
-      details.appendChild(opponent);
-      details.appendChild(mode);
-      details.appendChild(date);
-
-      item.appendChild(result);
-      item.appendChild(details);
-
-      container.appendChild(item);
-    });
-  }
-
-  function render() {
-    if (!profile) return;
-
-    setAvatarElement("header-avatar", profile.avatar);
-    setAvatarElement("profile-avatar", profile.avatar);
-
-    setText("profile-name", profile.name);
-    setText("profile-id", profile.id);
-    setText("profile-rating", profile.rating);
-    setText("profile-games", profile.games);
-    setText("profile-wins", profile.wins);
-    setText("profile-losses", profile.losses);
-
-    renderHistory();
-  }
-
-  /* ---------- EDIT PROFILE ---------- */
-
-  function editProfile() {
-    if (!profile) load();
-
-    const newName = window.prompt(
-      "Enter your player name:",
-      profile.name
-    );
-
-    if (newName === null) return;
-
-    const cleanName = newName.trim();
-
-    if (!cleanName) {
-      notify("Player name cannot be empty.", "error");
-      return;
-    }
-
-    if (cleanName.length > 30) {
-      notify("Name must be 30 characters or less.", "error");
-      return;
-    }
-
-    updateProfile({ name: cleanName });
-    notify("Profile updated successfully.", "success");
-  }
-
-  /* ---------- NOTIFICATIONS ---------- */
 
   function notify(message, type) {
     if (
       window.APPARA_APP &&
-      typeof window.APPARA_APP.notify === "function"
+      typeof window.APPARA_APP.showNotification === "function"
     ) {
+      window.APPARA_APP.showNotification(
+        message,
+        type || "info"
+      );
+      return;
+    }
+
+    if (typeof window.APPARA_APP?.notify === "function") {
       window.APPARA_APP.notify(message, type || "info");
-      return;
     }
-
-    if (window.APPARA_GAME &&
-        typeof window.APPARA_GAME.notify === "function") {
-      window.APPARA_GAME.notify(message, type || "info");
-      return;
-    }
-
-    console.info("[APPARA PROFILE]", message);
   }
 
-  /* ---------- OPTIONAL FIREBASE SYNC ---------- */
-
-  function syncToFirebase() {
-    if (!profile) load();
-
+  function load() {
     try {
-      if (!window.APPARA_FIREBASE) return false;
-      if (!window.APPARA_FIREBASE.isAvailable()) return false;
+      const saved = localStorage.getItem(STORAGE_KEY);
 
-      const auth = window.APPARA_FIREBASE.getAuth();
-      const database = window.APPARA_FIREBASE.getDatabase();
-
-      if (!auth || !auth.currentUser || !database) {
-        return false;
+      if (!saved) {
+        state.profile = getDefaultProfile();
+        state.history = [];
+        save();
+        return true;
       }
 
-      const userId = auth.currentUser.uid;
-      const reference = database.ref("users/" + userId);
+      const parsed = JSON.parse(saved);
 
-      return reference.update({
-        profile: {
-          name: profile.name,
-          avatar: profile.avatar,
-          playerId: profile.id,
-          rating: profile.rating,
-          games: profile.games,
-          wins: profile.wins,
-          losses: profile.losses,
-          draws: profile.draws,
-          updatedAt: new Date().toISOString()
-        }
-      }).then(function () {
-        return true;
-      }).catch(function (error) {
-        console.warn("Firebase profile sync failed:", error);
-        return false;
-      });
+      state.profile = normalizeProfile(parsed.profile);
+      state.history = Array.isArray(parsed.history)
+        ? parsed.history.slice(0, HISTORY_LIMIT)
+        : [];
+
+      return true;
+
     } catch (error) {
-      console.warn("Firebase profile sync unavailable:", error);
+      console.error("APPARA PROFILE LOAD ERROR:", error);
+
+      state.profile = getDefaultProfile();
+      state.history = [];
+
+      save();
       return false;
     }
   }
 
-  function getPlayerId() {
-    if (!profile) load();
-    return profile.id;
-  }
+  function save() {
+    try {
+      if (!state.profile) {
+        state.profile = getDefaultProfile();
+      }
 
-  /* ---------- EVENT BINDING ---------- */
+      state.profile.updatedAt = Date.now();
 
-  function bindEvents() {
-    const editButton = document.getElementById("edit-profile-btn");
+      const data = {
+        profile: state.profile,
+        history: state.history.slice(0, HISTORY_LIMIT)
+      };
 
-    if (editButton && !editButton.dataset.profileBound) {
-      editButton.dataset.profileBound = "true";
-      editButton.addEventListener("click", editProfile);
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(data)
+      );
+
+      return true;
+
+    } catch (error) {
+      console.error("APPARA PROFILE SAVE ERROR:", error);
+      return false;
     }
   }
 
-  /* ---------- INITIALIZATION ---------- */
+  function getProfile() {
+    if (!state.profile) {
+      load();
+    }
+
+    return { ...state.profile };
+  }
+
+  function getPlayerId() {
+    return state.profile
+      ? state.profile.id
+      : "";
+  }
+
+  function setName(name) {
+    const cleanName = String(name || "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .slice(0, 24);
+
+    if (cleanName.length < 2) {
+      notify("Name must contain at least 2 characters.", "error");
+      return false;
+    }
+
+    state.profile.name = cleanName;
+
+    save();
+    render();
+
+    notify("Profile name updated.", "success");
+    return true;
+  }
+
+  function setAvatar(avatar) {
+    const cleanAvatar = String(avatar || "").trim();
+
+    if (!cleanAvatar || cleanAvatar.length > 12) {
+      return false;
+    }
+
+    state.profile.avatar = cleanAvatar;
+
+    save();
+    render();
+
+    return true;
+  }
+
+  function updateProfile(updates) {
+    if (!updates || typeof updates !== "object") {
+      return false;
+    }
+
+    if (typeof updates.name === "string") {
+      const cleanName = updates.name
+        .trim()
+        .replace(/\s+/g, " ")
+        .slice(0, 24);
+
+      if (cleanName.length >= 2) {
+        state.profile.name = cleanName;
+      }
+    }
+
+    if (typeof updates.avatar === "string") {
+      const avatar = updates.avatar.trim();
+
+      if (avatar && avatar.length <= 12) {
+        state.profile.avatar = avatar;
+      }
+    }
+
+    save();
+    render();
+
+    return true;
+  }
+
+  /* =======================================================
+     PART 1/3 END
+     CONTINUE DIRECTLY WITH PART 2/3 BELOW
+  ======================================================= */
+
+   /* =========================================================
+   APPARA CHESS — PART 21L
+   PART 2/3 — GAME RESULTS, RATING & STATISTICS
+========================================================= */
+
+  function calculateRatingChange(result, opponentRating) {
+    const currentRating = Number(state.profile.rating) || 1000;
+    const opponent = Number(opponentRating) || 1000;
+
+    const expectedScore =
+      1 / (1 + Math.pow(10, (opponent - currentRating) / 400));
+
+    let actualScore = 0.5;
+
+    if (result === "win") actualScore = 1;
+    if (result === "loss") actualScore = 0;
+
+    const gamesPlayed = Number(state.profile.games) || 0;
+    const kFactor = gamesPlayed < 30 ? 32 : 20;
+
+    return Math.round(
+      kFactor * (actualScore - expectedScore)
+    );
+  }
+
+  function normalizeResult(record) {
+    if (typeof record === "string") {
+      const result = record.toLowerCase();
+
+      if (["win", "loss", "draw"].includes(result)) {
+        return {
+          result,
+          mode: "unknown",
+          opponent: "Opponent",
+          opponentRating: 1000,
+          moves: 0,
+          date: Date.now()
+        };
+      }
+
+      return null;
+    }
+
+    if (!record || typeof record !== "object") {
+      return null;
+    }
+
+    const rawResult = String(
+      record.result || record.outcome || ""
+    ).toLowerCase();
+
+    let result = rawResult;
+
+    if (["won", "victory", "victorious"].includes(rawResult)) {
+      result = "win";
+    }
+
+    if (["lost", "defeat", "defeated"].includes(rawResult)) {
+      result = "loss";
+    }
+
+    if (["tie", "stalemate", "drawn"].includes(rawResult)) {
+      result = "draw";
+    }
+
+    if (!["win", "loss", "draw"].includes(result)) {
+      return null;
+    }
+
+    return {
+      result,
+      mode: String(record.mode || "unknown"),
+      opponent: String(
+        record.opponentName ||
+        record.opponent ||
+        "Opponent"
+      ).slice(0, 32),
+
+      opponentRating: Number(record.opponentRating) || 1000,
+      moves: Math.max(0, Number(record.moves) || 0),
+      date: Number(record.date || record.finishedAt) || Date.now(),
+      ratingChange: Number(record.ratingChange) || 0
+    };
+  }
+
+  function recordGame(gameRecord) {
+    if (!state.profile) {
+      load();
+    }
+
+    const game = normalizeResult(gameRecord);
+
+    if (!game) {
+      console.warn(
+        "APPARA PROFILE: Invalid game result.",
+        gameRecord
+      );
+      return false;
+    }
+
+    state.profile.games += 1;
+
+    if (game.result === "win") {
+      state.profile.wins += 1;
+    } else if (game.result === "loss") {
+      state.profile.losses += 1;
+    } else {
+      state.profile.draws += 1;
+    }
+
+    let ratingChange = 0;
+
+    if (
+      game.mode === "online" ||
+      game.mode === "computer"
+    ) {
+      ratingChange = calculateRatingChange(
+        game.result,
+        game.opponentRating
+      );
+
+      state.profile.rating = Math.max(
+        100,
+        state.profile.rating + ratingChange
+      );
+    }
+
+    const savedGame = {
+      id: "GAME-" + Date.now() + "-" +
+        Math.floor(Math.random() * 1000),
+
+      result: game.result,
+      mode: game.mode,
+      opponent: game.opponent,
+      opponentRating: game.opponentRating,
+      moves: game.moves,
+      date: game.date,
+      ratingChange
+    };
+
+    state.history.unshift(savedGame);
+
+    if (state.history.length > HISTORY_LIMIT) {
+      state.history.length = HISTORY_LIMIT;
+    }
+
+    save();
+    render();
+
+    return true;
+  }
+
+  function getStats() {
+    const profile = getProfile();
+
+    const winRate = profile.games > 0
+      ? Math.round((profile.wins / profile.games) * 100)
+      : 0;
+
+    return {
+      games: profile.games,
+      wins: profile.wins,
+      losses: profile.losses,
+      draws: profile.draws,
+      rating: profile.rating,
+      coins: profile.coins,
+      puzzlesSolved: profile.puzzlesSolved,
+      tournamentsPlayed: profile.tournamentsPlayed,
+      winRate
+    };
+  }
+
+  function getHistory(limit) {
+    const count = Number(limit);
+
+    const history = state.history.map(function (item) {
+      return { ...item };
+    });
+
+    return Number.isFinite(count) && count > 0
+      ? history.slice(0, count)
+      : history;
+  }
+
+  function addCoins(amount) {
+    const value = Math.floor(Number(amount));
+
+    if (!Number.isFinite(value) || value <= 0) {
+      return false;
+    }
+
+    state.profile.coins += value;
+
+    save();
+    render();
+
+    return true;
+  }
+
+  function spendCoins(amount) {
+    const value = Math.floor(Number(amount));
+
+    if (
+      !Number.isFinite(value) ||
+      value <= 0 ||
+      state.profile.coins < value
+    ) {
+      return false;
+    }
+
+    state.profile.coins -= value;
+
+    save();
+    render();
+
+    return true;
+  }
+
+  function addPuzzleSolved() {
+    state.profile.puzzlesSolved += 1;
+
+    save();
+    render();
+
+    return state.profile.puzzlesSolved;
+  }
+
+  function addTournamentPlayed() {
+    state.profile.tournamentsPlayed += 1;
+
+    save();
+    render();
+
+    return state.profile.tournamentsPlayed;
+  }
+
+  function getWinRate() {
+    const games = state.profile.games;
+
+    if (!games) return 0;
+
+    return Math.round(
+      (state.profile.wins / games) * 100
+    );
+  }
+
+  /* =======================================================
+     PART 2/3 END
+     CONTINUE DIRECTLY WITH PART 3/3 BELOW
+  ======================================================= */
+/* =========================================================
+   APPARA CHESS — PART 21L
+   PART 3/3 — PROFILE UI & PUBLIC API
+========================================================= */
+
+  function cacheElements() {
+    state.elements = {
+      headerAvatar: document.getElementById("header-avatar"),
+      profileAvatar: document.getElementById("profile-avatar"),
+      profileName: document.getElementById("profile-name"),
+      profileId: document.getElementById("profile-id"),
+
+      profileRating: document.getElementById("profile-rating"),
+      profileGames: document.getElementById("profile-games"),
+      profileWins: document.getElementById("profile-wins"),
+      profileLosses: document.getElementById("profile-losses"),
+
+      profileHistory: document.getElementById("profile-history"),
+      editProfileButton: document.getElementById("edit-profile-btn")
+    };
+  }
+
+  function setText(element, value) {
+    if (element) {
+      element.textContent = String(value);
+    }
+  }
+
+  function renderHeader() {
+    const profile = state.profile;
+    const elements = state.elements;
+
+    if (!profile) return;
+
+    setText(elements.headerAvatar, profile.avatar);
+  }
+
+  function renderProfileDetails() {
+    const profile = state.profile;
+    const elements = state.elements;
+
+    if (!profile) return;
+
+    setText(elements.profileAvatar, profile.avatar);
+    setText(elements.profileName, profile.name);
+    setText(elements.profileId, profile.id);
+
+    setText(
+      elements.profileRating,
+      profile.rating.toLocaleString("en-IN")
+    );
+
+    setText(elements.profileGames, profile.games);
+    setText(elements.profileWins, profile.wins);
+    setText(elements.profileLosses, profile.losses);
+  }
+
+  function createHistoryItem(game) {
+    const item = document.createElement("div");
+    item.className = "history-item";
+
+    const result = document.createElement("span");
+    result.className = "history-result " + game.result;
+    result.textContent = game.result.toUpperCase();
+
+    const details = document.createElement("div");
+    details.className = "history-details";
+
+    const opponent = document.createElement("strong");
+    opponent.textContent = game.opponent || "Opponent";
+
+    const meta = document.createElement("small");
+
+    const date = new Date(game.date);
+    const dateText = Number.isNaN(date.getTime())
+      ? "Date unavailable"
+      : date.toLocaleDateString();
+
+    meta.textContent =
+      String(game.mode || "unknown").toUpperCase() +
+      " · " + dateText +
+      " · " + (game.moves || 0) + " moves";
+
+    details.appendChild(opponent);
+    details.appendChild(meta);
+
+    const rating = document.createElement("span");
+    rating.className = "history-rating";
+
+    const change = Number(game.ratingChange) || 0;
+
+    rating.textContent = change > 0
+      ? "+" + change
+      : String(change);
+
+    item.appendChild(result);
+    item.appendChild(details);
+    item.appendChild(rating);
+
+    return item;
+  }
+
+  function renderHistory() {
+    const container = state.elements.profileHistory;
+
+    if (!container) return;
+
+    container.replaceChildren();
+
+    if (state.history.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.textContent = "No games played yet.";
+
+      container.appendChild(empty);
+      return;
+    }
+
+    state.history.forEach(function (game) {
+      container.appendChild(createHistoryItem(game));
+    });
+  }
+
+  function render() {
+    if (!state.profile) return;
+
+    renderHeader();
+    renderProfileDetails();
+    renderHistory();
+
+    return getProfile();
+  }
+
+  function openEditProfile() {
+    const currentName = state.profile.name;
+
+    const newName = window.prompt(
+      "Enter your chess player name:",
+      currentName
+    );
+
+    if (newName === null) return;
+
+    setName(newName);
+  }
+
+  function bindEvents() {
+    if (state.eventsBound) return;
+
+    const button = state.elements.editProfileButton;
+
+    if (button) {
+      button.addEventListener("click", openEditProfile);
+    }
+
+    state.eventsBound = true;
+  }
+
+  function resetStats() {
+    const confirmed = window.confirm(
+      "Reset your game statistics and history? Your player ID and name will remain unchanged."
+    );
+
+    if (!confirmed) return false;
+
+    state.profile.games = 0;
+    state.profile.wins = 0;
+    state.profile.losses = 0;
+    state.profile.draws = 0;
+    state.profile.rating = 1000;
+
+    state.history = [];
+
+    save();
+    render();
+
+    notify("Game statistics have been reset.", "success");
+
+    return true;
+  }
 
   function init() {
-    if (initialized) {
+    if (state.initialized) {
       render();
-      return getProfile();
+      return true;
     }
 
     load();
+    cacheElements();
     bindEvents();
     render();
 
-    initialized = true;
+    state.initialized = true;
 
-    return getProfile();
-  }
-
-  function resetProfile() {
-    profile = normalizeProfile(DEFAULTS);
-    profile.id = generatePlayerId();
-    profile.createdAt = new Date().toISOString();
-
-    save();
-    return getProfile();
+    return true;
   }
 
   function destroy() {
-    initialized = false;
+    const button = state.elements.editProfileButton;
+
+    if (button && state.eventsBound) {
+      button.removeEventListener("click", openEditProfile);
+    }
+
+    state.eventsBound = false;
+    state.initialized = false;
+    state.elements = {};
   }
 
   return {
-    init: init,
-    load: load,
-    save: save,
-    render: render,
-    getProfile: getProfile,
-    getPlayerId: getPlayerId,
-    updateProfile: updateProfile,
-    setName: setName,
-    setAvatar: setAvatar,
-    addCoins: addCoins,
-    spendCoins: spendCoins,
-    recordGame: recordGame,
-    updateRating: updateRating,
-    updateStats: updateStats,
-    editProfile: editProfile,
-    syncToFirebase: syncToFirebase,
-    resetProfile: resetProfile,
-    destroy: destroy
+    init,
+    load,
+    save,
+
+    getProfile,
+    getPlayerId,
+    updateProfile,
+    setName,
+    setAvatar,
+
+    recordGame,
+    getStats,
+    getHistory,
+    getWinRate,
+
+    addCoins,
+    spendCoins,
+    addPuzzleSolved,
+    addTournamentPlayed,
+
+    render,
+    renderHeader,
+    renderHistory,
+
+    resetStats,
+    destroy
   };
+
 })();
 
 /* =========================================================
-   APPARA CHESS — PROFILE MANAGER
-   PART 15 END
-   ========================================================= */
-        
+   APPARA CHESS — PROFILE CONTROLLER
+   PART 21L COMPLETE
+   FILE: js/profile.js
+========================================================= */
