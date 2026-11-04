@@ -1,11 +1,10 @@
-
 /* =========================================================
-   APPARA CHESS — FILE 47
+   APPARA CHESS — SETTINGS SERVICE
    FILE: js/services/settings-service.js
-   SECTION: APPLICATION SETTINGS
+   PURPOSE: Application settings and preferences
    ========================================================= */
 
-import { storage } from "../core/storage.js";
+import { StorageService } from "../core/storage.js";
 
 export const SETTINGS_EVENTS = Object.freeze({
   LOADED: "settings:loaded",
@@ -70,8 +69,6 @@ export const DEFAULT_SETTINGS = Object.freeze({
     dailyRewards: true
   }
 });
-
-const STORAGE_KEY = "appara_chess_settings";
 
 const ALLOWED_QUALITIES = [
   "low",
@@ -166,40 +163,28 @@ export class SettingsService {
 
   readStorage() {
     try {
-      if (storage && typeof storage.get === "function") {
-        return storage.get(STORAGE_KEY);
-      }
+      return StorageService.getSettings();
     } catch (error) {
-      console.warn("Settings storage read failed:", error);
-    }
+      console.warn(
+        "[APPARA CHESS] Settings storage read failed:",
+        error
+      );
 
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
+      return {};
     }
   }
 
   writeStorage() {
     try {
-      if (storage && typeof storage.set === "function") {
-        storage.set(STORAGE_KEY, this.settings);
-        return true;
-      }
+      return StorageService.saveSettings(
+        this.settings
+      );
     } catch (error) {
-      console.warn("Settings storage write failed:", error);
-    }
-
-    try {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(this.settings)
+      console.warn(
+        "[APPARA CHESS] Settings storage write failed:",
+        error
       );
 
-      return true;
-    } catch (error) {
-      console.warn("Settings could not be saved:", error);
       return false;
     }
   }
@@ -213,6 +198,7 @@ export class SettingsService {
     );
 
     this.validateAll();
+
     return this.getAll();
   }
 
@@ -236,7 +222,7 @@ export class SettingsService {
   get(section, key) {
     if (!section) return this.getAll();
 
-    if (!(section in this.settings)) {
+    if (!Object.hasOwn(this.settings, section)) {
       return undefined;
     }
 
@@ -249,21 +235,28 @@ export class SettingsService {
 
   set(section, key, value) {
     if (!Object.hasOwn(this.settings, section)) {
-      throw new Error(`Unknown settings section: ${section}`);
+      throw new Error(
+        `Unknown settings section: ${section}`
+      );
     }
 
     if (
       !this.settings[section] ||
       typeof this.settings[section] !== "object"
     ) {
-      throw new Error("Invalid settings section.");
+      throw new Error(
+        "Invalid settings section."
+      );
     }
 
     if (!Object.hasOwn(this.settings[section], key)) {
-      throw new Error(`Unknown setting: ${section}.${key}`);
+      throw new Error(
+        `Unknown setting: ${section}.${key}`
+      );
     }
 
     this.settings[section][key] = value;
+
     this.validateAll();
     this.save();
 
@@ -272,11 +265,19 @@ export class SettingsService {
 
   updateSection(section, values = {}) {
     if (!Object.hasOwn(this.settings, section)) {
-      throw new Error(`Unknown settings section: ${section}`);
+      throw new Error(
+        `Unknown settings section: ${section}`
+      );
     }
 
-    if (!values || typeof values !== "object") {
-      throw new TypeError("Settings values must be an object.");
+    if (
+      !values ||
+      typeof values !== "object" ||
+      Array.isArray(values)
+    ) {
+      throw new TypeError(
+        "Settings values must be an object."
+      );
     }
 
     this.settings[section] = mergeObjects(
@@ -299,6 +300,7 @@ export class SettingsService {
     }
 
     this.settings.language = language;
+
     this.save();
 
     this.emit(
@@ -315,18 +317,26 @@ export class SettingsService {
     }
 
     this.settings.theme = theme;
+
     this.save();
 
-    this.emit(SETTINGS_EVENTS.THEME_CHANGED, theme);
+    this.emit(
+      SETTINGS_EVENTS.THEME_CHANGED,
+      theme
+    );
+
     return theme;
   }
 
   setGraphicsQuality(quality) {
     if (!ALLOWED_QUALITIES.includes(quality)) {
-      throw new Error("Invalid graphics quality.");
+      throw new Error(
+        "Invalid graphics quality."
+      );
     }
 
     this.settings.graphics.quality = quality;
+
     this.save();
 
     this.emit(
@@ -345,13 +355,17 @@ export class SettingsService {
     ];
 
     if (!allowed.includes(type)) {
-      throw new Error("Invalid volume setting.");
+      throw new Error(
+        "Invalid volume setting."
+      );
     }
 
     const volume = Number(value);
 
     if (!Number.isFinite(volume)) {
-      throw new Error("Volume must be a number.");
+      throw new Error(
+        "Volume must be a number."
+      );
     }
 
     this.settings.audio[type] = Math.min(
@@ -360,6 +374,7 @@ export class SettingsService {
     );
 
     this.save();
+
     return this.settings.audio[type];
   }
 
@@ -388,14 +403,18 @@ export class SettingsService {
     ];
 
     if (!allowed.includes(key)) {
-      throw new Error("Invalid privacy setting.");
+      throw new Error(
+        "Invalid privacy setting."
+      );
     }
 
     if (
       key === "profileVisibility" &&
       !ALLOWED_VISIBILITY.includes(value)
     ) {
-      throw new Error("Invalid profile visibility.");
+      throw new Error(
+        "Invalid profile visibility."
+      );
     }
 
     return this.set("privacy", key, value);
@@ -403,7 +422,9 @@ export class SettingsService {
 
   setBoardOrientation(value) {
     if (!ALLOWED_ORIENTATIONS.includes(value)) {
-      throw new Error("Invalid board orientation.");
+      throw new Error(
+        "Invalid board orientation."
+      );
     }
 
     return this.set(
@@ -414,25 +435,35 @@ export class SettingsService {
   }
 
   validateAll() {
-    if (!ALLOWED_QUALITIES.includes(
-      this.settings.graphics.quality
-    )) {
+    if (
+      !ALLOWED_QUALITIES.includes(
+        this.settings.graphics.quality
+      )
+    ) {
       this.settings.graphics.quality = "high";
     }
 
-    if (!ALLOWED_THEMES.includes(this.settings.theme)) {
+    if (
+      !ALLOWED_THEMES.includes(
+        this.settings.theme
+      )
+    ) {
       this.settings.theme = "royal-purple";
     }
 
-    if (!ALLOWED_ORIENTATIONS.includes(
-      this.settings.controls.boardOrientation
-    )) {
+    if (
+      !ALLOWED_ORIENTATIONS.includes(
+        this.settings.controls.boardOrientation
+      )
+    ) {
       this.settings.controls.boardOrientation = "auto";
     }
 
-    if (!ALLOWED_VISIBILITY.includes(
-      this.settings.privacy.profileVisibility
-    )) {
+    if (
+      !ALLOWED_VISIBILITY.includes(
+        this.settings.privacy.profileVisibility
+      )
+    ) {
       this.settings.privacy.profileVisibility = "public";
     }
 
@@ -443,11 +474,14 @@ export class SettingsService {
     ];
 
     for (const key of volumeKeys) {
-      const value = Number(this.settings.audio[key]);
+      const value = Number(
+        this.settings.audio[key]
+      );
 
-      this.settings.audio[key] = Number.isFinite(value)
-        ? Math.min(1, Math.max(0, value))
-        : DEFAULT_SETTINGS.audio[key];
+      this.settings.audio[key] =
+        Number.isFinite(value)
+          ? Math.min(1, Math.max(0, value))
+          : DEFAULT_SETTINGS.audio[key];
     }
 
     return true;
@@ -456,7 +490,9 @@ export class SettingsService {
   reset(section = null) {
     if (section) {
       if (!Object.hasOwn(DEFAULT_SETTINGS, section)) {
-        throw new Error(`Unknown settings section: ${section}`);
+        throw new Error(
+          `Unknown settings section: ${section}`
+        );
       }
 
       this.settings[section] = clone(
@@ -477,22 +513,35 @@ export class SettingsService {
   }
 
   exportSettings() {
-    return JSON.stringify(this.settings, null, 2);
+    return JSON.stringify(
+      this.settings,
+      null,
+      2
+    );
   }
 
   importSettings(json) {
     let imported;
 
     try {
-      imported = typeof json === "string"
-        ? JSON.parse(json)
-        : json;
+      imported =
+        typeof json === "string"
+          ? JSON.parse(json)
+          : json;
     } catch {
-      throw new Error("Settings backup file invalid है।");
+      throw new Error(
+        "Settings backup file invalid है।"
+      );
     }
 
-    if (!imported || typeof imported !== "object") {
-      throw new Error("Invalid settings backup.");
+    if (
+      !imported ||
+      typeof imported !== "object" ||
+      Array.isArray(imported)
+    ) {
+      throw new Error(
+        "Invalid settings backup."
+      );
     }
 
     this.settings = mergeObjects(
@@ -508,11 +557,16 @@ export class SettingsService {
 
   on(event, callback) {
     if (typeof callback !== "function") {
-      throw new TypeError("Callback must be a function.");
+      throw new TypeError(
+        "Callback must be a function."
+      );
     }
 
     if (!this.listeners.has(event)) {
-      this.listeners.set(event, new Set());
+      this.listeners.set(
+        event,
+        new Set()
+      );
     }
 
     this.listeners.get(event).add(callback);
@@ -529,7 +583,10 @@ export class SettingsService {
       try {
         callback(payload);
       } catch (error) {
-        console.error("SettingsService listener error:", error);
+        console.error(
+          "[APPARA CHESS] Settings listener error:",
+          error
+        );
       }
     });
 
@@ -546,5 +603,7 @@ export function createSettingsService(dependencies = {}) {
   return new SettingsService(dependencies);
 }
 
-/* ================= FILE 47 END ================= */
-        
+/* =========================================================
+   FILE 2 COMPLETE
+   FILE: js/services/settings-service.js
+   ========================================================= */
