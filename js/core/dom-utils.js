@@ -1,4 +1,3 @@
-
 /* =========================================================
    APPARA CHESS — DOM UTILITIES
    FILE: js/core/dom-utils.js
@@ -92,8 +91,13 @@ export const DOMUtils = {
       element.textContent = String(options.text);
     }
 
-    if (options.attributes && typeof options.attributes === "object") {
-      for (const [name, value] of Object.entries(options.attributes)) {
+    if (
+      options.attributes &&
+      typeof options.attributes === "object"
+    ) {
+      for (const [name, value] of Object.entries(
+        options.attributes
+      )) {
         if (value === null || value === undefined) continue;
 
         element.setAttribute(name, String(value));
@@ -109,9 +113,10 @@ export const DOMUtils = {
   setText(element, value) {
     if (!validateElement(element)) return false;
 
-    element.textContent = value === null || value === undefined
-      ? ""
-      : String(value);
+    element.textContent =
+      value === null || value === undefined
+        ? ""
+        : String(value);
 
     return true;
   },
@@ -145,7 +150,11 @@ export const DOMUtils = {
 
     const validNames = classNames
       .flat()
-      .filter(name => typeof name === "string" && name.trim());
+      .filter(
+        name =>
+          typeof name === "string" &&
+          name.trim()
+      );
 
     element.classList.add(...validNames);
 
@@ -160,7 +169,11 @@ export const DOMUtils = {
 
     const validNames = classNames
       .flat()
-      .filter(name => typeof name === "string" && name.trim());
+      .filter(
+        name =>
+          typeof name === "string" &&
+          name.trim()
+      );
 
     element.classList.remove(...validNames);
 
@@ -173,7 +186,10 @@ export const DOMUtils = {
   toggleClass(element, className, force) {
     if (!validateElement(element)) return false;
 
-    if (typeof className !== "string" || !className.trim()) {
+    if (
+      typeof className !== "string" ||
+      !className.trim()
+    ) {
       return false;
     }
 
@@ -227,7 +243,10 @@ export const DOMUtils = {
       return false;
     }
 
-    element.style.setProperty(property, String(value));
+    element.style.setProperty(
+      property,
+      String(value)
+    );
 
     return true;
   },
@@ -238,7 +257,10 @@ export const DOMUtils = {
   setAttribute(element, name, value) {
     if (!validateElement(element)) return false;
 
-    if (typeof name !== "string" || !name.trim()) {
+    if (
+      typeof name !== "string" ||
+      !name.trim()
+    ) {
       return false;
     }
 
@@ -266,20 +288,32 @@ export const DOMUtils = {
    */
   on(element, eventName, callback, options = false) {
     if (!validateElement(element)) {
-      throw new TypeError("A valid DOM element is required.");
+      throw new TypeError(
+        "A valid DOM element is required."
+      );
     }
 
     if (
       typeof eventName !== "string" ||
       typeof callback !== "function"
     ) {
-      throw new TypeError("Invalid event listener arguments.");
+      throw new TypeError(
+        "Invalid event listener arguments."
+      );
     }
 
-    element.addEventListener(eventName, callback, options);
+    element.addEventListener(
+      eventName,
+      callback,
+      options
+    );
 
     return () => {
-      element.removeEventListener(eventName, callback, options);
+      element.removeEventListener(
+        eventName,
+        callback,
+        options
+      );
     };
   },
 
@@ -300,9 +334,10 @@ export const DOMUtils = {
   append(parent, ...children) {
     if (!validateElement(parent)) return false;
 
-    const validChildren = children.filter(child =>
-      child &&
-      typeof child.nodeType === "number"
+    const validChildren = children.filter(
+      child =>
+        child &&
+        typeof child.nodeType === "number"
     );
 
     parent.append(...validChildren);
@@ -316,9 +351,10 @@ export const DOMUtils = {
   replaceChildren(parent, ...children) {
     if (!validateElement(parent)) return false;
 
-    const validChildren = children.filter(child =>
-      child &&
-      typeof child.nodeType === "number"
+    const validChildren = children.filter(
+      child =>
+        child &&
+        typeof child.nodeType === "number"
     );
 
     parent.replaceChildren(...validChildren);
@@ -363,7 +399,9 @@ export const DOMUtils = {
   focus(element) {
     if (!validateElement(element)) return false;
 
-    if (typeof element.focus !== "function") return false;
+    if (typeof element.focus !== "function") {
+      return false;
+    }
 
     element.focus();
 
@@ -388,15 +426,19 @@ export const DOMUtils = {
    */
   ready(callback) {
     if (typeof callback !== "function") {
-      throw new TypeError("Callback must be a function.");
+      throw new TypeError(
+        "Callback must be a function."
+      );
     }
 
     const doc = getDocument();
 
     if (doc.readyState === "loading") {
-      doc.addEventListener("DOMContentLoaded", callback, {
-        once: true
-      });
+      doc.addEventListener(
+        "DOMContentLoaded",
+        callback,
+        { once: true }
+      );
     } else {
       callback();
     }
@@ -404,6 +446,37 @@ export const DOMUtils = {
 };
 
 /* =========================================================
-   FILE END: js/core/dom-utils.js
+   COMPATIBILITY EXPORTS
    ========================================================= */
-    
+
+/**
+ * Create an HTML element using DOMUtils.
+ */
+export function createElement(tagName, options = {}) {
+  return DOMUtils.create(tagName, options);
+}
+
+/**
+ * Escape HTML special characters.
+ */
+export function escapeHTML(value) {
+  return String(value ?? "").replace(
+    /[&<>"']/g,
+    character => {
+      const entities = {
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      };
+
+      return entities[character];
+    }
+  );
+}
+
+/* =========================================================
+   FILE 1 COMPLETE
+   FILE: js/core/dom-utils.js
+   ========================================================= */
