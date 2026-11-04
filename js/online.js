@@ -1,799 +1,1398 @@
 /* =========================================================
-   APPARA CHESS — ONLINE ROOM SYSTEM
-   PART 13 — js/online.js
-   ========================================================= */
+   APPARA CHESS — ONLINE MULTIPLAYER
+   PART 21I — FIREBASE INTEGRATION REPAIR
+   FILE: js/online.js
+   PART 1/3 — CORE, FIREBASE & ROOM CREATION
+========================================================= */
 
-(function () {
-  "use strict";
+window.APPARA_ONLINE = (function () {
+    "use strict";
 
-  const Online = {
-    initialized: false,
-    connected: false,
-    currentRoomCode: null,
-    currentRoom: null,
-    currentPlayer: null,
-    currentPlayerColor: null,
+    /* =====================================================
+       1. STATE
+    ===================================================== */
 
-    roomListener: null,
-    connectionListener: null,
+    const state = {
+        initialized: false,
+        connected: false,
+        authenticated: false,
 
-    callbacks: {
-      onRoomUpdate: null,
-      onPlayerJoined: null,
-      onPlayerLeft: null,
-      onMove: null,
-      onStatusChange: null,
-      onError: null
-    },
+        currentRoom: null,
+        currentRoomCode: null,
+        currentPlayerColor: null,
+        currentUser: null,
 
-    /* ---------- INITIALIZATION ---------- */
+        roomReference: null,
+        roomListener: null,
+        roomUpdateHandler: null,
 
-    init(options = {}) {
-      this.callbacks.onRoomUpdate =
-        options.onRoomUpdate || null;
+        auth: null,
+        database: null,
 
-      this.callbacks.onPlayerJoined =
-        options.onPlayerJoined || null;
+        playerName: "Guest Player",
+        lastError: null,
 
-      this.callbacks.onPlayerLeft =
-        options.onPlayerLeft || null;
+        submittingMove: false,
+        leavingRoom: false
+    };
 
-      this.callbacks.onMove =
-        options.onMove || null;
 
-      this.callbacks.onStatusChange =
-        options.onStatusChange || null;
+    /* =====================================================
+       2. DOM HELPERS
+    ===================================================== */
 
-      this.callbacks.onError =
-        options.onError || null;
+    function getElement(id) {
+        return document.getElementById(id);
+    }
 
-      if (
-        !window.APPARA_FIREBASE ||
-        !window.APPARA_FIREBASE.isAvailable()
-      ) {
-        this.setStatus(false, "Firebase unavailable");
-        return false;
-      }
+    function setText(id, value) {
+        const element = getElement(id);
 
-      const initialized =
-        window.APPARA_FIREBASE.initialize();
+        if (element) {
+            element.textContent = value;
+        }
+    }
 
-      if (!initialized) {
-        this.setStatus(false, "Firebase not configured");
-        return false;
-      }
 
-      const database =
-        window.APPARA_FIREBASE.getDatabase();
+    /* =====================================================
+       3. NOTIFICATION
+    ===================================================== */
 
-      if (!database) {
-        this.setStatus(false, "Database unavailable");
-        return false;
-      }
+    function notify(message, type) {
+        if (
+            window.APPARA_APP &&
+            typeof window.APPARA_APP.notify === "function"
+        ) {
+            window.APPARA_APP.notify(
+                message,
+                type || "info"
+            );
+        } else {
+            console.log("[APPARA ONLINE]", message);
+        }
+    }
 
-      this.connectionListener = database.ref(".info/connected");
 
-      this.connectionListener.on("value", (snapshot) => {
-        this.connected = snapshot.val() === true;
+    /* =====================================================
+       4. FIREBASE MODULE
+    ===================================================== */
 
-        this.setStatus(
-          this.connected,
-          this.connected ? "Connected" : "Disconnected"
-        );
-      });
+    function getFirebaseModule() {
+        return window.APPARA_FIREBASE || null;
+    }
 
-      this.initialized = true;
+    function isFirebaseReady() {
+        const firebaseModule = getFirebaseModule();
 
-      return true;
-    },
-
-    /* ---------- STATUS ---------- */
-
-    setStatus(connected, message) {
-      this.connected = Boolean(connected);
-
-      const indicator = document.getElementById(
-        "connection-indicator"
-      );
-
-      const statusText = document.getElementById(
-        "online-connection-status"
-      );
-
-      if (indicator) {
-        indicator.classList.toggle(
-          "connected",
-          this.connected
-        );
-
-        indicator.classList.toggle(
-          "disconnected",
-          !this.connected
-        );
-      }
-
-      if (statusText) {
-        statusText.textContent = message || (
-          this.connected ? "Connected" : "Disconnected"
-        );
-      }
-
-      if (typeof this.callbacks.onStatusChange === "function") {
-        this.callbacks.onStatusChange({
-          connected: this.connected,
-          message
-        });
-      }
-    },
-
-    reportError(error) {
-      console.error("APPARA ONLINE:", error);
-
-      if (typeof this.callbacks.onError === "function") {
-        this.callbacks.onError(error);
-      }
-
-      return {
-        success: false,
-        error: error && error.message
-          ? error.message
-          : String(error)
-      };
-    },
-
-    /* ---------- FIREBASE ACCESS ---------- */
-
-    getDatabase() {
-      if (!window.APPARA_FIREBASE) return null;
-
-      return window.APPARA_FIREBASE.getDatabase();
-    },
-
-    getAuth() {
-      if (!window.APPARA_FIREBASE) return null;
-
-      return window.APPARA_FIREBASE.getAuth();
-    },
-
-    async ensureAuthenticated() {
-      const auth = this.getAuth();
-
-      if (!auth) {
-        throw new Error("Firebase Authentication unavailable.");
-      }
-
-      if (auth.currentUser) {
-        return auth.currentUser;
-      }
-
-      const credential = await auth.signInAnonymously();
-
-      if (!credential || !credential.user) {
-        throw new Error("Anonymous sign-in failed.");
-      }
-
-      return credential.user;
-    },
-
-    getRoomReference(code) {
-      if (!window.APPARA_FIREBASE) return null;
-
-      return window.APPARA_FIREBASE.getRoomReference(
-        String(code).toUpperCase()
-      );
-    },
-
-    /* ---------- ROOM CODE ---------- */
-
-    generateRoomCode() {
-      const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
-      let code = "";
-
-      for (let index = 0; index < 6; index++) {
-        code += characters.charAt(
-          Math.floor(Math.random() * characters.length)
-        );
-      }
-
-      return code;
-    },
-
-    /* ---------- PLAYER INFORMATION ---------- */
-
-    getPlayerName() {
-      const input = document.getElementById(
-        "online-player-name"
-      );
-
-      const value = input && input.value
-        ? input.value.trim()
-        : "";
-
-      return value || "Guest Player";
-    },
-
-    createPlayerData(user, name, color) {
-      return {
-        uid: user.uid,
-        name: String(name || "Guest Player").slice(0, 24),
-        color,
-        joinedAt: Date.now(),
-        isOnline: true
-      };
-    },
-
-    /* ---------- CREATE ROOM ---------- */
-
-    async createRoom(options = {}) {
-      try {
-        if (!this.initialized && !this.init()) {
-          throw new Error("Online system is not initialized.");
+        if (!firebaseModule) {
+            return false;
         }
 
-        await this.ensureAuthenticated();
-
-        const auth = this.getAuth();
-        const user = auth.currentUser;
-
-        const database = this.getDatabase();
-
-        if (!database) {
-          throw new Error("Realtime Database unavailable.");
+        if (
+            typeof firebaseModule.isAvailable === "function" &&
+            !firebaseModule.isAvailable()
+        ) {
+            return false;
         }
 
-        const playerName = String(
-          options.name || this.getPlayerName()
-        ).trim().slice(0, 24) || "Guest Player";
+        if (
+            typeof firebaseModule.isConfigured === "function" &&
+            !firebaseModule.isConfigured()
+        ) {
+            return false;
+        }
 
-        const game = window.APPARA_ENGINE
-          ? window.APPARA_ENGINE.getGame()
-          : null;
+        return true;
+    }
 
-        const startingFen = game
-          ? game.fen()
-          : "start";
 
-        let roomCode = null;
-        let roomReference = null;
+    /* =====================================================
+       5. INITIALIZATION
+    ===================================================== */
 
-        for (let attempt = 0; attempt < 5; attempt++) {
-          const candidate = this.generateRoomCode();
-          const candidateReference = this.getRoomReference(candidate);
+    function init() {
+        if (state.initialized) {
+            return true;
+        }
 
-          if (!candidateReference) {
-            throw new Error("Unable to create room reference.");
-          }
+        const firebaseModule = getFirebaseModule();
 
-          const result = await candidateReference.transaction(
-            (currentData) => {
-              if (currentData !== null) {
+        if (!firebaseModule) {
+            setStatus(false, "Firebase module unavailable");
+            return false;
+        }
+
+        if (!isFirebaseReady()) {
+            setStatus(false, "Firebase setup required");
+
+            console.warn(
+                "APPARA CHESS: Add your Firebase project configuration."
+            );
+
+            return false;
+        }
+
+        try {
+            if (
+                typeof firebaseModule.initialize === "function"
+            ) {
+                firebaseModule.initialize();
+            }
+
+            state.auth =
+                typeof firebaseModule.getAuth === "function"
+                    ? firebaseModule.getAuth()
+                    : null;
+
+            state.database =
+                typeof firebaseModule.getDatabase === "function"
+                    ? firebaseModule.getDatabase()
+                    : null;
+
+            if (!state.auth || !state.database) {
+                setStatus(false, "Firebase services unavailable");
+                return false;
+            }
+
+            state.initialized = true;
+
+            monitorConnection();
+
+            setStatus(true, "Firebase ready");
+
+            return true;
+
+        } catch (error) {
+            reportError(error, "Firebase initialization failed");
+            return false;
+        }
+    }
+
+
+    /* =====================================================
+       6. CONNECTION STATUS
+    ===================================================== */
+
+    function setStatus(connected, message) {
+        state.connected = Boolean(connected);
+
+        const indicator = getElement("connection-indicator");
+        const statusText = getElement("online-connection-status");
+
+        if (indicator) {
+            indicator.classList.toggle(
+                "connected",
+                state.connected
+            );
+
+            indicator.classList.toggle(
+                "disconnected",
+                !state.connected
+            );
+        }
+
+        if (statusText) {
+            statusText.textContent =
+                message ||
+                (state.connected ? "Connected" : "Disconnected");
+        }
+    }
+
+
+    /* =====================================================
+       7. CONNECTION MONITOR
+    ===================================================== */
+
+    function monitorConnection() {
+        if (!state.database) {
+            return;
+        }
+
+        try {
+            const connectedRef =
+                state.database.ref(".info/connected");
+
+            connectedRef.on("value", function (snapshot) {
+                const connected = snapshot.val() === true;
+
+                setStatus(
+                    connected,
+                    connected
+                        ? "Connected to Firebase"
+                        : "Connection unavailable"
+                );
+            });
+
+        } catch (error) {
+            reportError(error, "Connection monitoring failed");
+        }
+    }
+
+
+    /* =====================================================
+       8. ERROR HANDLING
+    ===================================================== */
+
+    function reportError(error, message) {
+        state.lastError = error || null;
+
+        console.error(
+            "[APPARA ONLINE]",
+            message || "Online error",
+            error || ""
+        );
+
+        setStatus(false, message || "Online error");
+
+        notify(
+            message || "Online service error.",
+            "error"
+        );
+    }
+
+
+    /* =====================================================
+       9. AUTHENTICATION
+    ===================================================== */
+
+    function ensureAuthenticated() {
+        return new Promise(function (resolve, reject) {
+            if (!init()) {
+                reject(
+                    new Error("Firebase is not configured.")
+                );
+
                 return;
-              }
+            }
 
-              return {
-                code: candidate,
-                status: "waiting",
-                createdAt: firebase.database.ServerValue.TIMESTAMP,
-                updatedAt: firebase.database.ServerValue.TIMESTAMP,
-                hostUid: user.uid,
-                players: {
-                  white: this.createPlayerData(
-                    user,
-                    playerName,
-                    "white"
-                  ),
-                  black: null
+            if (state.auth.currentUser) {
+                state.currentUser = state.auth.currentUser;
+                state.authenticated = true;
+
+                resolve(state.currentUser);
+                return;
+            }
+
+            const unsubscribe = state.auth.onAuthStateChanged(
+                function (user) {
+                    unsubscribe();
+
+                    if (user) {
+                        state.currentUser = user;
+                        state.authenticated = true;
+
+                        resolve(user);
+                        return;
+                    }
+
+                    state.auth.signInAnonymously()
+                        .then(function (credential) {
+                            state.currentUser = credential.user;
+                            state.authenticated = true;
+
+                            resolve(credential.user);
+                        })
+                        .catch(function (error) {
+                            reportError(
+                                error,
+                                "Anonymous sign-in failed"
+                            );
+
+                            reject(error);
+                        });
                 },
-                game: {
-                  fen: startingFen,
-                  pgn: "",
-                  moves: [],
-                  turn: "w",
-                  moveNumber: 1,
-                  lastMove: null,
-                  result: null
-                },
-                settings: {
-                  timeMinutes: Number(options.minutes) || 10,
-                  increment: Number(options.increment) || 0,
-                  rated: options.rated === true
+                function (error) {
+                    unsubscribe();
+
+                    reportError(
+                        error,
+                        "Authentication failed"
+                    );
+
+                    reject(error);
                 }
-              };
+            );
+        });
+    }
+
+
+    /* =====================================================
+       10. PLAYER NAME
+    ===================================================== */
+
+    function getPlayerName() {
+        const profile = window.APPARA_PROFILE;
+
+        if (
+            profile &&
+            typeof profile.getProfile === "function"
+        ) {
+            const data = profile.getProfile();
+
+            if (data && data.name) {
+                return String(data.name).slice(0, 24);
+            }
+        }
+
+        const input = getElement("online-player-name");
+
+        if (input && input.value.trim()) {
+            return input.value.trim().slice(0, 24);
+        }
+
+        return state.playerName;
+    }
+
+
+    /* =====================================================
+       11. PLAYER DATA
+    ===================================================== */
+
+    function createPlayerData(color) {
+        const user = state.currentUser;
+
+        return {
+            uid: user ? user.uid : null,
+            name: getPlayerName(),
+            color: color,
+            online: true,
+            joinedAt: Date.now()
+        };
+    }
+
+
+    /* =====================================================
+       12. ROOM CODE GENERATOR
+    ===================================================== */
+
+    function generateRoomCode() {
+        const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+        let code = "";
+
+        for (let i = 0; i < 6; i++) {
+            const index = Math.floor(
+                Math.random() * characters.length
+            );
+
+            code += characters[index];
+        }
+
+        return code;
+    }
+
+
+    /* =====================================================
+       13. DATABASE ROOM REFERENCE
+    ===================================================== */
+
+    function getRoomReference(roomCode) {
+        if (!state.database || !roomCode) {
+            return null;
+        }
+
+        return state.database
+            .ref("rooms")
+            .child(String(roomCode).toUpperCase());
+    }
+
+
+    /* =====================================================
+       14. CREATE ROOM
+    ===================================================== */
+
+    async function createRoom() {
+        if (state.currentRoomCode) {
+            notify("You are already in a room.", "warning");
+            return false;
+        }
+
+        try {
+            await ensureAuthenticated();
+
+            const roomCode = generateRoomCode();
+
+            const roomRef = getRoomReference(roomCode);
+
+            if (!roomRef) {
+                throw new Error("Room database reference unavailable.");
+            }
+
+            const roomData = {
+                code: roomCode,
+
+                status: "waiting",
+
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+
+                hostUid: state.currentUser.uid,
+
+                players: {
+                    white: createPlayerData("w"),
+                    black: null
+                },
+
+                fen: null,
+                moves: {},
+
+                turn: "w",
+
+                result: null,
+                reason: null
+            };
+
+            const transaction = await roomRef.transaction(
+                function (currentData) {
+                    if (currentData !== null) {
+                        return;
+                    }
+
+                    return roomData;
+                },
+                undefined,
+                false
+            );
+
+            if (!transaction.committed) {
+                throw new Error(
+                    "Could not reserve a unique room code."
+                );
+            }
+
+            state.currentRoom = transaction.snapshot.val();
+            state.currentRoomCode = roomCode;
+            state.currentPlayerColor = "w";
+            state.roomReference = roomRef;
+
+            showCreatedRoom(roomCode);
+
+            listenToRoom(roomCode);
+
+            notify(
+                "Room created. Share the code with your friend.",
+                "success"
+            );
+
+            return roomCode;
+
+        } catch (error) {
+            reportError(error, "Could not create room");
+            return false;
+        }
+    }
+
+
+    /* =====================================================
+       15. SHOW CREATED ROOM
+    ===================================================== */
+
+    function showCreatedRoom(roomCode) {
+        const container =
+            getElement("created-room-container");
+
+        const codeElement =
+            getElement("created-room-code");
+
+        if (codeElement) {
+            codeElement.textContent = roomCode;
+        }
+
+        if (container) {
+            container.classList.remove("hidden");
+            container.style.display = "";
+        }
+    }
+
+
+    /* =====================================================
+       16. COPY ROOM CODE
+    ===================================================== */
+
+    async function copyRoomCode() {
+        if (!state.currentRoomCode) {
+            notify("No room code available.", "warning");
+            return false;
+        }
+
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(
+                    state.currentRoomCode
+                );
+            } else {
+                const input = document.createElement("textarea");
+
+                input.value = state.currentRoomCode;
+
+                document.body.appendChild(input);
+
+                input.select();
+
+                const copied =
+                    document.execCommand("copy");
+
+                input.remove();
+
+                if (!copied) {
+                    throw new Error("Copy command failed.");
+                }
+            }
+
+            notify("Room code copied.", "success");
+
+            return true;
+
+        } catch (error) {
+            reportError(error, "Could not copy room code");
+            return false;
+        }
+    }
+
+
+    /* =====================================================
+       PART 1/3 END
+       CONTINUE PART 2/3 BELOW THIS LINE
+    ===================================================== */
+
+       /* =========================================================
+   APPARA CHESS — ONLINE MULTIPLAYER
+   PART 21I — FIREBASE INTEGRATION REPAIR
+   FILE: js/online.js
+   PART 2/3 — JOIN ROOM, ROOM LISTENER & MOVE SYNC
+========================================================= */
+
+
+/* =====================================================
+   17. JOIN ROOM
+===================================================== */
+
+async function joinRoom(roomCode) {
+    if (state.currentRoomCode) {
+        notify("Leave your current room first.", "warning");
+        return false;
+    }
+
+    const code = String(roomCode || "")
+        .trim()
+        .toUpperCase();
+
+    if (!/^[A-HJ-NP-Z2-9]{6}$/.test(code)) {
+        notify("Enter a valid 6-character room code.", "warning");
+        return false;
+    }
+
+    try {
+        await ensureAuthenticated();
+
+        const roomRef = getRoomReference(code);
+
+        if (!roomRef) {
+            throw new Error("Room reference unavailable.");
+        }
+
+        const joinResult = await roomRef.transaction(
+            function (room) {
+                if (!room || room.status !== "waiting") {
+                    return;
+                }
+
+                if (
+                    !room.players ||
+                    room.players.black !== null
+                ) {
+                    return;
+                }
+
+                room.players.black = createPlayerData("b");
+                room.status = "playing";
+                room.updatedAt = Date.now();
+
+                return room;
             },
             undefined,
             false
-          );
+        );
 
-          if (result.committed) {
-            roomCode = candidate;
-            roomReference = candidateReference;
-            break;
-          }
-        }
-
-        if (!roomCode || !roomReference) {
-          throw new Error("Could not generate a unique room code.");
-        }
-
-        this.currentRoomCode = roomCode;
-        this.currentPlayer = user.uid;
-        this.currentPlayerColor = "white";
-
-        this.listenToRoom(roomCode);
-
-        return {
-          success: true,
-          code: roomCode,
-          color: "white",
-          room: roomReference
-        };
-      } catch (error) {
-        return this.reportError(error);
-      }
-    },
-
-    /* ---------- JOIN ROOM ---------- */
-
-    async joinRoom(code, options = {}) {
-      try {
-        if (!this.initialized && !this.init()) {
-          throw new Error("Online system is not initialized.");
-        }
-
-        const roomCode = String(code || "")
-          .trim()
-          .toUpperCase();
-
-        if (!/^[A-HJ-NP-Z2-9]{6}$/.test(roomCode)) {
-          throw new Error("Please enter a valid 6-character room code.");
-        }
-
-        await this.ensureAuthenticated();
-
-        const user = this.getAuth().currentUser;
-        const reference = this.getRoomReference(roomCode);
-
-        if (!reference) {
-          throw new Error("Room reference unavailable.");
-        }
-
-        const playerName = String(
-          options.name || this.getPlayerName()
-        ).trim().slice(0, 24) || "Guest Player";
-
-        let assignedColor = null;
-
-        const result = await reference.transaction(
-          (room) => {
-            if (!room || !room.players) {
-              return;
-            }
-
-            const white = room.players.white;
-            const black = room.players.black;
-
-            if (white && white.uid === user.uid) {
-              assignedColor = "white";
-              return room;
-            }
-
-            if (black && black.uid === user.uid) {
-              assignedColor = "black";
-              return room;
-            }
-
-            if (room.status !== "waiting") {
-              return;
-            }
-
-            if (black !== null) {
-              return;
-            }
-
-            room.players.black = this.createPlayerData(
-              user,
-              playerName,
-              "black"
+        if (!joinResult.committed) {
+            notify(
+                "Room is unavailable or already full.",
+                "warning"
             );
 
-            room.status = "active";
-            room.updatedAt =
-              firebase.database.ServerValue.TIMESTAMP;
-
-            assignedColor = "black";
-
-            return room;
-          },
-          undefined,
-          false
-        );
-
-        if (!result.committed || !assignedColor) {
-          throw new Error(
-            "Room is unavailable, full, or no longer waiting."
-          );
+            return false;
         }
 
-        this.currentRoomCode = roomCode;
-        this.currentPlayer = user.uid;
-        this.currentPlayerColor = assignedColor;
+        state.currentRoom = joinResult.snapshot.val();
+        state.currentRoomCode = code;
+        state.currentPlayerColor = "b";
+        state.roomReference = roomRef;
 
-        this.listenToRoom(roomCode);
+        listenToRoom(code);
 
-        return {
-          success: true,
-          code: roomCode,
-          color: assignedColor,
-          room: result.snapshot.val()
-        };
-      } catch (error) {
-        return this.reportError(error);
-      }
-    },
+        const fen = state.currentRoom.fen;
 
-    /* ---------- LISTEN TO ROOM ---------- */
+        if (fen && window.APPARA_ENGINE) {
+            window.APPARA_ENGINE.load(fen);
+        }
 
-    listenToRoom(code) {
-      this.stopRoomListener();
+        connectMultiplayer(code, "b");
 
-      const reference = this.getRoomReference(code);
+        notify("Joined room successfully.", "success");
 
-      if (!reference) return false;
+        return true;
 
-      let previousRoom = null;
+    } catch (error) {
+        reportError(error, "Could not join room");
+        return false;
+    }
+}
 
-      this.roomListener = reference;
 
-      reference.on(
+/* =====================================================
+   18. CONNECT MULTIPLAYER CONTROLLER
+===================================================== */
+
+function connectMultiplayer(roomCode, playerColor) {
+    const multiplayer = window.APPARA_MULTIPLAYER;
+
+    if (
+        !multiplayer ||
+        typeof multiplayer.startOnline !== "function"
+    ) {
+        console.warn("Multiplayer controller unavailable.");
+        return false;
+    }
+
+    multiplayer.startOnline({
+        roomCode: roomCode,
+        playerColor: playerColor
+    });
+
+    return true;
+}
+
+
+/* =====================================================
+   19. SET ROOM UPDATE HANDLER
+===================================================== */
+
+function setRoomUpdateHandler(callback) {
+    state.roomUpdateHandler =
+        typeof callback === "function"
+            ? callback
+            : null;
+
+    return true;
+}
+
+
+/* =====================================================
+   20. LISTEN TO ROOM
+===================================================== */
+
+function listenToRoom(roomCode) {
+    const code = String(
+        roomCode || state.currentRoomCode || ""
+    ).toUpperCase();
+
+    const roomRef = getRoomReference(code);
+
+    if (!roomRef) {
+        return false;
+    }
+
+    stopRoomListener();
+
+    state.roomReference = roomRef;
+
+    state.roomListener = roomRef.on(
         "value",
-        (snapshot) => {
-          if (!snapshot.exists()) {
-            this.currentRoom = null;
-            return;
-          }
-
-          const room = snapshot.val();
-          const oldRoom = previousRoom;
-
-          this.currentRoom = room;
-          previousRoom = room;
-
-          this.updateRoomDisplay(room);
-
-          if (
-            oldRoom &&
-            !oldRoom.players.black &&
-            room.players.black
-          ) {
-            if (typeof this.callbacks.onPlayerJoined === "function") {
-              this.callbacks.onPlayerJoined(
-                room.players.black
-              );
+        function (snapshot) {
+            if (!snapshot.exists()) {
+                notify("The room no longer exists.", "warning");
+                return;
             }
-          }
 
-          if (
-            oldRoom &&
-            oldRoom.game &&
-            room.game &&
-            oldRoom.game.moves &&
-            room.game.moves.length < room.game.moves.length
-          ) {
-            const latestMove =
-              room.game.moves[room.game.moves.length - 1];
+            const roomData = snapshot.val();
 
-            if (typeof this.callbacks.onMove === "function") {
-              this.callbacks.onMove(latestMove, room);
+            state.currentRoom = roomData;
+
+            updateRoomDisplay(roomData);
+
+            if (typeof state.roomUpdateHandler === "function") {
+                state.roomUpdateHandler(roomData);
             }
-          }
 
-          if (typeof this.callbacks.onRoomUpdate === "function") {
-            this.callbacks.onRoomUpdate(room);
-          }
+            /*
+             * A room created by this player must also connect
+             * its multiplayer controller when the opponent joins.
+             */
+
+            if (
+                roomData.status === "playing" &&
+                !state.multiplayerConnected
+            ) {
+                state.multiplayerConnected = true;
+
+                connectMultiplayer(
+                    code,
+                    state.currentPlayerColor
+                );
+            }
+
+            if (roomData.status === "finished") {
+                state.multiplayerConnected = false;
+            }
         },
-        (error) => {
-          this.reportError(error);
+        function (error) {
+            reportError(error, "Room listener failed");
         }
-      );
+    );
 
-      return true;
-    },
+    return true;
+}
 
-    stopRoomListener() {
-      if (this.roomListener) {
-        this.roomListener.off("value");
-        this.roomListener = null;
-      }
-    },
 
-    /* ---------- ROOM DISPLAY ---------- */
+/* =====================================================
+   21. STOP ROOM LISTENER
+===================================================== */
 
-    updateRoomDisplay(room) {
-      const roomContainer = document.getElementById(
-        "created-room-container"
-      );
-
-      const roomCodeElement = document.getElementById(
-        "created-room-code"
-      );
-
-      if (roomContainer) {
-        roomContainer.hidden = false;
-      }
-
-      if (roomCodeElement) {
-        roomCodeElement.textContent =
-          room.code || this.currentRoomCode || "";
-      }
-
-      const playerNameElement = document.getElementById(
-        "online-player-name"
-      );
-
-      if (
-        playerNameElement &&
-        room.players &&
-        room.players.white &&
-        room.players.black
-      ) {
-        playerNameElement.dataset.roomStatus = room.status;
-      }
-    },
-
-    /* ---------- SEND MOVE ---------- */
-
-    async sendMove(moveData) {
-      try {
-        if (!this.currentRoomCode || !this.currentPlayer) {
-          throw new Error("You are not in an online room.");
-        }
-
-        const reference = this.getRoomReference(
-          this.currentRoomCode
+function stopRoomListener() {
+    if (
+        state.roomReference &&
+        state.roomListener
+    ) {
+        state.roomReference.off(
+            "value",
+            state.roomListener
         );
+    }
 
-        if (!reference) {
-          throw new Error("Room reference unavailable.");
+    state.roomListener = null;
+
+    return true;
+}
+
+
+/* =====================================================
+   22. UPDATE ROOM DISPLAY
+===================================================== */
+
+function updateRoomDisplay(roomData) {
+    if (!roomData) {
+        return;
+    }
+
+    const whitePlayer =
+        roomData.players && roomData.players.white;
+
+    const blackPlayer =
+        roomData.players && roomData.players.black;
+
+    setText(
+        "online-player-name",
+        whitePlayer ? whitePlayer.name : "Waiting for player"
+    );
+
+    const blackName = document.getElementById("black-player-name");
+
+    if (blackName) {
+        blackName.textContent =
+            blackPlayer ? blackPlayer.name : "Waiting for player";
+    }
+
+    const statusText = document.getElementById(
+        "online-connection-status"
+    );
+
+    if (statusText) {
+        statusText.textContent =
+            roomData.status === "playing"
+                ? "Match in progress"
+                : roomData.status === "finished"
+                    ? "Match finished"
+                    : "Waiting for opponent";
+    }
+}
+
+
+/* =====================================================
+   23. SEND MOVE
+===================================================== */
+
+async function sendMove(move) {
+    if (
+        state.submittingMove ||
+        !state.currentRoomCode ||
+        !state.currentRoom ||
+        !state.currentPlayerColor
+    ) {
+        return false;
+    }
+
+    if (!move || !move.from || !move.to) {
+        return false;
+    }
+
+    const engine = window.APPARA_ENGINE;
+
+    if (!engine) {
+        return false;
+    }
+
+    state.submittingMove = true;
+
+    try {
+        const roomRef = state.roomReference ||
+            getRoomReference(state.currentRoomCode);
+
+        if (!roomRef) {
+            throw new Error("Room reference unavailable.");
         }
 
-        const user = this.getAuth().currentUser;
+        const expectedFen =
+            move.expectedFen ||
+            engine.getFEN();
 
-        if (!user || user.uid !== this.currentPlayer) {
-          throw new Error("Player authentication mismatch.");
-        }
-
-        const engine = window.APPARA_ENGINE;
-
-        if (!engine) {
-          throw new Error("Chess engine unavailable.");
-        }
-
-        const result = engine.move(moveData);
-
-        if (!result) {
-          throw new Error("Illegal chess move.");
-        }
-
-        const game = engine.getGame();
-
-        const update = {
-          fen: game.fen(),
-          pgn: game.pgn(),
-          turn: game.turn(),
-          moveNumber: game.move_number(),
-          lastMove: {
-            from: result.from,
-            to: result.to,
-            san: result.san,
-            color: result.color,
-            timestamp: Date.now()
-          },
-          result: engine.isGameOver()
-            ? engine.getGameStatus()
-            : null
+        const currentMove = {
+            from: move.from,
+            to: move.to,
+            promotion: move.promotion || "q"
         };
 
-        const transaction = await reference.child("game").transaction(
-          (currentGame) => {
-            if (!currentGame) return;
+        /*
+         * Read the latest room state before committing.
+         * The move is validated against a temporary chess
+         * instance, then committed with a transaction.
+         */
 
-            const players = this.currentRoom &&
-              this.currentRoom.players;
+        const snapshot = await roomRef.once("value");
+        const room = snapshot.val();
 
-            if (!players) return;
+        if (!room || room.status !== "playing") {
+            throw new Error("Room is not accepting moves.");
+        }
 
-            const player = this.currentPlayerColor === "white"
-              ? players.white
-              : players.black;
+        const turn = room.turn || "w";
 
-            if (!player || player.uid !== user.uid) {
-              return;
-            }
+        if (turn !== state.currentPlayerColor) {
+            throw new Error("It is not your turn.");
+        }
 
-            currentGame.fen = update.fen;
-            currentGame.pgn = update.pgn;
-            currentGame.turn = update.turn;
-            currentGame.moveNumber = update.moveNumber;
-            currentGame.lastMove = update.lastMove;
-            currentGame.result = update.result;
+        if (
+            room.fen &&
+            expectedFen !== room.fen
+        ) {
+            throw new Error("Board position is out of date.");
+        }
 
-            currentGame.moves = Array.isArray(currentGame.moves)
-              ? currentGame.moves
-              : [];
+        const validator = new Chess();
 
-            currentGame.moves.push(update.lastMove);
+        const position = room.fen || expectedFen;
 
-            return currentGame;
-          },
-          undefined,
-          false
+        if (!validator.load(position)) {
+            throw new Error("Invalid room position.");
+        }
+
+        const validatedMove = validator.move(currentMove);
+
+        if (!validatedMove) {
+            throw new Error("Illegal chess move.");
+        }
+
+        const nextFen = validator.fen();
+
+        const moveData = {
+            from: validatedMove.from,
+            to: validatedMove.to,
+            promotion: validatedMove.promotion || null,
+            san: validatedMove.san,
+            color: validatedMove.color,
+            timestamp: Date.now()
+        };
+
+        const moveKey = roomRef.child("moves").push().key;
+
+        const transaction = await roomRef.transaction(
+            function (latestRoom) {
+                if (!latestRoom || latestRoom.status !== "playing") {
+                    return;
+                }
+
+                if (
+                    latestRoom.turn !== state.currentPlayerColor
+                ) {
+                    return;
+                }
+
+                if (
+                    latestRoom.fen &&
+                    latestRoom.fen !== position
+                ) {
+                    return;
+                }
+
+                latestRoom.fen = nextFen;
+
+                latestRoom.turn =
+                    validatedMove.color === "w" ? "b" : "w";
+
+                latestRoom.updatedAt = Date.now();
+
+                latestRoom.moves =
+                    latestRoom.moves || {};
+
+                latestRoom.moves[moveKey] = moveData;
+
+                return latestRoom;
+            },
+            undefined,
+            false
         );
 
         if (!transaction.committed) {
-          engine.undo();
-          throw new Error("Online move could not be saved.");
+            throw new Error(
+                "Move was rejected because the room changed."
+            );
         }
 
-        return {
-          success: true,
-          move: result,
-          game: transaction.snapshot.val()
-        };
-      } catch (error) {
-        return this.reportError(error);
-      }
-    },
-
-    /* ---------- UPDATE PLAYER PRESENCE ---------- */
-
-    async setPlayerOnline(isOnline) {
-      try {
-        if (!this.currentRoomCode || !this.currentPlayer) {
-          return false;
-        }
-
-        const reference = this.getRoomReference(
-          this.currentRoomCode
-        );
-
-        const color = this.currentPlayerColor;
-
-        if (!reference || !color) return false;
-
-        await reference.child(
-          "players/" + color + "/isOnline"
-        ).set(Boolean(isOnline));
+        state.currentRoom = transaction.snapshot.val();
 
         return true;
-      } catch (error) {
-        this.reportError(error);
-        return false;
-      }
-    },
 
-    /* ---------- LEAVE ROOM ---------- */
+    } catch (error) {
+        console.error("Online move submission failed:", error);
 
-    async leaveRoom() {
-      try {
-        if (!this.currentRoomCode || !this.currentPlayer) {
-          this.stopRoomListener();
-          return true;
-        }
-
-        const reference = this.getRoomReference(
-          this.currentRoomCode
+        notify(
+            error.message || "Could not submit move.",
+            "warning"
         );
 
-        if (reference && this.currentPlayerColor) {
-          const playerReference = reference.child(
-            "players/" + this.currentPlayerColor
-          );
-
-          const snapshot = await playerReference.once("value");
-          const player = snapshot.val();
-
-          if (player && player.uid === this.currentPlayer) {
-            await playerReference.update({
-              isOnline: false,
-              leftAt: Date.now()
-            });
-          }
-        }
-
-        this.stopRoomListener();
-
-        this.currentRoomCode = null;
-        this.currentPlayer = null;
-        this.currentPlayerColor = null;
-        this.currentRoom = null;
-
-        return true;
-      } catch (error) {
-        return this.reportError(error);
-      }
-    },
-
-    /* ---------- GET ROOM STATE ---------- */
-
-    getRoom() {
-      return this.currentRoom;
-    },
-
-    getRoomCode() {
-      return this.currentRoomCode;
-    },
-
-    getPlayerColor() {
-      return this.currentPlayerColor;
-    },
-
-    isConnected() {
-      return this.connected;
-    },
-
-    /* ---------- COPY ROOM CODE ---------- */
-
-    async copyRoomCode() {
-      if (!this.currentRoomCode) return false;
-
-      try {
-        if (navigator.clipboard && window.isSecureContext) {
-          await navigator.clipboard.writeText(
-            this.currentRoomCode
-          );
-
-          return true;
-        }
-
-        const temporary = document.createElement("textarea");
-
-        temporary.value = this.currentRoomCode;
-        temporary.style.position = "fixed";
-        temporary.style.opacity = "0";
-
-        document.body.appendChild(temporary);
-
-        temporary.select();
-
-        const copied = document.execCommand("copy");
-
-        temporary.remove();
-
-        return copied;
-      } catch (error) {
-        this.reportError(error);
         return false;
-      }
-    },
 
-    /* ---------- CLEANUP ---------- */
-
-    destroy() {
-      this.stopRoomListener();
-
-      if (this.connectionListener) {
-        this.connectionListener.off("value");
-        this.connectionListener = null;
-      }
-
-      this.currentRoomCode = null;
-      this.currentRoom = null;
-      this.currentPlayer = null;
-      this.currentPlayerColor = null;
-
-      this.initialized = false;
-      this.connected = false;
-
-      return true;
+    } finally {
+        state.submittingMove = false;
     }
-  };
+}
 
-  window.APPARA_ONLINE = Online;
 
-})();
+/* =====================================================
+   24. UPDATE PLAYER ONLINE STATUS
+===================================================== */
+
+async function setPlayerOnline(isOnline) {
+    if (
+        !state.currentRoomCode ||
+        !state.currentPlayerColor ||
+        !state.roomReference
+    ) {
+        return false;
+    }
+
+    try {
+        const playerKey =
+            state.currentPlayerColor === "w"
+                ? "white"
+                : "black";
+
+        await state.roomReference
+            .child("players")
+            .child(playerKey)
+            .update({
+                online: Boolean(isOnline),
+                lastSeen: Date.now()
+            });
+
+        return true;
+
+    } catch (error) {
+        console.error("Player status update failed:", error);
+        return false;
+    }
+}
+
+
+/* =====================================================
+   PART 2/3 END
+   CONTINUE PART 3/3 BELOW THIS LINE
+========================================================= */   
+   /* =========================================================
+   APPARA CHESS — ONLINE MULTIPLAYER
+   PART 21I — FINAL ROOM CONTROLS & PUBLIC API
+   FILE: js/online.js
+   PART 3/3
+========================================================= */
+
+
+/* =====================================================
+   25. RESIGN GAME
+===================================================== */
+
+async function resign() {
+    if (
+        !state.currentRoomCode ||
+        !state.currentRoom ||
+        !state.currentPlayerColor
+    ) {
+        return false;
+    }
+
+    try {
+        const roomRef = state.roomReference;
+
+        const winner =
+            state.currentPlayerColor === "w" ? "b" : "w";
+
+        const result = await roomRef.transaction(
+            function (room) {
+                if (!room || room.status !== "playing") {
+                    return;
+                }
+
+                room.status = "finished";
+                room.result = winner;
+                room.reason = "resignation";
+                room.updatedAt = Date.now();
+
+                return room;
+            },
+            undefined,
+            false
+        );
+
+        if (!result.committed) {
+            notify("Could not resign this game.", "warning");
+            return false;
+        }
+
+        state.currentRoom = result.snapshot.val();
+
+        notify("You resigned the game.", "info");
+
+        return true;
+
+    } catch (error) {
+        reportError(error, "Resignation failed");
+        return false;
+    }
+}
+
+
+/* =====================================================
+   26. OFFER DRAW
+===================================================== */
+
+async function offerDraw() {
+    if (
+        !state.currentRoomCode ||
+        !state.currentRoom ||
+        !state.currentPlayerColor
+    ) {
+        return false;
+    }
+
+    try {
+        const roomRef = state.roomReference;
+
+        const result = await roomRef.transaction(
+            function (room) {
+                if (!room || room.status !== "playing") {
+                    return;
+                }
+
+                if (room.drawOfferBy) {
+                    return;
+                }
+
+                room.drawOfferBy = state.currentPlayerColor;
+                room.updatedAt = Date.now();
+
+                return room;
+            },
+            undefined,
+            false
+        );
+
+        if (!result.committed) {
+            notify(
+                "A draw offer is already pending or the game ended.",
+                "warning"
+            );
+
+            return false;
+        }
+
+        state.currentRoom = result.snapshot.val();
+
+        notify("Draw offer sent to your opponent.", "success");
+
+        return true;
+
+    } catch (error) {
+        reportError(error, "Could not offer a draw");
+        return false;
+    }
+}
+
+
+/* =====================================================
+   27. RESPOND TO DRAW OFFER
+===================================================== */
+
+async function respondToDraw(accept) {
+    if (
+        !state.currentRoomCode ||
+        !state.currentRoom ||
+        !state.currentPlayerColor
+    ) {
+        return false;
+    }
+
+    try {
+        const roomRef = state.roomReference;
+
+        const result = await roomRef.transaction(
+            function (room) {
+                if (!room || room.status !== "playing") {
+                    return;
+                }
+
+                if (
+                    !room.drawOfferBy ||
+                    room.drawOfferBy === state.currentPlayerColor
+                ) {
+                    return;
+                }
+
+                if (accept) {
+                    room.status = "finished";
+                    room.result = "draw";
+                    room.reason = "agreement";
+                }
+
+                room.drawOfferBy = null;
+                room.updatedAt = Date.now();
+
+                return room;
+            },
+            undefined,
+            false
+        );
+
+        if (!result.committed) {
+            notify("No opponent draw offer is pending.", "info");
+            return false;
+        }
+
+        state.currentRoom = result.snapshot.val();
+
+        notify(
+            accept ? "Draw accepted." : "Draw declined.",
+            "success"
+        );
+
+        return true;
+
+    } catch (error) {
+        reportError(error, "Could not respond to draw offer");
+        return false;
+    }
+}
+
+
+/* =====================================================
+   28. LEAVE ROOM
+===================================================== */
+
+async function leaveRoom() {
+    if (!state.currentRoomCode) {
+        return true;
+    }
+
+    if (state.leavingRoom) {
+        return false;
+    }
+
+    state.leavingRoom = true;
+
+    const roomRef = state.roomReference;
+    const color = state.currentPlayerColor;
+
+    try {
+        stopRoomListener();
+
+        if (roomRef && color) {
+            const playerKey =
+                color === "w" ? "white" : "black";
+
+            await roomRef.child("players")
+                .child(playerKey)
+                .update({
+                    online: false,
+                    lastSeen: Date.now()
+                });
+
+            /*
+             * Do not delete the room when leaving.
+             * This preserves the opponent's game record.
+             */
+        }
+
+        state.currentRoom = null;
+        state.currentRoomCode = null;
+        state.currentPlayerColor = null;
+        state.roomReference = null;
+        state.roomUpdateHandler = null;
+        state.multiplayerConnected = false;
+        state.submittingMove = false;
+
+        const createdContainer = getElement(
+            "created-room-container"
+        );
+
+        if (createdContainer) {
+            createdContainer.style.display = "none";
+        }
+
+        notify("You left the room.", "info");
+
+        return true;
+
+    } catch (error) {
+        reportError(error, "Could not leave room");
+        return false;
+
+    } finally {
+        state.leavingRoom = false;
+    }
+}
+
+
+/* =====================================================
+   29. ROOM INFORMATION
+===================================================== */
+
+function getRoom() {
+    return state.currentRoom
+        ? JSON.parse(JSON.stringify(state.currentRoom))
+        : null;
+}
+
+function getRoomCode() {
+    return state.currentRoomCode;
+}
+
+function getPlayerColor() {
+    return state.currentPlayerColor;
+}
+
+function getCurrentUser() {
+    return state.currentUser;
+}
+
+function isConnected() {
+    return Boolean(state.connected);
+}
+
+function isAuthenticated() {
+    return Boolean(state.authenticated);
+}
+
+function getLastError() {
+    return state.lastError;
+}
+
+
+/* =====================================================
+   30. RESET ONLINE STATE
+===================================================== */
+
+function resetOnlineState() {
+    stopRoomListener();
+
+    state.currentRoom = null;
+    state.currentRoomCode = null;
+    state.currentPlayerColor = null;
+    state.roomReference = null;
+    state.roomUpdateHandler = null;
+    state.multiplayerConnected = false;
+    state.submittingMove = false;
+    state.leavingRoom = false;
+
+    return true;
+}
+
+
+/* =====================================================
+   31. DESTROY CONTROLLER
+===================================================== */
+
+function destroy() {
+    stopRoomListener();
+
+    if (database) {
+        try {
+            database.ref(".info/connected").off();
+        } catch (error) {
+            console.warn(error);
+        }
+    }
+
+    resetOnlineState();
+
+    state.initialized = false;
+    state.connected = false;
+    state.authenticated = false;
+
+    return true;
+}
+
+
+/* =====================================================
+   32. PUBLIC API
+===================================================== */
+
+window.APPARA_ONLINE = {
+    init: init,
+    setStatus: setStatus,
+    reportError: reportError,
+
+    ensureAuthenticated: ensureAuthenticated,
+
+    createRoom: createRoom,
+    joinRoom: joinRoom,
+    listenToRoom: listenToRoom,
+    stopRoomListener: stopRoomListener,
+
+    setRoomUpdateHandler: setRoomUpdateHandler,
+    updateRoomDisplay: updateRoomDisplay,
+
+    sendMove: sendMove,
+    setPlayerOnline: setPlayerOnline,
+
+    resign: resign,
+    offerDraw: offerDraw,
+    respondToDraw: respondToDraw,
+
+    leaveRoom: leaveRoom,
+    resetOnlineState: resetOnlineState,
+
+    getRoom: getRoom,
+    getRoomCode: getRoomCode,
+    getPlayerColor: getPlayerColor,
+    getCurrentUser: getCurrentUser,
+
+    isConnected: isConnected,
+    isAuthenticated: isAuthenticated,
+    getLastError: getLastError,
+
+    copyRoomCode: copyRoomCode,
+    destroy: destroy
+};
+
 
 /* =========================================================
-   APPARA CHESS — ONLINE ROOM SYSTEM
-   PART 13 END
-   ========================================================= */
+   APPARA CHESS — ONLINE MULTIPLAYER CONTROLLER
+   PART 21I COMPLETE
+========================================================= */
