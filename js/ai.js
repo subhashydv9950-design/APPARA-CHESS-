@@ -1,8 +1,6 @@
-
 /* =========================================================
    APPARA CHESS — COMPUTER AI ENGINE
-   PART 21A — INTEGRATION FIX
-   File: js/ai.js
+   FILE: js/ai.js
    ========================================================= */
 
 window.APPARA_AI = (function () {
@@ -39,35 +37,41 @@ window.APPARA_AI = (function () {
         }
     };
 
+    /* ENGINE CONNECTION */
+
     function getGame() {
         if (
             !window.APPARA_ENGINE ||
-            typeof APPARA_ENGINE.getGame !== "function"
+            typeof window.APPARA_ENGINE.getGame !== "function"
         ) {
             return null;
         }
 
-        return APPARA_ENGINE.getGame();
+        return window.APPARA_ENGINE.getGame();
     }
+
+    /* INITIALIZATION */
 
     function init() {
         stopped = false;
 
         if (
             window.APPARA_CONFIG &&
-            APPARA_CONFIG.defaults &&
-            APPARA_CONFIG.defaults.difficulty
+            window.APPARA_CONFIG.defaults &&
+            window.APPARA_CONFIG.defaults.difficulty
         ) {
-            difficulty = APPARA_CONFIG.defaults.difficulty;
+            setDifficulty(
+                window.APPARA_CONFIG.defaults.difficulty
+            );
         }
 
         return true;
     }
 
-    function setDifficulty(level) {
-        const allowed = Object.keys(LEVELS);
+    /* DIFFICULTY */
 
-        if (allowed.includes(level)) {
+    function setDifficulty(level) {
+        if (Object.prototype.hasOwnProperty.call(LEVELS, level)) {
             difficulty = level;
         } else {
             difficulty = "medium";
@@ -88,9 +92,12 @@ window.APPARA_AI = (function () {
         };
     }
 
+    /* POSITION EVALUATION */
+
     function getPositionBonus(piece, row, col) {
         const centerDistance =
-            Math.abs(3.5 - row) + Math.abs(3.5 - col);
+            Math.abs(3.5 - row) +
+            Math.abs(3.5 - col);
 
         const centerBonus = Math.max(
             0,
@@ -127,7 +134,9 @@ window.APPARA_AI = (function () {
         if (!game) return 0;
 
         if (game.in_checkmate()) {
-            return game.turn() === "w" ? -100000 : 100000;
+            return game.turn() === "w"
+                ? -100000
+                : 100000;
         }
 
         if (
@@ -147,7 +156,9 @@ window.APPARA_AI = (function () {
 
                 if (!piece) continue;
 
-                const value = PIECE_VALUES[piece.type] || 0;
+                const value =
+                    PIECE_VALUES[piece.type] || 0;
+
                 const bonus = getPositionBonus(
                     piece,
                     row,
@@ -164,6 +175,8 @@ window.APPARA_AI = (function () {
 
         return score;
     }
+
+    /* MOVE ORDERING */
 
     function orderMoves(moves) {
         return moves.slice().sort(function (a, b) {
@@ -182,25 +195,29 @@ window.APPARA_AI = (function () {
         }
 
         if (move.promotion) {
-            score += PIECE_VALUES[move.promotion] || 0;
+            score +=
+                PIECE_VALUES[move.promotion] || 0;
         }
 
-        if (move.flags && move.flags.includes("k")) {
+        if (
+            move.flags &&
+            move.flags.includes("k")
+        ) {
             score += 30;
         }
 
-        if (move.flags && move.flags.includes("q")) {
+        if (
+            move.flags &&
+            move.flags.includes("q")
+        ) {
             score += 30;
         }
 
         return score;
     }
 
-    /*
-       Negamax:
-       Positive score = advantage for the side whose turn it is.
-       This keeps white/black evaluation consistent.
-    */
+    /* MINIMAX SEARCH */
+
     function minimax(
         game,
         depth,
@@ -211,7 +228,8 @@ window.APPARA_AI = (function () {
         if (stopped) return 0;
 
         if (depth <= 0 || game.game_over()) {
-            return colorMultiplier * evaluateBoard(game);
+            return colorMultiplier *
+                evaluateBoard(game);
         }
 
         const moves = orderMoves(
@@ -219,7 +237,8 @@ window.APPARA_AI = (function () {
         );
 
         if (!moves.length) {
-            return colorMultiplier * evaluateBoard(game);
+            return colorMultiplier *
+                evaluateBoard(game);
         }
 
         let bestScore = -Infinity;
@@ -258,8 +277,12 @@ window.APPARA_AI = (function () {
             }
         }
 
-        return bestScore === -Infinity ? 0 : bestScore;
+        return bestScore === -Infinity
+            ? 0
+            : bestScore;
     }
+
+    /* BEST MOVE SEARCH */
 
     function getBestMove(color) {
         const game = getGame();
@@ -277,6 +300,7 @@ window.APPARA_AI = (function () {
         stopped = false;
 
         const settings = LEVELS[difficulty];
+
         const moves = orderMoves(
             game.moves({ verbose: true })
         );
@@ -285,6 +309,7 @@ window.APPARA_AI = (function () {
 
         let bestMove = null;
         let bestScore = -Infinity;
+
         const candidates = [];
 
         for (let i = 0; i < moves.length; i++) {
@@ -311,9 +336,8 @@ window.APPARA_AI = (function () {
             game.undo();
 
             const adjustedScore =
-                score + (
-                    Math.random() * settings.randomFactor
-                );
+                score +
+                Math.random() * settings.randomFactor;
 
             candidates.push({
                 move: move,
@@ -330,12 +354,16 @@ window.APPARA_AI = (function () {
             bestMove = candidates[0].move;
         }
 
-        return bestMove ? {
+        if (!bestMove) return null;
+
+        return {
             from: bestMove.from,
             to: bestMove.to,
             promotion: bestMove.promotion || "q"
-        } : null;
+        };
     }
+
+    /* PLAY AI MOVE */
 
     function playMove(move) {
         const game = getGame();
@@ -353,7 +381,7 @@ window.APPARA_AI = (function () {
         if (!result) return null;
 
         if (window.APPARA_BOARD) {
-            APPARA_BOARD.refresh();
+            window.APPARA_BOARD.refresh();
         }
 
         return result;
@@ -375,6 +403,8 @@ window.APPARA_AI = (function () {
         return playMove(move);
     }
 
+    /* CONTROL */
+
     function stop() {
         stopped = true;
     }
@@ -383,26 +413,35 @@ window.APPARA_AI = (function () {
         stopped = false;
     }
 
+    /* PUBLIC API */
+
     return {
         init: init,
+
         setDifficulty: setDifficulty,
         getDifficulty: getDifficulty,
         getSettings: getSettings,
+
         getGame: getGame,
+
         getPositionBonus: getPositionBonus,
         evaluateBoard: evaluateBoard,
+
         orderMoves: orderMoves,
         getMoveOrderScore: getMoveOrderScore,
+
         minimax: minimax,
         getBestMove: getBestMove,
+
         playMove: playMove,
         playTurn: playTurn,
+
         stop: stop,
         reset: reset
     };
+
 })();
 
 /* =========================================================
-   APPARA CHESS — PART 21A END
-   FILE END: js/ai.js
+   PART 1/1 END — js/ai.js
    ========================================================= */
