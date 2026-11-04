@@ -1,0 +1,99 @@
+
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ========================================
+    // AUTHENTICATION HELPERS
+    // ========================================
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function validImage() {
+      return request.resource != null
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches(
+          'image/(jpeg|png|webp)'
+        );
+    }
+
+    // ========================================
+    // PLAYER PROFILE PHOTOS
+    // ========================================
+
+    match /profilePhotos/{uid}/{fileName} {
+
+      // Public profile images can be viewed.
+      allow read: if true;
+
+      // Only the authenticated owner can upload
+      // an image to their own profile folder.
+      allow create, update: if isOwner(uid)
+        && validImage();
+
+      allow delete: if isOwner(uid);
+    }
+
+    // ========================================
+    // PLAYER AVATARS
+    // ========================================
+
+    match /avatars/{uid}/{fileName} {
+
+      allow read: if true;
+
+      allow create, update: if isOwner(uid)
+        && validImage();
+
+      allow delete: if isOwner(uid);
+    }
+
+    // ========================================
+    // USER CUSTOM BACKGROUNDS
+    // ========================================
+
+    match /playerBackgrounds/{uid}/{fileName} {
+
+      allow read: if signedIn();
+
+      allow create, update: if isOwner(uid)
+        && validImage();
+
+      allow delete: if isOwner(uid);
+    }
+
+    // ========================================
+    // PRIVATE USER UPLOADS
+    // ========================================
+
+    match /private/{uid}/{fileName} {
+
+      allow read: if isOwner(uid);
+
+      allow create, update: if isOwner(uid)
+        && validImage();
+
+      allow delete: if isOwner(uid);
+    }
+
+    // ========================================
+    // DEFAULT DENY
+    // ========================================
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+  }
+}
+
+// ============================================
+// APPARA CHESS — FILE 77 COMPLETE
+// ============================================
