@@ -233,3 +233,49 @@ export class LanguageService {
     return translatedCount;
   }
   
+  on(event, callback) {
+    if (typeof callback !== "function") {
+      throw new TypeError("Callback must be a function.");
+    }
+
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set());
+    }
+
+    this.listeners.get(event).add(callback);
+
+    return () => this.off(event, callback);
+  }
+
+  off(event, callback) {
+    this.listeners.get(event)?.delete(callback);
+  }
+
+  emit(event, payload) {
+    this.listeners.get(event)?.forEach(callback => {
+      try {
+        callback(payload);
+      } catch (error) {
+        console.error(
+          "[APPARA CHESS] Language listener error:",
+          error
+        );
+      }
+    });
+  }
+
+  dispose() {
+    this.listeners.clear();
+    this.initialized = false;
+  }
+}
+
+export function createLanguageService(dependencies = {}) {
+  return new LanguageService(dependencies);
+}
+
+/* =========================================================
+   FILE: js/services/language-service.js
+   PART 2 COMPLETE
+   FULL FILE COMPLETE — FILE 1/10
+   ========================================================= */
