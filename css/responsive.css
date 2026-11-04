@@ -1,0 +1,594 @@
+/* =========================================================
+   APPARA CHESS — FILE 73
+   GLOBAL RESPONSIVE DESIGN
+   File: css/responsive.css
+   ========================================================= */
+
+/* ---------- GLOBAL FLUID SIZING ---------- */
+
+html {
+  width: 100%;
+  min-width: 320px;
+  min-height: 100%;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  width: 100%;
+  min-width: 320px;
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  max-width: 100%;
+  font: inherit;
+}
+
+#app,
+#root,
+.app,
+.app-shell,
+.app-container {
+  width: 100%;
+  min-width: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* ---------- LARGE DESKTOP ---------- */
+
+@media (min-width: 1400px) {
+  .screen-content {
+    max-width: 1600px;
+  }
+
+  .home-screen {
+    padding: 30px 40px;
+  }
+
+  .chess-board-frame {
+    max-width: 760px;
+  }
+
+  .profile-stat-grid {
+    gap: 18px;
+  }
+}
+
+/* ---------- LAPTOP ---------- */
+
+@media (max-width: 1200px) {
+  .app-layout,
+  .main-layout {
+    gap: 14px;
+  }
+
+  .sidebar {
+    width: 220px;
+  }
+
+  .screen-content {
+    max-width: 100%;
+  }
+
+  .home-hero {
+    gap: 12px;
+  }
+
+  .shop-item-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---------- TABLET LANDSCAPE ---------- */
+
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 190px;
+  }
+
+  .main-content {
+    min-width: 0;
+  }
+
+  .home-hero {
+    grid-template-columns: minmax(140px, 0.7fr) minmax(220px, 1.3fr);
+  }
+
+  .home-hero-center {
+    grid-column: 1 / -1;
+  }
+
+  .profile-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .review-layout,
+  .puzzle-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- TABLET PORTRAIT ---------- */
+
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+
+  .app-layout,
+  .main-layout {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .main-content {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .screen-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .screen-title {
+    font-size: 1.45rem;
+  }
+
+  .home-topbar {
+    flex-wrap: wrap;
+  }
+
+  .home-currency-bar {
+    justify-content: flex-start;
+  }
+
+  .home-hero {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .home-hero-center {
+    width: 100%;
+    min-height: 260px;
+  }
+
+  .home-action-column {
+    width: 100%;
+  }
+
+  .home-bottom-links {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .online-mode-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .world-environment-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tournament-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .arena-toolbar {
+    justify-content: center;
+  }
+}
+
+/* ---------- MOBILE ---------- */
+
+@media (max-width: 600px) {
+  html,
+  body {
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  .app-shell,
+  .app-container,
+  #app,
+  #root {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .screen {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .screen-content {
+    width: 100%;
+    padding-inline: 0;
+  }
+
+  .screen-header {
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .screen-title {
+    font-size: 1.25rem;
+  }
+
+  .screen-subtitle {
+    font-size: 0.82rem;
+  }
+
+  .home-screen,
+  .profile-screen,
+  .settings-screen,
+  .shop-screen,
+  .leaderboard-screen,
+  .online-screen,
+  .training-screen,
+  .puzzle-screen,
+  .tournament-screen,
+  .world-screen {
+    padding: 12px;
+  }
+
+  .home-topbar {
+    gap: 10px;
+  }
+
+  .home-player-info {
+    gap: 8px;
+  }
+
+  .home-currency-bar {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .home-currency-item {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .home-hero-center {
+    min-height: 220px;
+  }
+
+  .home-action-column {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .home-action-column button,
+  .home-action-column .button {
+    min-width: 0;
+    min-height: 44px;
+    padding: 9px;
+    font-size: 0.82rem;
+  }
+
+  .home-bottom-links {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-hero {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .profile-avatar-large {
+    width: 66px;
+  }
+
+  .profile-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .profile-stat {
+    padding: 13px 8px;
+  }
+
+  .profile-stat-value {
+    font-size: 1.15rem;
+  }
+
+  .settings-group {
+    padding: 12px;
+  }
+
+  .settings-row {
+    gap: 9px;
+  }
+
+  .shop-item-grid,
+  .world-environment-grid,
+  .online-mode-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .shop-item-preview {
+    min-height: 120px;
+  }
+
+  .leaderboard-podium {
+    gap: 6px;
+  }
+
+  .leaderboard-podium-item {
+    min-width: 0;
+    padding: 10px 5px;
+  }
+
+  .leaderboard-player-name {
+    font-size: 0.75rem;
+  }
+
+  .tournament-card {
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+
+  .training-lesson {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .review-screen {
+    padding: 10px;
+  }
+
+  .review-header {
+    align-items: flex-start;
+  }
+
+  .review-controls {
+    justify-content: center;
+  }
+
+  .auth-container {
+    padding: 22px 16px;
+  }
+
+  .about-container {
+    padding: 22px 16px;
+  }
+}
+
+/* ---------- SMALL MOBILE ---------- */
+
+@media (max-width: 400px) {
+  body {
+    font-size: 13px;
+  }
+
+  .home-screen,
+  .profile-screen,
+  .settings-screen,
+  .shop-screen,
+  .leaderboard-screen,
+  .online-screen,
+  .training-screen,
+  .puzzle-screen,
+  .tournament-screen,
+  .world-screen {
+    padding: 9px;
+  }
+
+  .screen-title {
+    font-size: 1.15rem;
+  }
+
+  .home-player-name {
+    font-size: 0.88rem;
+  }
+
+  .home-currency-item {
+    padding: 6px;
+    font-size: 0.7rem;
+  }
+
+  .home-action-column button,
+  .home-action-column .button {
+    font-size: 0.75rem;
+  }
+
+  .profile-stat-grid {
+    gap: 6px;
+  }
+
+  .arena-player {
+    gap: 6px;
+  }
+
+  .arena-player-name {
+    max-width: 100px;
+  }
+
+  .arena-player-clock {
+    min-width: 58px;
+    font-size: 0.88rem;
+  }
+
+  .arena-tool-button {
+    min-width: 34px;
+    padding: 6px;
+    font-size: 0.7rem;
+  }
+
+  .chess-board-frame {
+    padding: 4px;
+  }
+
+  .chess-piece {
+    font-size: clamp(20px, 8vw, 32px);
+  }
+
+  .auth-logo {
+    font-size: 1.5rem;
+  }
+}
+
+/* ---------- VERY SHORT SCREENS ---------- */
+
+@media (max-height: 650px) and (min-width: 601px) {
+  .home-screen {
+    gap: 12px;
+  }
+
+  .home-hero {
+    min-height: 260px;
+  }
+
+  .home-hero-center {
+    min-height: 250px;
+  }
+
+  .home-arena-preview {
+    min-height: 220px;
+  }
+
+  .screen-header {
+    margin-bottom: 12px;
+  }
+}
+
+/* ---------- LANDSCAPE MOBILE ---------- */
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .home-screen {
+    gap: 10px;
+    padding: 8px;
+  }
+
+  .home-hero {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr 1fr;
+    min-height: 210px;
+  }
+
+  .home-hero-center {
+    grid-column: auto;
+    min-height: 200px;
+  }
+
+  .home-action-column {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .home-action-column button {
+    min-height: 36px;
+  }
+
+  .home-bottom-links {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .chess-arena {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .chess-board-frame {
+    width: min(65vh, 65vw);
+    max-width: 420px;
+  }
+
+  .arena-player {
+    width: auto;
+    flex: 1 1 150px;
+  }
+
+  .arena-move-history {
+    max-height: 100px;
+  }
+}
+
+/* ---------- TOUCH DEVICES ---------- */
+
+@media (hover: none) and (pointer: coarse) {
+  button,
+  .button,
+  a,
+  .pressable,
+  .chess-square {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button,
+  .button {
+    min-height: 42px;
+  }
+
+  .chess-square {
+    touch-action: manipulation;
+  }
+
+  .home-bottom-link,
+  .online-mode-card,
+  .shop-item-card {
+    transition: none;
+  }
+}
+
+/* ---------- ACCESSIBILITY ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- PRINT ---------- */
+
+@media print {
+  .sidebar,
+  .navigation,
+  .navbar,
+  .arena-toolbar,
+  .home-action-column {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .screen {
+    overflow: visible !important;
+  }
+}
+
+/* =========================================================
+   END OF FILE 73 — css/responsive.css
+   ========================================================= */
