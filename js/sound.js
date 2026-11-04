@@ -1,6 +1,6 @@
 /* =========================================================
    APPARA CHESS — SOUND & MUSIC CONTROLLER
-   PART 11 — js/sound.js
+   FILE: js/sound.js
    ========================================================= */
 
 (function () {
@@ -17,25 +17,23 @@
     musicEnabled: false,
     volume: 0.65,
 
-    activeOscillators: [],
     musicTimer: null,
     musicStep: 0,
 
-    /* ---------- INITIALIZATION ---------- */
+    /* INITIALIZATION */
 
     init(options = {}) {
       this.soundEnabled = options.sound !== false;
       this.musicEnabled = options.music === true;
 
-      if (typeof options.volume === "number") {
+      if (Number.isFinite(Number(options.volume))) {
         this.volume = Math.max(
           0,
-          Math.min(1, options.volume)
+          Math.min(1, Number(options.volume))
         );
       }
 
       this.createAudioContext();
-
       this.initialized = true;
 
       return true;
@@ -49,7 +47,7 @@
         window.webkitAudioContext;
 
       if (!AudioContextClass) {
-        console.warn("APPARA SOUND: Web Audio is unavailable.");
+        console.warn("APPARA: Web Audio supported nahi hai.");
         return false;
       }
 
@@ -62,20 +60,26 @@
 
         this.musicGain.connect(this.masterGain);
         this.soundGain.connect(this.masterGain);
-        this.masterGain.connect(this.audioContext.destination);
+        this.masterGain.connect(
+          this.audioContext.destination
+        );
 
         this.masterGain.gain.value = this.volume;
-        this.musicGain.gain.value = this.musicEnabled ? 0.25 : 0;
-        this.soundGain.gain.value = this.soundEnabled ? 1 : 0;
+        this.musicGain.gain.value =
+          this.musicEnabled ? 0.25 : 0;
+
+        this.soundGain.gain.value =
+          this.soundEnabled ? 1 : 0;
 
         return true;
+
       } catch (error) {
-        console.error("APPARA SOUND: Audio initialization failed.", error);
+        console.error("APPARA Audio Error:", error);
         return false;
       }
     },
 
-    /* ---------- AUDIO UNLOCK ---------- */
+    /* AUDIO UNLOCK */
 
     async unlock() {
       if (!this.createAudioContext()) return false;
@@ -86,13 +90,14 @@
         }
 
         return this.audioContext.state === "running";
+
       } catch (error) {
-        console.warn("APPARA SOUND: Audio unlock failed.", error);
+        console.warn("APPARA Audio Unlock Error:", error);
         return false;
       }
     },
 
-    /* ---------- BASIC TONE ---------- */
+    /* SOUND ENGINE */
 
     playTone(options = {}) {
       if (!this.soundEnabled) return false;
@@ -114,42 +119,44 @@
       );
 
       const type = options.type || "sine";
+
       const gainValue = Math.max(
         0,
-        Math.min(1, Number(options.gain) || 0.15)
+        Math.min(1, Number(options.gain) || 0.12)
       );
 
-      const oscillator = this.audioContext.createOscillator();
-      const gain = this.audioContext.createGain();
+      const oscillator =
+        this.audioContext.createOscillator();
+
+      const gain =
+        this.audioContext.createGain();
+
+      const now = this.audioContext.currentTime;
 
       oscillator.type = type;
+
       oscillator.frequency.setValueAtTime(
         frequency,
-        this.audioContext.currentTime
+        now
       );
 
-      gain.gain.setValueAtTime(
-        0.0001,
-        this.audioContext.currentTime
-      );
+      gain.gain.setValueAtTime(0.0001, now);
 
       gain.gain.exponentialRampToValueAtTime(
         Math.max(0.0001, gainValue),
-        this.audioContext.currentTime + 0.015
+        now + 0.015
       );
 
       gain.gain.exponentialRampToValueAtTime(
         0.0001,
-        this.audioContext.currentTime + duration
+        now + duration
       );
 
       oscillator.connect(gain);
       gain.connect(this.soundGain);
 
-      oscillator.start();
-      oscillator.stop(
-        this.audioContext.currentTime + duration + 0.02
-      );
+      oscillator.start(now);
+      oscillator.stop(now + duration + 0.02);
 
       oscillator.onended = () => {
         oscillator.disconnect();
@@ -159,7 +166,7 @@
       return true;
     },
 
-    /* ---------- CHESS SOUND EFFECTS ---------- */
+    /* CHESS SOUND EFFECTS */
 
     move() {
       return this.playTone({
@@ -171,8 +178,6 @@
     },
 
     capture() {
-      if (!this.soundEnabled) return false;
-
       this.playTone({
         frequency: 300,
         duration: 0.09,
@@ -213,54 +218,51 @@
     },
 
     checkmate() {
-      const notes = [660, 520, 390, 260];
-
-      notes.forEach((frequency, index) => {
-        window.setTimeout(() => {
-          this.playTone({
-            frequency,
-            duration: 0.2,
-            type: "triangle",
-            gain: 0.16
-          });
-        }, index * 160);
-      });
-
-      return true;
+      return this.playSequence(
+        [660, 520, 390, 260],
+        160,
+        0.2
+      );
     },
 
     gameStart() {
-      const notes = [392, 523, 659];
-
-      notes.forEach((frequency, index) => {
-        window.setTimeout(() => {
-          this.playTone({
-            frequency,
-            duration: 0.13,
-            type: "sine",
-            gain: 0.12
-          });
-        }, index * 100);
-      });
-
-      return true;
+      return this.playSequence(
+        [392, 523, 659],
+        100,
+        0.13
+      );
     },
 
     gameEnd() {
-      const notes = [523, 440, 349];
+      return this.playSequence(
+        [523, 440, 349],
+        140,
+        0.18
+      );
+    },
 
-      notes.forEach((frequency, index) => {
-        window.setTimeout(() => {
-          this.playTone({
-            frequency,
-            duration: 0.18,
-            type: "triangle",
-            gain: 0.12
-          });
-        }, index * 140);
-      });
+    gameWin() {
+      return this.playSequence(
+        [523, 659, 784, 1046],
+        130,
+        0.16
+      );
+    },
 
-      return true;
+    gameLoss() {
+      return this.playSequence(
+        [440, 349, 294, 220],
+        150,
+        0.18
+      );
+    },
+
+    draw() {
+      return this.playSequence(
+        [440, 523, 440],
+        160,
+        0.16
+      );
     },
 
     button() {
@@ -272,6 +274,10 @@
       });
     },
 
+    click() {
+      return this.button();
+    },
+
     notification() {
       return this.playTone({
         frequency: 820,
@@ -281,7 +287,28 @@
       });
     },
 
-    /* ---------- BACKGROUND MUSIC ---------- */
+    notify() {
+      return this.notification();
+    },
+
+    playSequence(notes, interval, duration) {
+      if (!this.soundEnabled) return false;
+
+      notes.forEach((frequency, index) => {
+        window.setTimeout(() => {
+          this.playTone({
+            frequency,
+            duration,
+            type: "triangle",
+            gain: 0.14
+          });
+        }, index * interval);
+      });
+
+      return true;
+    },
+
+    /* BACKGROUND MUSIC */
 
     startMusic() {
       if (!this.musicEnabled) return false;
@@ -292,9 +319,7 @@
         return false;
       }
 
-      if (this.musicTimer !== null) {
-        return true;
-      }
+      if (this.musicTimer !== null) return true;
 
       const melody = [
         392, 494, 587, 494,
@@ -314,32 +339,48 @@
           return;
         }
 
-        const frequency = melody[
-          this.musicStep % melody.length
-        ];
+        const frequency =
+          melody[this.musicStep % melody.length];
 
         this.playMusicNote(frequency);
-
         this.musicStep++;
+
       }, 420);
 
       return true;
     },
 
     playMusicNote(frequency) {
-      if (!this.audioContext || !this.musicGain) return;
+      if (!this.audioContext || !this.musicGain) {
+        return;
+      }
 
-      const oscillator = this.audioContext.createOscillator();
-      const gain = this.audioContext.createGain();
+      const oscillator =
+        this.audioContext.createOscillator();
+
+      const gain =
+        this.audioContext.createGain();
 
       const now = this.audioContext.currentTime;
 
       oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(frequency, now);
+
+      oscillator.frequency.setValueAtTime(
+        frequency,
+        now
+      );
 
       gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(0.035, now + 0.04);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.34);
+
+      gain.gain.exponentialRampToValueAtTime(
+        0.035,
+        now + 0.04
+      );
+
+      gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        now + 0.34
+      );
 
       oscillator.connect(gain);
       gain.connect(this.musicGain);
@@ -362,12 +403,12 @@
       return true;
     },
 
-    /* ---------- ENABLE / DISABLE ---------- */
+    /* SOUND SETTINGS */
 
     setSoundEnabled(enabled) {
       this.soundEnabled = Boolean(enabled);
 
-      if (this.soundGain) {
+      if (this.soundGain && this.audioContext) {
         this.soundGain.gain.setTargetAtTime(
           this.soundEnabled ? 1 : 0,
           this.audioContext.currentTime,
@@ -401,9 +442,14 @@
     setVolume(value) {
       const nextVolume = Number(value);
 
-      if (!Number.isFinite(nextVolume)) return false;
+      if (!Number.isFinite(nextVolume)) {
+        return false;
+      }
 
-      this.volume = Math.max(0, Math.min(1, nextVolume));
+      this.volume = Math.max(
+        0,
+        Math.min(1, nextVolume)
+      );
 
       if (this.masterGain && this.audioContext) {
         this.masterGain.gain.setTargetAtTime(
@@ -416,8 +462,6 @@
       return this.volume;
     },
 
-    /* ---------- SETTINGS ---------- */
-
     getSettings() {
       return {
         soundEnabled: this.soundEnabled,
@@ -426,7 +470,7 @@
       };
     },
 
-    /* ---------- CLEANUP ---------- */
+    /* CLEANUP */
 
     destroy() {
       this.stopMusic();
@@ -447,7 +491,7 @@
 
   window.APPARA_SOUND = Sound;
 
-  /* ---------- FIRST USER INTERACTION ---------- */
+  /* FIRST USER INTERACTION */
 
   document.addEventListener(
     "pointerdown",
@@ -460,12 +504,14 @@
         }
       });
     },
-    { once: true, passive: true }
+    {
+      once: true,
+      passive: true
+    }
   );
 
 })();
 
 /* =========================================================
-   APPARA CHESS — SOUND & MUSIC CONTROLLER
-   PART 11 END
+   PART 1/1 END — js/sound.js
    ========================================================= */
