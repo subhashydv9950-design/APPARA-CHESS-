@@ -1,0 +1,21 @@
+{
+  "id": "/APPARA-CHESS-/",
+  "name": "APPARA CHESS",
+  "short_name": "APPARA CHESS",
+  "description": "The Royal Chess Experience",
+  "start_url": "/APPARA-CHESS-/?source=pwa",
+  "scope": "/APPARA-CHESS-/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#090811",
+  "theme_color": "#090811",
+  "icons": [
+    {
+      "src": "icons/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
