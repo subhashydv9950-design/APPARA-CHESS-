@@ -1,33 +1,60 @@
 /* =========================================================
-   APPARA CHESS
-   PART 21E — GAME CONTROLLER INTEGRATION
-   PART 1/3
-   ========================================================= */
+   APPARA CHESS — GAME CONTROLLER
+   PART 21G — INTEGRATION REPAIR
+   FILE: js/game.js
+   PART 1/3 — CORE, EVENTS & TIMER
+========================================================= */
 
 window.APPARA_GAME = (function () {
     "use strict";
 
-    /* -----------------------------------------------------
-       GAME STATE
-    ----------------------------------------------------- */
+    /* =====================================================
+       1. GAME STATE
+    ===================================================== */
 
-    let initialized = false;
-    let gameStarted = false;
-    let gamePaused = false;
-    let gameFinished = false;
+    const state = {
+        initialized: false,
+        gameStarted: false,
+        gameFinished: false,
+        gamePaused: false,
 
-    let currentMode = "offline";
-    let currentOptions = {};
+        mode: "offline",
+        playerColor: "w",
 
-    let resultRecorded = false;
-    let lastKnownMoveCount = 0;
-    let gameStartTime = null;
+        difficulty: "medium",
 
-    let eventHandlersBound = false;
+        currentOptions: {
+            minutes: 10,
+            increment: 0,
+            playerColor: "w",
+            difficulty: "medium"
+        },
 
-    /* -----------------------------------------------------
-       DOM HELPERS
-    ----------------------------------------------------- */
+        result: null,
+        resultRecorded: false,
+
+        moveCount: 0,
+        startTime: null,
+        endTime: null,
+
+        lastResult: null,
+        timerInitialized: false,
+
+        eventsBound: false
+    };
+
+
+    /* =====================================================
+       2. DOM HELPERS
+    ===================================================== */
+
+    function $(selector) {
+        return document.querySelector(selector);
+    }
+
+    function $all(selector) {
+        return Array.from(document.querySelectorAll(selector));
+    }
 
     function getElement(id) {
         return document.getElementById(id);
@@ -37,338 +64,372 @@ window.APPARA_GAME = (function () {
         const element = getElement(id);
 
         if (element) {
-            element.textContent = String(value);
+            element.textContent = value;
         }
     }
 
-    function showElement(id) {
-        const element = getElement(id);
-
+    function showElement(element) {
         if (element) {
             element.classList.remove("hidden");
+            element.style.display = "";
         }
     }
 
-    function hideElement(id) {
-        const element = getElement(id);
-
+    function hideElement(element) {
         if (element) {
             element.classList.add("hidden");
+            element.style.display = "none";
         }
     }
 
-    function notify(message, type) {
-        if (
-            window.APPARA_APP &&
-            typeof window.APPARA_APP.notify === "function"
-        ) {
-            window.APPARA_APP.notify(
-                message,
-                type || "info"
-            );
 
-            return;
-        }
-
-        const notification = getElement("notification");
-
-        if (!notification) {
-            console.log("[APPARA CHESS]", message);
-            return;
-        }
-
-        notification.textContent = message;
-        notification.className =
-            "notification show " + (type || "info");
-
-        window.setTimeout(function () {
-            notification.classList.remove("show");
-        }, 3000);
-    }
-
-    /* -----------------------------------------------------
-       MODULE ACCESS
-    ----------------------------------------------------- */
+    /* =====================================================
+       3. MODULE ACCESS
+    ===================================================== */
 
     function getEngine() {
         return window.APPARA_ENGINE || null;
     }
 
-    function getMultiplayer() {
-        return window.APPARA_MULTIPLAYER || null;
+    function getBoard() {
+        return window.APPARA_BOARD || null;
     }
 
     function getTimer() {
         return window.APPARA_TIMER || null;
     }
 
+    function getSound() {
+        return window.APPARA_SOUND || null;
+    }
+
     function getProfile() {
         return window.APPARA_PROFILE || null;
     }
 
-    /* -----------------------------------------------------
-       INITIALIZATION
-    ----------------------------------------------------- */
+    function getMultiplayer() {
+        return window.APPARA_MULTIPLAYER || null;
+    }
+
+
+    /* =====================================================
+       4. NOTIFICATION
+    ===================================================== */
+
+    function notify(message, type) {
+        if (
+            window.APPARA_APP &&
+            typeof window.APPARA_APP.notify === "function"
+        ) {
+            window.APPARA_APP.notify(message, type || "info");
+            return;
+        }
+
+        console.log("[APPARA CHESS]", message);
+    }
+
+
+    /* =====================================================
+       5. INITIALIZATION
+    ===================================================== */
 
     function init() {
-        if (initialized) return true;
+        if (state.initialized) {
+            return true;
+        }
+
+        const engine = getEngine();
+        const board = getBoard();
+
+        if (!engine || !board) {
+            console.error(
+                "APPARA CHESS: Engine or Board module missing."
+            );
+
+            return false;
+        }
 
         bindEvents();
+
+        state.initialized = true;
+
         updateGameInterface();
 
-        initialized = true;
+        console.log("APPARA CHESS Game Controller initialized.");
 
         return true;
     }
 
-    /* -----------------------------------------------------
-       EVENT BINDINGS
-    ----------------------------------------------------- */
+
+    /* =====================================================
+       6. EVENT BINDING
+    ===================================================== */
 
     function bindEvents() {
-        if (eventHandlersBound) return;
+        if (state.eventsBound) {
+            return;
+        }
 
-        eventHandlersBound = true;
+        const modeButtons = $all("[data-mode]");
 
-        const quickPlayButton = getElement(
-            "quick-play-btn"
-        );
+        modeButtons.forEach(function (button) {
+            button.addEventListener("click", function () {
+                const mode = button.dataset.mode;
+
+                if (mode === "offline") {
+                    startGame("offline");
+                }
+
+                if (mode === "computer") {
+                    startGame("computer");
+                }
+
+                if (mode === "online") {
+                    if (
+                        window.APPARA_APP &&
+                        typeof window.APPARA_APP.navigate === "function"
+                    ) {
+                        window.APPARA_APP.navigate("online");
+                    }
+                }
+
+                if (mode === "training") {
+                    startGame("training");
+                }
+            });
+        });
+
+
+        const quickPlayButton = getElement("quick-play-btn");
 
         if (quickPlayButton) {
-            quickPlayButton.addEventListener(
-                "click",
-                function () {
-                    startGame("computer", {
-                        difficulty: "medium",
-                        minutes: 10,
-                        increment: 0
-                    });
-                }
-            );
+            quickPlayButton.addEventListener("click", function () {
+                startGame("computer");
+            });
         }
+
 
         const undoButton = getElement("undo-btn");
 
         if (undoButton) {
-            undoButton.addEventListener(
-                "click",
-                undoMove
-            );
+            undoButton.addEventListener("click", undoMove);
         }
 
-        const flipButton = getElement(
-            "flip-board-btn"
-        );
+
+        const flipButton = getElement("flip-board-btn");
 
         if (flipButton) {
-            flipButton.addEventListener(
-                "click",
-                function () {
-                    const board = window.APPARA_BOARD;
+            flipButton.addEventListener("click", function () {
+                const board = getBoard();
 
-                    if (board && board.flip) {
-                        board.flip();
-                    }
+                if (board && typeof board.flip === "function") {
+                    board.flip();
                 }
-            );
+            });
         }
 
-        const drawButton = getElement("draw-btn");
-
-        if (drawButton) {
-            drawButton.addEventListener(
-                "click",
-                offerDraw
-            );
-        }
-
-        const resignButton = getElement(
-            "resign-btn"
-        );
-
-        if (resignButton) {
-            resignButton.addEventListener(
-                "click",
-                resign
-            );
-        }
 
         const pauseButton = getElement("pause-btn");
 
         if (pauseButton) {
-            pauseButton.addEventListener(
-                "click",
-                togglePause
-            );
+            pauseButton.addEventListener("click", function () {
+                if (state.gamePaused) {
+                    resumeGame();
+                } else {
+                    pauseGame();
+                }
+            });
         }
 
-        document
-            .querySelectorAll("[data-mode]")
-            .forEach(function (button) {
-                button.addEventListener(
-                    "click",
-                    function () {
-                        const mode = button.getAttribute(
-                            "data-mode"
-                        );
 
-                        if (!mode) return;
+        const resignButton = getElement("resign-btn");
 
-                        if (mode === "online") {
-                            if (
-                                window.APPARA_APP &&
-                                window.APPARA_APP.navigate
-                            ) {
-                                window.APPARA_APP.navigate(
-                                    "online"
-                                );
-                            }
+        if (resignButton) {
+            resignButton.addEventListener("click", resignGame);
+        }
 
-                            return;
-                        }
 
-                        startGame(mode);
-                    }
-                );
-            });
+        const drawButton = getElement("draw-btn");
+
+        if (drawButton) {
+            drawButton.addEventListener("click", offerDraw);
+        }
+
+
+        state.eventsBound = true;
     }
 
-    /* -----------------------------------------------------
-       GAME START
-    ----------------------------------------------------- */
+
+    /* =====================================================
+       7. START NEW GAME
+    ===================================================== */
 
     function startGame(mode, options) {
-        const multiplayer = getMultiplayer();
+        const engine = getEngine();
+        const board = getBoard();
 
-        if (!multiplayer) {
-            notify(
-                "Multiplayer module उपलब्ध नहीं है।",
-                "error"
-            );
-
+        if (!engine || !board) {
+            notify("Game modules are not ready.", "error");
             return false;
         }
 
-        mode = mode || "offline";
         options = options || {};
 
-        if (
-            !["offline", "computer", "online", "training"]
-                .includes(mode)
-        ) {
-            notify("Invalid game mode.", "error");
-            return false;
-        }
+        const selectedMode = mode || "offline";
 
-        currentMode = mode;
+        const minutes = Number(
+            options.minutes || 10
+        );
 
-        currentOptions = {
-            minutes: Number(options.minutes) || 10,
-            increment: Number(options.increment) || 0,
-            difficulty: options.difficulty || "medium",
-            playerColor: options.playerColor || "w",
-            roomCode: options.roomCode || null
+        const increment = Number(
+            options.increment || 0
+        );
+
+        const playerColor =
+            options.playerColor === "b" ? "b" : "w";
+
+        const difficulty =
+            options.difficulty || "medium";
+
+
+        /* Stop previous game safely. */
+
+        stopGameTimer();
+
+        state.gameStarted = false;
+        state.gameFinished = false;
+        state.gamePaused = false;
+
+        state.result = null;
+        state.resultRecorded = false;
+
+        state.moveCount = 0;
+        state.startTime = Date.now();
+        state.endTime = null;
+
+        state.mode = selectedMode;
+        state.playerColor = playerColor;
+        state.difficulty = difficulty;
+
+        state.currentOptions = {
+            minutes: minutes,
+            increment: increment,
+            playerColor: playerColor,
+            difficulty: difficulty
         };
 
-        gameStarted = false;
-        gamePaused = false;
-        gameFinished = false;
-        resultRecorded = false;
 
-        lastKnownMoveCount = 0;
-        gameStartTime = Date.now();
+        /* Reset chess position. */
 
-        initializeTimer();
+        if (typeof engine.reset === "function") {
+            engine.reset();
+        } else if (typeof engine.createGame === "function") {
+            engine.createGame();
+        }
 
-        let started = false;
 
-        try {
-            if (mode === "offline") {
-                started = multiplayer.startOffline(
-                    currentOptions
-                );
-            } else if (mode === "computer") {
-                started = multiplayer.startComputer(
-                    currentOptions
-                );
-            } else if (mode === "online") {
-                started = multiplayer.startOnline(
-                    currentOptions
-                );
-            } else if (mode === "training") {
-                started = multiplayer.startOffline(
-                    currentOptions
-                );
+        /* Set board orientation. */
+
+        if (typeof board.setOrientation === "function") {
+            board.setOrientation(
+                selectedMode === "computer" ? playerColor : "w"
+            );
+        }
+
+
+        /* Clear previous board selection. */
+
+        if (typeof board.clearSelection === "function") {
+            board.clearSelection();
+        }
+
+
+        if (typeof board.clearLastMove === "function") {
+            board.clearLastMove();
+        }
+
+
+        if (typeof board.render === "function") {
+            board.render();
+        }
+
+
+        /* Prepare game timer. */
+
+        initializeTimer(minutes, increment);
+
+
+        /* Start selected game mode. */
+
+        const multiplayer = getMultiplayer();
+
+        if (multiplayer) {
+            if (selectedMode === "offline") {
+                multiplayer.startOffline();
             }
-        } catch (error) {
-            console.error(
-                "APPARA game start error:",
-                error
-            );
 
-            notify(
-                "Game शुरू नहीं हो पाया।",
-                "error"
-            );
+            if (selectedMode === "computer") {
+                multiplayer.startComputer({
+                    playerColor: playerColor,
+                    difficulty: difficulty
+                });
+            }
 
-            return false;
-        }
-
-        if (started === false) {
-            notify(
-                "Game शुरू नहीं हो पाया।",
-                "error"
-            );
-
-            return false;
-        }
-
-        gameStarted = true;
-
-        if (mode !== "online") {
-            const timer = getTimer();
-
-            if (timer && typeof timer.start === "function") {
-                timer.start();
+            if (selectedMode === "training") {
+                multiplayer.startOffline();
             }
         }
+
+
+        state.gameStarted = true;
+
+        state.gamePaused = false;
 
         updateGameInterface();
 
-        if (
-            window.APPARA_APP &&
-            typeof window.APPARA_APP.navigate === "function"
-        ) {
+        updateMoveHistory();
+
+        renderCapturedPieces();
+
+        updateTurnDisplay();
+
+        playGameStartSound();
+
+        if (window.APPARA_APP) {
             window.APPARA_APP.navigate("game");
         }
 
-        if (
-            window.APPARA_SOUND &&
-            typeof window.APPARA_SOUND.gameStart === "function"
-        ) {
-            window.APPARA_SOUND.gameStart();
-        }
-
-        notify("Game started!", "success");
+        notify("New game started.", "success");
 
         return true;
     }
 
-    /* -----------------------------------------------------
-       TIMER INITIALIZATION
-    ----------------------------------------------------- */
 
-    function initializeTimer() {
+    /* =====================================================
+       8. TIMER INITIALIZATION
+    ===================================================== */
+
+    function initializeTimer(minutes, increment) {
         const timer = getTimer();
 
-        if (!timer || typeof timer.init !== "function") {
+        if (!timer) {
+            state.timerInitialized = false;
+            return false;
+        }
+
+        const whiteClock = getElement("white-clock");
+        const blackClock = getElement("black-clock");
+
+        if (
+            typeof timer.init !== "function"
+        ) {
+            console.warn("Timer initialization method missing.");
             return false;
         }
 
         timer.init({
-            minutes: currentOptions.minutes || 10,
-
-            increment: currentOptions.increment || 0,
+            minutes: Number(minutes) || 10,
+            increment: Number(increment) || 0,
 
             onTick: function (times) {
                 updateClockDisplay(times);
@@ -383,958 +444,1091 @@ window.APPARA_GAME = (function () {
             }
         });
 
-        updateClockDisplay(
-            timer.getTimes ? timer.getTimes() : null
-        );
-
-        return true;
-    }
-
-    /* -----------------------------------------------------
-       CLOCK DISPLAY
-    ----------------------------------------------------- */
-
-    function updateClockDisplay(times) {
-        if (!times) return;
-
-        const timer = getTimer();
-
-        if (!timer || !timer.formatTime) return;
-
-        const whiteTime = timer.formatTime(
-            times.w
-        );
-
-        const blackTime = timer.formatTime(
-            times.b
-        );
-
-        setText("white-clock", whiteTime);
-        setText("black-clock", blackTime);
-
-        const whiteClock = getElement("white-clock");
-        const blackClock = getElement("black-clock");
+        state.timerInitialized = true;
 
         if (whiteClock) {
-            whiteClock.classList.toggle(
-                "clock-active",
-                timer.getActiveColor &&
-                timer.getActiveColor() === "w"
-            );
+            whiteClock.classList.remove("active");
         }
 
         if (blackClock) {
-            blackClock.classList.toggle(
-                "clock-active",
-                timer.getActiveColor &&
-                timer.getActiveColor() === "b"
-            );
+            blackClock.classList.remove("active");
         }
+
+        return true;
     }
 
-    /* -----------------------------------------------------
-       TURN DISPLAY
-    ----------------------------------------------------- */
 
-    function updateTurnDisplay(color) {
-        const label = color === "w"
-            ? "White to move"
-            : "Black to move";
+    /* =====================================================
+       9. START TIMER
+    ===================================================== */
 
-        setText("current-turn", label);
-        setText("game-status", label);
-    }
-
-    /* -----------------------------------------------------
-       GAME INTERFACE
-    ----------------------------------------------------- */
-
-    function updateGameInterface() {
-        const modeLabels = {
-            offline: "LOCAL 2 PLAYER",
-            computer: "VS COMPUTER",
-            online: "ONLINE MATCH",
-            training: "TRAINING MODE"
-        };
-
-        setText(
-            "game-mode-label",
-            modeLabels[currentMode] || "CHESS MATCH"
-        );
-
-        const engine = getEngine();
-
-        if (engine && engine.getGameStatus) {
-            const status = engine.getGameStatus();
-
-            if (status && status.message) {
-                setText(
-                    "game-status",
-                    status.message
-                );
-            }
-        }
-
-        updateTurnDisplay(
-            engine && engine.turn
-                ? engine.turn()
-                : "w"
-        );
-    }
-
-/* =========================================================
-   PART 21E — PART 1/3 END
-   CONTINUE IN SAME FILE WITH PART 2/3
-   ========================================================= */
-               
-/* =========================================================
-   APPARA CHESS
-   PART 21E — GAME CONTROLLER INTEGRATION
-   PART 2/3
-   ========================================================= */
-
-    /* -----------------------------------------------------
-       UNDO MOVE
-    ----------------------------------------------------- */
-
-    function undoMove() {
-        if (!gameStarted || gameFinished || gamePaused) {
-            notify("अभी Undo उपलब्ध नहीं है।", "warning");
-            return false;
-        }
-
-        if (currentMode === "online") {
-            notify(
-                "Online match में Undo उपलब्ध नहीं है।",
-                "warning"
-            );
-            return false;
-        }
-
-        const engine = getEngine();
-
-        if (!engine || !engine.undo) {
-            return false;
-        }
-
-        const history = engine.getHistory
-            ? engine.getHistory()
-            : [];
-
-        if (!history || history.length === 0) {
-            notify("Undo करने के लिए कोई move नहीं है।");
-            return false;
-        }
-
-        /* Computer mode: undo computer move and player move. */
-        let undoCount = 1;
-
-        if (currentMode === "computer") {
-            undoCount = Math.min(2, history.length);
-        }
-
-        let undone = 0;
-
-        for (let i = 0; i < undoCount; i++) {
-            const move = engine.undo();
-
-            if (!move) break;
-
-            undone++;
-        }
-
-        if (!undone) {
-            notify("Move Undo नहीं हो पाया।", "error");
-            return false;
-        }
-
-        refreshBoardAndHistory();
-
-        /* Reset clock after undo to avoid incorrect turn timing. */
+    function startGameTimer() {
         const timer = getTimer();
 
-        if (timer) {
-            if (timer.stop) timer.stop();
-
-            if (timer.reset) {
-                timer.reset({
-                    minutes: currentOptions.minutes,
-                    increment: currentOptions.increment
-                });
-            }
-
-            if (timer.start) timer.start();
-        }
-
-        lastKnownMoveCount = engine.getHistory
-            ? engine.getHistory().length
-            : 0;
-
-        updateGameInterface();
-
-        notify("Move Undo हो गया।", "success");
-
-        return true;
-    }
-
-    /* -----------------------------------------------------
-       BOARD AND MOVE HISTORY REFRESH
-    ----------------------------------------------------- */
-
-    function refreshBoardAndHistory() {
-        const board = window.APPARA_BOARD;
-
-        if (board) {
-            if (board.clearSelection) {
-                board.clearSelection();
-            }
-
-            if (board.refresh) {
-                board.refresh();
-            } else if (board.render) {
-                board.render();
-            }
-        }
-
-        renderMoveHistory();
-        renderCapturedPieces();
-    }
-
-    function renderMoveHistory() {
-        const container = getElement("move-history");
-        const engine = getEngine();
-
-        if (!container || !engine || !engine.getHistory) {
-            return;
-        }
-
-        const history = engine.getHistory() || [];
-
-        container.innerHTML = "";
-
-        for (let i = 0; i < history.length; i += 2) {
-            const whiteMove = history[i];
-            const blackMove = history[i + 1];
-
-            const row = document.createElement("div");
-            row.className = "move-history-row";
-
-            const number = document.createElement("span");
-            number.className = "move-number";
-            number.textContent = String(
-                Math.floor(i / 2) + 1
-            ) + ".";
-
-            const white = document.createElement("span");
-            white.className = "move-white";
-            white.textContent = whiteMove
-                ? whiteMove.san
-                : "";
-
-            const black = document.createElement("span");
-            black.className = "move-black";
-            black.textContent = blackMove
-                ? blackMove.san
-                : "";
-
-            row.appendChild(number);
-            row.appendChild(white);
-            row.appendChild(black);
-
-            container.appendChild(row);
-        }
-
-        setText("move-count", history.length);
-        container.scrollTop = container.scrollHeight;
-    }
-
-    /* -----------------------------------------------------
-       CAPTURED PIECES
-    ----------------------------------------------------- */
-
-    function renderCapturedPieces() {
-        const engine = getEngine();
-
-        if (!engine || !engine.getCapturedPieces) {
-            return;
-        }
-
-        const captured = engine.getCapturedPieces();
-
-        if (!captured) return;
-
-        const whiteContainer = getElement(
-            "captured-white"
-        );
-
-        const blackContainer = getElement(
-            "captured-black"
-        );
-
-        function makePieceSymbols(pieces) {
-            if (!Array.isArray(pieces)) return "";
-
-            const symbols = {
-                p: "♟",
-                n: "♞",
-                b: "♝",
-                r: "♜",
-                q: "♛",
-                k: "♚"
-            };
-
-            return pieces.map(function (piece) {
-                const type = typeof piece === "string"
-                    ? piece
-                    : piece.type;
-
-                return symbols[String(type || "").toLowerCase()] || "";
-            }).join("");
-        }
-
-        if (whiteContainer) {
-            whiteContainer.textContent =
-                makePieceSymbols(
-                    captured.white || captured.w || []
-                );
-        }
-
-        if (blackContainer) {
-            blackContainer.textContent =
-                makePieceSymbols(
-                    captured.black || captured.b || []
-                );
-        }
-    }
-
-    /* -----------------------------------------------------
-       PAUSE / RESUME
-    ----------------------------------------------------- */
-
-    function togglePause() {
-        if (!gameStarted || gameFinished) {
+        if (!timer || !state.timerInitialized) {
             return false;
         }
 
-        if (gamePaused) {
-            return resumeGame();
-        }
-
-        return pauseGame();
-    }
-
-    function pauseGame() {
-        if (
-            !gameStarted ||
-            gameFinished ||
-            gamePaused
-        ) {
-            return false;
-        }
-
-        if (currentMode === "online") {
-            notify(
-                "Online match में local pause लागू नहीं है।",
-                "warning"
-            );
-            return false;
-        }
-
-        gamePaused = true;
-
-        const timer = getTimer();
-
-        if (timer && timer.pause) {
-            timer.pause();
-        }
-
-        const multiplayer = getMultiplayer();
-
-        if (multiplayer && multiplayer.pause) {
-            multiplayer.pause();
-        }
-
-        setText("pause-btn", "Resume");
-
-        notify("Game paused.", "info");
-
-        return true;
-    }
-
-    function resumeGame() {
-        if (
-            !gameStarted ||
-            gameFinished ||
-            !gamePaused
-        ) {
-            return false;
-        }
-
-        gamePaused = false;
-
-        const timer = getTimer();
-
-        if (timer && timer.resume) {
-            timer.resume();
-        }
-
-        const multiplayer = getMultiplayer();
-
-        if (multiplayer && multiplayer.resume) {
-            multiplayer.resume();
-        }
-
-        setText("pause-btn", "Pause");
-
-        notify("Game resumed.", "success");
-
-        return true;
-    }
-
-    /* -----------------------------------------------------
-       TIMEOUT HANDLING
-    ----------------------------------------------------- */
-
-    function handleTimeout(color) {
-        if (gameFinished || !gameStarted) return;
-
-        const losingColor = color === "b" ? "b" : "w";
-        const winningColor = losingColor === "w" ? "b" : "w";
-
-        const engine = getEngine();
-
-        /*
-         * A timeout is a draw if the opponent cannot
-         * possibly checkmate with the remaining material.
-         */
-        let isDraw = false;
-
-        if (
-            engine &&
-            engine.getGame &&
-            engine.getGame()
-        ) {
-            const chessGame = engine.getGame();
-
-            if (
-                typeof chessGame.insufficient_material ===
-                "function"
-            ) {
-                isDraw = chessGame.insufficient_material();
-            }
-        }
-
-        if (isDraw) {
-            finishGame("draw", "Time out — insufficient material");
-            return;
-        }
-
-        finishGame(
-            winningColor === "w" ? "white" : "black",
-            "Time out"
-        );
-    }
-
-    /* -----------------------------------------------------
-       DRAW OFFER
-    ----------------------------------------------------- */
-
-    function offerDraw() {
-        if (!gameStarted || gameFinished) {
-            return false;
-        }
-
-        if (currentMode === "online") {
-            notify(
-                "Online draw offer के लिए server-side draw system जरूरी है।",
-                "warning"
-            );
-
-            return false;
-        }
-
-        const confirmed = window.confirm(
-            "क्या आप इस game को Draw घोषित करना चाहते हैं?"
-        );
-
-        if (!confirmed) return false;
-
-        finishGame("draw", "Draw agreed");
-
-        return true;
-    }
-
-    /* -----------------------------------------------------
-       RESIGN
-    ----------------------------------------------------- */
-
-    function resign() {
-        if (!gameStarted || gameFinished) {
-            return false;
-        }
-
-        const confirmed = window.confirm(
-            "क्या आप यह game resign करना चाहते हैं?"
-        );
-
-        if (!confirmed) return false;
-
-        const engine = getEngine();
-
-        const currentTurn = engine && engine.turn
-            ? engine.turn()
-            : "w";
-
-        const losingColor = currentTurn;
-        const winningColor = losingColor === "w" ? "b" : "w";
-
-        if (currentMode === "online") {
-            const multiplayer = getMultiplayer();
-
-            if (multiplayer && multiplayer.resign) {
-                multiplayer.resign();
-            }
-        }
-
-        finishGame(
-            winningColor === "w" ? "white" : "black",
-            "Resigned"
-        );
-
-        return true;
-    }
-
-/* =========================================================
-   PART 21E — PART 2/3 END
-   CONTINUE IN SAME FILE WITH PART 3/3
-   ========================================================= */
-   
-/* =========================================================
-   APPARA CHESS
-   PART 21E — GAME CONTROLLER INTEGRATION
-   PART 3/3
-   ========================================================= */
-
-    /* -----------------------------------------------------
-       FINISH GAME
-    ----------------------------------------------------- */
-
-    function finishGame(result, reason) {
-        if (gameFinished) return false;
-
-        gameFinished = true;
-        gameStarted = false;
-        gamePaused = false;
-
-        const timer = getTimer();
-
-        if (timer && timer.stop) {
-            timer.stop();
-        }
-
-        const multiplayer = getMultiplayer();
-
-        /*
-         * Do not call multiplayer.finishGame() here.
-         * Its own finish callback may call this function.
-         */
-
-        recordGameResult(result, reason);
-
-        const resultTitle = getResultTitle(result);
-
-        setText("game-status", resultTitle);
-        setText("current-turn", resultTitle);
-
-        setText(
-            "pause-btn",
-            "Pause"
-        );
-
-        if (
-            window.APPARA_SOUND &&
-            typeof window.APPARA_SOUND.gameEnd === "function"
-        ) {
-            window.APPARA_SOUND.gameEnd();
-        }
-
-        showGameResult(result, reason);
-
-        notify(
-            resultTitle + (reason ? " — " + reason : ""),
-            result === "draw" ? "info" : "success"
-        );
-
-        return true;
-    }
-
-    /* -----------------------------------------------------
-       RESULT TITLE
-    ----------------------------------------------------- */
-
-    function getResultTitle(result) {
-        if (result === "white") {
-            return "White Wins!";
-        }
-
-        if (result === "black") {
-            return "Black Wins!";
-        }
-
-        if (result === "draw") {
-            return "Game Draw!";
-        }
-
-        return "Game Finished";
-    }
-
-    /* -----------------------------------------------------
-       RESULT RECORDING
-    ----------------------------------------------------- */
-
-    function recordGameResult(result, reason) {
-        if (resultRecorded) return false;
-
-        resultRecorded = true;
-
-        const profile = getProfile();
-
-        if (!profile || !profile.recordGame) {
-            return false;
-        }
-
-        /*
-         * Local two-player games do not have a single
-         * profile winner, so only computer and online
-         * games are recorded as personal results.
-         */
-
-        if (
-            currentMode !== "computer" &&
-            currentMode !== "online"
-        ) {
-            return false;
-        }
-
-        let playerResult = "draw";
-
-        if (result !== "draw") {
-            const playerColor =
-                currentMode === "computer"
-                    ? "w"
-                    : currentOptions.playerColor;
-
-            const playerWon =
-                (result === "white" && playerColor === "w") ||
-                (result === "black" && playerColor === "b");
-
-            playerResult = playerWon ? "win" : "loss";
-        }
-
-        const engine = getEngine();
-
-        const gameData = {
-            mode: currentMode,
-            result: playerResult,
-            reason: reason || "",
-            moves: engine && engine.getHistory
-                ? engine.getHistory().length
-                : 0,
-            duration: gameStartTime
-                ? Math.max(
-                    0,
-                    Math.floor(
-                        (Date.now() - gameStartTime) / 1000
-                    )
-                )
-                : 0,
-            date: Date.now()
-        };
-
-        try {
-            profile.recordGame(gameData);
-        } catch (error) {
-            console.error(
-                "APPARA result recording error:",
-                error
-            );
-
-            return false;
-        }
-
-        return true;
-    }
-
-    /* -----------------------------------------------------
-       GAME RESULT DISPLAY
-    ----------------------------------------------------- */
-
-    function showGameResult(result, reason) {
-        const title = getResultTitle(result);
-
-        const content =
-            '<div class="game-result-content">' +
-                '<div class="game-result-icon">' +
-                    (result === "draw" ? "🤝" : "🏆") +
-                '</div>' +
-                '<h2>' + escapeText(title) + '</h2>' +
-                '<p>' + escapeText(reason || "Game completed") + '</p>' +
-                '<button type="button" id="result-new-game">' +
-                    'New Game' +
-                '</button>' +
-                '<button type="button" id="result-close">' +
-                    'Close' +
-                '</button>' +
-            '</div>';
-
-        if (
-            window.APPARA_APP &&
-            typeof window.APPARA_APP.openModal === "function"
-        ) {
-            window.APPARA_APP.openModal(
-                "Game Result",
-                content
-            );
-        } else {
-            const modal = getElement("global-modal");
-            const modalContent = getElement("modal-content");
-
-            if (modal && modalContent) {
-                modalContent.innerHTML = content;
-                modal.classList.add("active");
-            }
-        }
-
-        const newGameButton = getElement(
-            "result-new-game"
-        );
-
-        if (newGameButton) {
-            newGameButton.addEventListener(
-                "click",
-                function () {
-                    closeResultModal();
-
-                    startGame(
-                        currentMode === "online"
-                            ? "offline"
-                            : currentMode,
-                        currentOptions
-                    );
-                }
-            );
-        }
-
-        const closeButton = getElement(
-            "result-close"
-        );
-
-        if (closeButton) {
-            closeButton.addEventListener(
-                "click",
-                closeResultModal
-            );
-        }
-    }
-
-    function escapeText(value) {
-        return String(value == null ? "" : value)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
-
-    function closeResultModal() {
-        if (
-            window.APPARA_APP &&
-            typeof window.APPARA_APP.closeModal === "function"
-        ) {
-            window.APPARA_APP.closeModal();
-            return;
-        }
-
-        const modal = getElement("global-modal");
-
-        if (modal) {
-            modal.classList.remove("active");
-        }
-    }
-
-    /* -----------------------------------------------------
-       CHECK GAME END
-    ----------------------------------------------------- */
-
-    function checkGameEnd() {
-        if (gameFinished) return true;
-
-        const engine = getEngine();
-
-        if (!engine || !engine.getGameStatus) {
-            return false;
-        }
-
-        const status = engine.getGameStatus();
-
-        if (!status || !status.isOver) {
-            return false;
-        }
-
-        const statusText = String(
-            status.status || ""
-        ).toLowerCase();
-
-        if (
-            statusText.includes("checkmate") ||
-            statusText.includes("mate")
-        ) {
-            const winner = engine.turn() === "w"
-                ? "black"
-                : "white";
-
-            finishGame(winner, "Checkmate");
+        if (typeof timer.start === "function") {
+            timer.start();
             return true;
         }
 
-        finishGame(
-            "draw",
-            status.message || "Draw"
-        );
-
-        return true;
+        return false;
     }
 
-    /* -----------------------------------------------------
-       MULTIPLAYER CALLBACKS
-    ----------------------------------------------------- */
 
-    function onMultiplayerMove(move) {
-        if (gameFinished) return;
+    /* =====================================================
+       10. STOP TIMER
+    ===================================================== */
 
-        renderMoveHistory();
-        renderCapturedPieces();
-
-        const engine = getEngine();
-
-        if (engine && engine.getHistory) {
-            lastKnownMoveCount =
-                engine.getHistory().length;
-        }
-
-        updateGameInterface();
-
-        if (
-            window.APPARA_SOUND &&
-            typeof window.APPARA_SOUND.move === "function"
-        ) {
-            if (move && move.captured) {
-                window.APPARA_SOUND.capture();
-            } else {
-                window.APPARA_SOUND.move();
-            }
-        }
-
-        checkGameEnd();
-    }
-
-    function onMultiplayerGameEnd(result, reason) {
-        if (gameFinished) return;
-
-        finishGame(
-            result || "draw",
-            reason || "Match completed"
-        );
-    }
-
-    /* -----------------------------------------------------
-       NEW GAME / RESET
-    ----------------------------------------------------- */
-
-    function resetGameState() {
-        gameStarted = false;
-        gamePaused = false;
-        gameFinished = false;
-        resultRecorded = false;
-
-        lastKnownMoveCount = 0;
-        gameStartTime = null;
-
-        setText("pause-btn", "Pause");
-
-        return true;
-    }
-
-    /* -----------------------------------------------------
-       PUBLIC STATE
-    ----------------------------------------------------- */
-
-    function getState() {
-        return {
-            initialized: initialized,
-            started: gameStarted,
-            paused: gamePaused,
-            finished: gameFinished,
-            mode: currentMode,
-            options: Object.assign({}, currentOptions),
-            resultRecorded: resultRecorded,
-            moveCount: lastKnownMoveCount,
-            startTime: gameStartTime
-        };
-    }
-
-    /* -----------------------------------------------------
-       CLEANUP
-    ----------------------------------------------------- */
-
-    function destroy() {
+    function stopGameTimer() {
         const timer = getTimer();
 
-        if (timer && timer.stop) {
+        if (timer && typeof timer.stop === "function") {
             timer.stop();
         }
 
-        resetGameState();
-
-        initialized = false;
-        eventHandlersBound = false;
+        state.timerInitialized = false;
     }
 
-    /* -----------------------------------------------------
-       PUBLIC API
-    ----------------------------------------------------- */
 
-    return {
-        init: init,
-        startGame: startGame,
+    /* =====================================================
+       11. CLOCK DISPLAY
+    ===================================================== */
 
-        undoMove: undoMove,
-        pauseGame: pauseGame,
-        resumeGame: resumeGame,
-        togglePause: togglePause,
+    function updateClockDisplay(times) {
+        const timer = getTimer();
 
-        offerDraw: offerDraw,
-        resign: resign,
-        finishGame: finishGame,
-        checkGameEnd: checkGameEnd,
+        if (!times && timer && typeof timer.getTimes === "function") {
+            times = timer.getTimes();
+        }
 
-        renderMoveHistory: renderMoveHistory,
-        renderCapturedPieces: renderCapturedPieces,
-        refreshBoardAndHistory: refreshBoardAndHistory,
+        if (!times) {
+            return;
+        }
 
-        onMultiplayerMove: onMultiplayerMove,
-        onMultiplayerGameEnd: onMultiplayerGameEnd,
+        const whiteTime =
+            times.w !== undefined ? times.w : times.white;
 
-        updateGameInterface: updateGameInterface,
-        getState: getState,
-        resetGameState: resetGameState,
-        destroy: destroy
+        const blackTime =
+            times.b !== undefined ? times.b : times.black;
+
+        const format = timer &&
+            typeof timer.formatTime === "function"
+                ? timer.formatTime.bind(timer)
+                : function (seconds) {
+                    const safeSeconds = Math.max(
+                        0,
+                        Number(seconds) || 0
+                    );
+
+                    const minutes = Math.floor(safeSeconds / 60);
+                    const remaining = Math.floor(safeSeconds % 60);
+
+                    return (
+                        String(minutes).padStart(2, "0") +
+                        ":" +
+                        String(remaining).padStart(2, "0")
+                    );
+                };
+
+
+        if (whiteTime !== undefined) {
+            setText("white-clock", format(whiteTime));
+        }
+
+        if (blackTime !== undefined) {
+            setText("black-clock", format(blackTime));
+        }
+    }
+
+
+    /* =====================================================
+       12. TURN DISPLAY
+    ===================================================== */
+
+    function updateTurnDisplay(color) {
+        const engine = getEngine();
+
+        if (!color && engine && typeof engine.turn === "function") {
+            color = engine.turn();
+        }
+
+        if (!color) {
+            color = "w";
+        }
+
+        const whitePanel = $(".player-panel.white");
+        const blackPanel = $(".player-panel.black");
+
+        if (whitePanel) {
+            whitePanel.classList.toggle("active", color === "w");
+        }
+
+        if (blackPanel) {
+            blackPanel.classList.toggle("active", color === "b");
+        }
+
+        const turnText = getElement("current-turn");
+
+        if (turnText) {
+            turnText.textContent =
+                color === "w" ? "White to move" : "Black to move";
+        }
+    }
+
+
+    /* =====================================================
+       13. GAME INTERFACE UPDATE
+    ===================================================== */
+
+    function updateGameInterface() {
+        const engine = getEngine();
+
+        if (!engine) {
+            return;
+        }
+
+        updateTurnDisplay();
+
+        updateMoveHistory();
+
+        renderCapturedPieces();
+
+        updateClockDisplay();
+
+        setText(
+            "move-count",
+            String(state.moveCount)
+        );
+
+        const pauseButton = getElement("pause-btn");
+
+        if (pauseButton) {
+            pauseButton.textContent =
+                state.gamePaused ? "Resume" : "Pause";
+        }
+
+        const gameStatus = getElement("game-status");
+
+        if (gameStatus) {
+            gameStatus.textContent =
+                state.gameFinished
+                    ? "Game finished"
+                    : state.gamePaused
+                        ? "Game paused"
+                        : "Game in progress";
+        }
+    }
+
+
+    /* =====================================================
+       14. GAME START SOUND
+    ===================================================== */
+
+    function playGameStartSound() {
+        const sound = getSound();
+
+        if (sound && typeof sound.gameStart === "function") {
+            sound.gameStart();
+        }
+    }
+
+
+    /* =====================================================
+       PART 1/3 END
+       CONTINUE PART 2/3 BELOW THIS LINE
+    ===================================================== */
+
+           /* =========================================================
+   PART 21G — INTEGRATION REPAIR
+   FILE: js/game.js
+   PART 2/3 — UNDO, HISTORY, CAPTURED PIECES & GAME CONTROL
+========================================================= */
+
+
+/* =========================================================
+   15. UNDO MOVE
+========================================================= */
+
+function undoMove() {
+    const engine = getEngine();
+    const board = getBoard();
+
+    if (!engine || !state.gameStarted || state.gameFinished) {
+        notify("No active game to undo.", "warning");
+        return false;
+    }
+
+    if (state.gamePaused) {
+        notify("Resume the game before undoing.", "warning");
+        return false;
+    }
+
+    const history = engine.getHistory();
+
+    if (!Array.isArray(history) || history.length === 0) {
+        notify("There are no moves to undo.", "warning");
+        return false;
+    }
+
+    const multiplayer = getMultiplayer();
+
+    if (state.mode === "online") {
+        notify("Undo is unavailable during an online match.", "warning");
+        return false;
+    }
+
+    const undoCount =
+        state.mode === "computer" && history.length >= 2
+            ? 2
+            : 1;
+
+    let undone = false;
+
+    for (let i = 0; i < undoCount; i++) {
+        const result = engine.undo();
+
+        if (!result) {
+            break;
+        }
+
+        undone = true;
+    }
+
+    if (!undone) {
+        notify("Unable to undo this move.", "error");
+        return false;
+    }
+
+    state.moveCount = Math.max(
+        0,
+        state.moveCount - undoCount
+    );
+
+    if (board && typeof board.clearSelection === "function") {
+        board.clearSelection();
+    }
+
+    if (board && typeof board.clearLastMove === "function") {
+        board.clearLastMove();
+    }
+
+    if (board && typeof board.render === "function") {
+        board.render();
+    }
+
+    updateMoveHistory();
+    renderCapturedPieces();
+    updateTurnDisplay();
+    updateGameInterface();
+
+    notify("Move undone.", "success");
+
+    return true;
+}
+
+
+/* =========================================================
+   16. MOVE HISTORY
+========================================================= */
+
+function updateMoveHistory() {
+    const engine = getEngine();
+
+    if (!engine) {
+        return;
+    }
+
+    const historyContainer = getElement("move-history");
+
+    if (!historyContainer) {
+        return;
+    }
+
+    const history = engine.getHistory();
+
+    if (!Array.isArray(history) || history.length === 0) {
+        historyContainer.innerHTML =
+            '<div class="empty-history">Moves will appear here</div>';
+
+        state.moveCount = 0;
+        setText("move-count", "0");
+
+        return;
+    }
+
+    state.moveCount = history.length;
+
+    let html = "";
+
+    for (let i = 0; i < history.length; i += 2) {
+        const moveNumber = Math.floor(i / 2) + 1;
+
+        const whiteMove = history[i] || "";
+        const blackMove = history[i + 1] || "";
+
+        html += `
+            <div class="history-row">
+                <span class="history-number">${moveNumber}.</span>
+                <span class="history-white">${escapeHTML(whiteMove)}</span>
+                <span class="history-black">${escapeHTML(blackMove)}</span>
+            </div>
+        `;
+    }
+
+    historyContainer.innerHTML = html;
+
+    historyContainer.scrollTop =
+        historyContainer.scrollHeight;
+
+    setText("move-count", String(history.length));
+}
+
+
+/* =========================================================
+   17. SAFE HTML TEXT
+========================================================= */
+
+function escapeHTML(value) {
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+
+/* =========================================================
+   18. CAPTURED PIECES
+========================================================= */
+
+function renderCapturedPieces() {
+    const engine = getEngine();
+
+    if (!engine || typeof engine.getCapturedPieces !== "function") {
+        return;
+    }
+
+    const captured = engine.getCapturedPieces();
+
+    if (!captured) {
+        return;
+    }
+
+    const whiteCaptured =
+        captured.white || captured.w || [];
+
+    const blackCaptured =
+        captured.black || captured.b || [];
+
+    const whiteContainer = getElement("captured-white");
+    const blackContainer = getElement("captured-black");
+
+    function renderPieces(container, pieces) {
+        if (!container) {
+            return;
+        }
+
+        if (!Array.isArray(pieces)) {
+            pieces = [];
+        }
+
+        container.innerHTML = pieces.map(function (piece) {
+            let symbol = "";
+
+            if (typeof piece === "string") {
+                symbol = piece;
+            } else if (piece && piece.type) {
+                const symbols = {
+                    p: "♟",
+                    n: "♞",
+                    b: "♝",
+                    r: "♜",
+                    q: "♛",
+                    k: "♚"
+                };
+
+                symbol = symbols[piece.type] || "";
+            }
+
+            return `<span class="captured-piece">${escapeHTML(symbol)}</span>`;
+        }).join("");
+    }
+
+    renderPieces(whiteContainer, whiteCaptured);
+    renderPieces(blackContainer, blackCaptured);
+}
+
+
+/* =========================================================
+   19. PAUSE GAME
+========================================================= */
+
+function pauseGame() {
+    if (!state.gameStarted || state.gameFinished || state.gamePaused) {
+        return false;
+    }
+
+    const timer = getTimer();
+
+    if (timer && typeof timer.pause === "function") {
+        timer.pause();
+    }
+
+    const multiplayer = getMultiplayer();
+
+    if (
+        state.mode !== "online" &&
+        multiplayer &&
+        typeof multiplayer.pause === "function"
+    ) {
+        multiplayer.pause();
+    }
+
+    state.gamePaused = true;
+
+    updateGameInterface();
+
+    notify("Game paused.", "info");
+
+    return true;
+}
+
+
+/* =========================================================
+   20. RESUME GAME
+========================================================= */
+
+function resumeGame() {
+    if (!state.gameStarted || state.gameFinished || !state.gamePaused) {
+        return false;
+    }
+
+    const timer = getTimer();
+
+    if (timer && typeof timer.resume === "function") {
+        timer.resume();
+    }
+
+    const multiplayer = getMultiplayer();
+
+    if (
+        state.mode !== "online" &&
+        multiplayer &&
+        typeof multiplayer.resume === "function"
+    ) {
+        multiplayer.resume();
+    }
+
+    state.gamePaused = false;
+
+    updateGameInterface();
+
+    notify("Game resumed.", "success");
+
+    return true;
+}
+
+
+/* =========================================================
+   21. TIMEOUT HANDLING
+========================================================= */
+
+function handleTimeout(color) {
+    if (!state.gameStarted || state.gameFinished) {
+        return;
+    }
+
+    const engine = getEngine();
+
+    if (!engine) {
+        return;
+    }
+
+    const timedOutColor = color === "b" ? "b" : "w";
+
+    const winnerColor =
+        timedOutColor === "w" ? "b" : "w";
+
+    let result = "draw";
+
+    if (typeof engine.getBoard === "function") {
+        const board = engine.getBoard();
+
+        let hasMatingMaterial = false;
+
+        if (Array.isArray(board)) {
+            board.forEach(function (rank) {
+                if (!Array.isArray(rank)) {
+                    return;
+                }
+
+                rank.forEach(function (piece) {
+                    if (
+                        piece &&
+                        piece.color === winnerColor &&
+                        ["q", "r", "b", "n"].includes(piece.type)
+                    ) {
+                        hasMatingMaterial = true;
+                    }
+                });
+            });
+        }
+
+        result = hasMatingMaterial
+            ? winnerColor
+            : "draw";
+    }
+
+    finishGame(result, "timeout");
+
+    const sound = getSound();
+
+    if (sound && typeof sound.gameEnd === "function") {
+        sound.gameEnd();
+    }
+}
+
+
+/* =========================================================
+   22. DRAW OFFER
+========================================================= */
+
+function offerDraw() {
+    if (!state.gameStarted || state.gameFinished) {
+        notify("No active game.", "warning");
+        return false;
+    }
+
+    if (state.mode === "online") {
+        notify(
+            "Online draw offers will be handled by the online room.",
+            "info"
+        );
+
+        return false;
+    }
+
+    const accepted = window.confirm(
+        "Do you want to end this game as a draw?"
+    );
+
+    if (!accepted) {
+        return false;
+    }
+
+    finishGame("draw", "agreement");
+
+    return true;
+}
+
+
+/* =========================================================
+   23. RESIGN GAME
+========================================================= */
+
+function resignGame() {
+    if (!state.gameStarted || state.gameFinished) {
+        notify("No active game.", "warning");
+        return false;
+    }
+
+    const confirmResign =
+        window.APPARA_SETTINGS &&
+        typeof window.APPARA_SETTINGS.get === "function"
+            ? window.APPARA_SETTINGS.get("confirmResign")
+            : true;
+
+    if (confirmResign !== false) {
+        const accepted = window.confirm(
+            "Are you sure you want to resign this game?"
+        );
+
+        if (!accepted) {
+            return false;
+        }
+    }
+
+    if (state.mode === "online") {
+        const multiplayer = getMultiplayer();
+
+        if (multiplayer && typeof multiplayer.resign === "function") {
+            multiplayer.resign();
+        }
+
+        return true;
+    }
+
+    const losingColor =
+        state.mode === "computer"
+            ? state.playerColor
+            : "w";
+
+    const winnerColor =
+        losingColor === "w" ? "b" : "w";
+
+    finishGame(winnerColor, "resignation");
+
+    return true;
+}
+
+
+/* =========================================================
+   PART 2/3 END
+   CONTINUE PART 3/3 BELOW THIS LINE
+========================================================= */ 
+   /* =========================================================
+   APPARA CHESS — GAME CONTROLLER
+   PART 21G — INTEGRATION REPAIR
+   FILE: js/game.js
+   PART 3/3 — RESULTS, MULTIPLAYER & PUBLIC API
+========================================================= */
+
+
+/* =====================================================
+   24. FINISH GAME
+===================================================== */
+
+function finishGame(result, reason) {
+    if (state.gameFinished) {
+        return false;
+    }
+
+    state.gameFinished = true;
+    state.gameStarted = false;
+    state.gamePaused = false;
+
+    state.result = result;
+    state.endTime = Date.now();
+
+    stopGameTimer();
+
+    const board = getBoard();
+
+    if (board && typeof board.clearSelection === "function") {
+        board.clearSelection();
+    }
+
+    const sound = getSound();
+
+    if (sound && typeof sound.gameEnd === "function") {
+        sound.gameEnd();
+    }
+
+    recordGameResult(result, reason);
+
+    showGameResult(result, reason);
+
+    updateGameInterface();
+
+    return true;
+}
+
+
+/* =====================================================
+   25. RECORD GAME RESULT
+===================================================== */
+
+function recordGameResult(result, reason) {
+    if (state.resultRecorded) {
+        return false;
+    }
+
+    state.resultRecorded = true;
+
+    const profile = getProfile();
+
+    if (!profile || typeof profile.recordGame !== "function") {
+        console.warn("Profile result recording is unavailable.");
+        return false;
+    }
+
+    let playerResult = "draw";
+
+    if (result === "draw") {
+        playerResult = "draw";
+    } else if (result === state.playerColor) {
+        playerResult = "win";
+    } else if (result === "w" || result === "b") {
+        playerResult = "loss";
+    } else if (result === "win") {
+        playerResult = "win";
+    } else if (result === "loss") {
+        playerResult = "loss";
+    }
+
+    /*
+       IMPORTANT:
+       APPARA_PROFILE.recordGame expects a result string.
+       Do not pass a game-data object as its first argument.
+    */
+
+    try {
+        profile.recordGame(playerResult);
+    } catch (error) {
+        console.error("Could not record game result:", error);
+        return false;
+    }
+
+    state.lastResult = {
+        result: playerResult,
+        reason: reason || "normal",
+        mode: state.mode,
+        duration: state.startTime
+            ? Math.max(0, Date.now() - state.startTime)
+            : 0
     };
+
+    return true;
+}
+
+
+/* =====================================================
+   26. GAME RESULT MODAL
+===================================================== */
+
+function showGameResult(result, reason) {
+    let title = "Game Over";
+    let message = "The game has ended.";
+
+    if (result === "draw") {
+        title = "Draw Game";
+        message = "The match ended in a draw.";
+    } else if (result === "w" || result === "b") {
+        const winner =
+            result === "w" ? "White" : "Black";
+
+        title = winner + " Wins";
+        message = winner + " won the match.";
+    } else if (result === "win") {
+        title = "You Win!";
+        message = "Congratulations! You won the match.";
+    } else if (result === "loss") {
+        title = "You Lost";
+        message = "The match has ended.";
+    }
+
+    const reasonMessages = {
+        checkmate: "Checkmate",
+        stalemate: "Stalemate",
+        timeout: "Time expired",
+        resignation: "A player resigned",
+        agreement: "Draw by agreement",
+        draw: "Draw game"
+    };
+
+    if (reason && reasonMessages[reason]) {
+        message += " " + reasonMessages[reason] + ".";
+    }
+
+    const content = `
+        <div class="game-result">
+            <div class="game-result-icon">
+                ${result === "draw" ? "🤝" :
+                    result === "win" || result === state.playerColor ? "🏆" : "♟"}
+            </div>
+
+            <h2>${escapeHTML(title)}</h2>
+
+            <p>${escapeHTML(message)}</p>
+
+            <div class="game-result-actions">
+                <button
+                    class="primary-btn"
+                    id="result-new-game"
+                    type="button"
+                >
+                    New Game
+                </button>
+
+                <button
+                    class="secondary-btn"
+                    id="result-home"
+                    type="button"
+                >
+                    Home
+                </button>
+            </div>
+        </div>
+    `;
+
+    if (
+        window.APPARA_APP &&
+        typeof window.APPARA_APP.openModal === "function"
+    ) {
+        window.APPARA_APP.openModal(title, content);
+    } else {
+        notify(title + ": " + message, "info");
+    }
+
+    setTimeout(function () {
+        const newGameButton = getElement("result-new-game");
+        const homeButton = getElement("result-home");
+
+        if (newGameButton) {
+            newGameButton.addEventListener("click", function () {
+                if (window.APPARA_APP) {
+                    window.APPARA_APP.closeModal();
+                }
+
+                startGame(
+                    state.mode,
+                    state.currentOptions
+                );
+            });
+        }
+
+        if (homeButton) {
+            homeButton.addEventListener("click", function () {
+                if (window.APPARA_APP) {
+                    window.APPARA_APP.closeModal();
+                    window.APPARA_APP.navigate("home");
+                }
+            });
+        }
+    }, 0);
+}
+
+
+/* =====================================================
+   27. CHECK CHESS GAME END
+===================================================== */
+
+function checkGameEnd() {
+    if (state.gameFinished) {
+        return true;
+    }
+
+    const engine = getEngine();
+
+    if (!engine) {
+        return false;
+    }
+
+    if (
+        typeof engine.isCheckmate === "function" &&
+        engine.isCheckmate()
+    ) {
+        const winner =
+            engine.turn() === "w" ? "b" : "w";
+
+        finishGame(winner, "checkmate");
+        return true;
+    }
+
+    if (
+        typeof engine.isStalemate === "function" &&
+        engine.isStalemate()
+    ) {
+        finishGame("draw", "stalemate");
+        return true;
+    }
+
+    if (
+        typeof engine.isDraw === "function" &&
+        engine.isDraw()
+    ) {
+        finishGame("draw", "draw");
+        return true;
+    }
+
+    if (
+        typeof engine.isGameOver === "function" &&
+        engine.isGameOver()
+    ) {
+        finishGame("draw", "draw");
+        return true;
+    }
+
+    return false;
+}
+
+
+/* =====================================================
+   28. MULTIPLAYER MOVE CALLBACK
+===================================================== */
+
+function onMultiplayerMove() {
+    if (state.gameFinished) {
+        return;
+    }
+
+    updateMoveHistory();
+    renderCapturedPieces();
+    updateTurnDisplay();
+    updateGameInterface();
+
+    checkGameEnd();
+}
+
+
+/* =====================================================
+   29. MULTIPLAYER GAME END CALLBACK
+===================================================== */
+
+function onMultiplayerGameEnd(result, reason) {
+    if (state.gameFinished) {
+        return;
+    }
+
+    let finalResult = result;
+
+    if (
+        result &&
+        typeof result === "object"
+    ) {
+        finalResult =
+            result.winner ||
+            result.result ||
+            "draw";
+
+        reason =
+            result.reason ||
+            reason;
+    }
+
+    if (
+        finalResult !== "w" &&
+        finalResult !== "b" &&
+        finalResult !== "draw" &&
+        finalResult !== "win" &&
+        finalResult !== "loss"
+    ) {
+        finalResult = "draw";
+    }
+
+    finishGame(
+        finalResult,
+        reason || "normal"
+    );
+}
+
+
+/* =====================================================
+   30. RESET GAME STATE
+===================================================== */
+
+function resetGameState() {
+    stopGameTimer();
+
+    state.gameStarted = false;
+    state.gameFinished = false;
+    state.gamePaused = false;
+
+    state.result = null;
+    state.resultRecorded = false;
+
+    state.moveCount = 0;
+    state.startTime = null;
+    state.endTime = null;
+
+    state.lastResult = null;
+
+    updateGameInterface();
+
+    return true;
+}
+
+
+/* =====================================================
+   31. GET GAME STATE
+===================================================== */
+
+function getState() {
+    return {
+        initialized: state.initialized,
+        gameStarted: state.gameStarted,
+        gameFinished: state.gameFinished,
+        gamePaused: state.gamePaused,
+
+        mode: state.mode,
+        playerColor: state.playerColor,
+        difficulty: state.difficulty,
+
+        result: state.result,
+        resultRecorded: state.resultRecorded,
+
+        moveCount: state.moveCount,
+        startTime: state.startTime,
+        endTime: state.endTime,
+
+        lastResult: state.lastResult,
+
+        currentOptions: Object.assign(
+            {},
+            state.currentOptions
+        )
+    };
+}
+
+
+/* =====================================================
+   32. DESTROY GAME CONTROLLER
+===================================================== */
+
+function destroy() {
+    stopGameTimer();
+
+    state.gameStarted = false;
+    state.gamePaused = false;
+    state.initialized = false;
+
+    state.eventsBound = false;
+
+    return true;
+}
+
+
+/* =====================================================
+   33. PUBLIC API
+===================================================== */
+
+return {
+    init: init,
+
+    startGame: startGame,
+    start: startGame,
+
+    undoMove: undoMove,
+
+    pauseGame: pauseGame,
+    resumeGame: resumeGame,
+
+    pause: pauseGame,
+    resume: resumeGame,
+
+    resign: resignGame,
+    resignGame: resignGame,
+
+    offerDraw: offerDraw,
+
+    finishGame: finishGame,
+    checkGameEnd: checkGameEnd,
+
+    handleTimeout: handleTimeout,
+
+    updateGameInterface: updateGameInterface,
+    updateMoveHistory: updateMoveHistory,
+    renderCapturedPieces: renderCapturedPieces,
+    updateClockDisplay: updateClockDisplay,
+    updateTurnDisplay: updateTurnDisplay,
+
+    onMultiplayerMove: onMultiplayerMove,
+    onMultiplayerGameEnd: onMultiplayerGameEnd,
+
+    reset: resetGameState,
+    getState: getState,
+
+    destroy: destroy
+};
 
 })();
 
 /* =========================================================
-   APPARA CHESS — PART 21E COMPLETE
-   GAME CONTROLLER FILE END
-   ========================================================= */
-   
+   APPARA CHESS — GAME CONTROLLER
+   PART 21G COMPLETE
+   FILE: js/game.js COMPLETE
+========================================================= */
