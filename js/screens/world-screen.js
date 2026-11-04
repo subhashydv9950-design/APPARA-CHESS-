@@ -1,8 +1,7 @@
-
 /* =========================================================
    APPARA CHESS — FILE 59
-   SCREEN: CHESS WORLD
    PATH: js/screens/world-screen.js
+   PART 1/2 — START
 ========================================================= */
 
 const WORLD_REGIONS = [
@@ -14,7 +13,9 @@ const WORLD_REGIONS = [
     icon: "♛",
     theme: "gold",
     unlockLevel: 1,
-    environment: "palace"
+    environment: "palace",
+    background: 0x100b1d,
+    fog: 0x100b1d
   },
   {
     id: "crystal-kingdom",
@@ -24,7 +25,9 @@ const WORLD_REGIONS = [
     icon: "💎",
     theme: "crystal",
     unlockLevel: 5,
-    environment: "crystal"
+    environment: "crystal",
+    background: 0x101a35,
+    fog: 0x101a35
   },
   {
     id: "ancient-temple",
@@ -34,7 +37,9 @@ const WORLD_REGIONS = [
     icon: "🏛",
     theme: "ancient",
     unlockLevel: 10,
-    environment: "temple"
+    environment: "temple",
+    background: 0x24170f,
+    fog: 0x24170f
   },
   {
     id: "frozen-kingdom",
@@ -44,7 +49,9 @@ const WORLD_REGIONS = [
     icon: "❄",
     theme: "ice",
     unlockLevel: 15,
-    environment: "frozen"
+    environment: "frozen",
+    background: 0x102b42,
+    fog: 0x102b42
   },
   {
     id: "royal-garden",
@@ -54,7 +61,9 @@ const WORLD_REGIONS = [
     icon: "🌿",
     theme: "nature",
     unlockLevel: 20,
-    environment: "garden"
+    environment: "garden",
+    background: 0x10251a,
+    fog: 0x10251a
   },
   {
     id: "cosmic-arena",
@@ -64,7 +73,9 @@ const WORLD_REGIONS = [
     icon: "🌌",
     theme: "cosmic",
     unlockLevel: 30,
-    environment: "cosmic"
+    environment: "cosmic",
+    background: 0x100c2d,
+    fog: 0x100c2d
   },
   {
     id: "dark-fortress",
@@ -74,7 +85,9 @@ const WORLD_REGIONS = [
     icon: "🏰",
     theme: "dark",
     unlockLevel: 40,
-    environment: "fortress"
+    environment: "fortress",
+    background: 0x090a12,
+    fog: 0x090a12
   },
   {
     id: "heavenly-arena",
@@ -84,7 +97,9 @@ const WORLD_REGIONS = [
     icon: "✨",
     theme: "heaven",
     unlockLevel: 50,
-    environment: "heaven"
+    environment: "heaven",
+    background: 0x252044,
+    fog: 0x252044
   }
 ];
 
@@ -99,10 +114,11 @@ export class WorldScreen {
     this.settingsService = options.settingsService || null;
 
     this.playerLevel = 1;
-    this.selectedWorld = null;
+    this.selectedWorld = "royal-palace";
     this.unlockedWorlds = new Set(["royal-palace"]);
 
     this.destroyed = false;
+    this.saving = false;
     this.elements = {};
 
     this.boundClickHandler = this.handleClick.bind(this);
@@ -124,13 +140,21 @@ export class WorldScreen {
     return this;
   }
 
+  initialize(container = this.container) {
+    return this.mount(container);
+  }
+
   loadPlayerData() {
     try {
       const profile = this.playerService?.getProfile?.();
 
       this.playerLevel = Math.max(
         1,
-        Number(profile?.level || profile?.progression?.level || 1)
+        Number(
+          profile?.progression?.level ||
+          profile?.level ||
+          1
+        )
       );
 
       const savedWorlds =
@@ -139,16 +163,26 @@ export class WorldScreen {
         [];
 
       if (Array.isArray(savedWorlds)) {
-        savedWorlds.forEach(id => this.unlockedWorlds.add(id));
+        savedWorlds.forEach(id => {
+          if (WORLD_REGIONS.some(world => world.id === id)) {
+            this.unlockedWorlds.add(id);
+          }
+        });
       }
 
       const activeWorld =
         profile?.worlds?.selected ||
         profile?.selectedWorld;
 
-      if (activeWorld) {
+      if (WORLD_REGIONS.some(world => world.id === activeWorld)) {
         this.selectedWorld = activeWorld;
       }
+
+      WORLD_REGIONS.forEach(world => {
+        if (this.playerLevel >= world.unlockLevel) {
+          this.unlockedWorlds.add(world.id);
+        }
+      });
     } catch (error) {
       console.warn("Unable to load world profile:", error);
     }
@@ -164,9 +198,7 @@ export class WorldScreen {
             class="world-back-button"
             data-action="back"
             aria-label="Go back"
-          >
-            ←
-          </button>
+          >←</button>
 
           <div class="world-heading">
             <span class="world-eyebrow">EXPLORE THE UNIVERSE</span>
@@ -190,7 +222,9 @@ export class WorldScreen {
           </div>
 
           <p>
-            Explore new worlds as your player level increases.
+            ${this.unlockedWorlds.size} of
+            ${WORLD_REGIONS.length} worlds unlocked.
+            Explore new destinations as you level up.
           </p>
         </section>
 
@@ -208,7 +242,7 @@ export class WorldScreen {
               data-world="royal-palace"
               class="world-featured-button"
             >
-              Enter Royal Palace
+              Explore Royal Palace
             </button>
           </div>
 
@@ -239,18 +273,18 @@ export class WorldScreen {
           </div>
         </section>
 
-        <section class="world-selected-panel" id="world-selected-panel" hidden>
-        </section>
+        <section
+          class="world-selected-panel"
+          id="world-selected-panel"
+          hidden
+        ></section>
 
       </section>
     `;
   }
 
   renderWorldCard(world) {
-    const unlocked =
-      this.unlockedWorlds.has(world.id) ||
-      this.playerLevel >= world.unlockLevel;
-
+    const unlocked = this.isWorldUnlocked(world);
     const selected = this.selectedWorld === world.id;
 
     return `
@@ -274,7 +308,6 @@ export class WorldScreen {
 
         <div class="world-card-content">
           <h3>${this.escapeHTML(world.name)}</h3>
-
           <p>${this.escapeHTML(world.subtitle)}</p>
 
           ${
@@ -291,7 +324,13 @@ export class WorldScreen {
             data-world="${this.escapeHTML(world.id)}"
             ${unlocked ? "" : "disabled"}
           >
-            ${selected ? "Selected" : unlocked ? "Explore" : "Locked"}
+            ${
+              selected
+                ? "Selected"
+                : unlocked
+                  ? "Explore"
+                  : "Locked"
+            }
           </button>
         </div>
       </article>
@@ -303,7 +342,8 @@ export class WorldScreen {
       grid: this.container.querySelector(".world-grid"),
       selectedPanel: this.container.querySelector(
         "#world-selected-panel"
-      )
+      ),
+      worldCount: this.container.querySelector(".world-count")
     };
   }
 
@@ -347,9 +387,12 @@ export class WorldScreen {
   }
 
   isWorldUnlocked(world) {
-    return (
-      this.unlockedWorlds.has(world.id) ||
-      this.playerLevel >= world.unlockLevel
+    return Boolean(
+      world &&
+      (
+        this.unlockedWorlds.has(world.id) ||
+        this.playerLevel >= world.unlockLevel
+      )
     );
   }
 
@@ -372,10 +415,10 @@ export class WorldScreen {
     this.container
       .querySelectorAll(".world-card")
       .forEach(card => {
-        card.classList.toggle(
-          "selected",
-          card.dataset.worldCard === worldId
-        );
+        const selected =
+          card.dataset.worldCard === worldId;
+
+        card.classList.toggle("selected", selected);
 
         const cardButton = card.querySelector(
           '[data-action="select"]'
@@ -383,14 +426,22 @@ export class WorldScreen {
 
         if (cardButton) {
           cardButton.textContent =
-            card.dataset.worldCard === worldId
-              ? "Selected"
-              : "Explore";
+            selected ? "Selected" : "Explore";
         }
       });
 
     this.showSelectedWorld(world);
   }
+
+/* =========================================================
+   FILE 59 — PART 1/2 END
+   PART 2/2 CONTINUES INSIDE WorldScreen CLASS
+========================================================= */
+   
+/* =========================================================
+   FILE 59 — PART 2/2 — START
+   CONTINUES INSIDE WorldScreen CLASS
+========================================================= */
 
   showSelectedWorld(world) {
     if (!this.elements.selectedPanel) return;
@@ -404,9 +455,7 @@ export class WorldScreen {
           class="world-panel-close"
           data-action="close-panel"
           aria-label="Close"
-        >
-          ×
-        </button>
+        >×</button>
 
         <span class="world-eyebrow">SELECTED ENVIRONMENT</span>
 
@@ -415,9 +464,7 @@ export class WorldScreen {
         </div>
 
         <h2>${this.escapeHTML(world.name)}</h2>
-
         <h3>${this.escapeHTML(world.subtitle)}</h3>
-
         <p>${this.escapeHTML(world.description)}</p>
 
         <button
@@ -425,6 +472,7 @@ export class WorldScreen {
           class="world-enter-button"
           data-action="enter"
           data-world="${this.escapeHTML(world.id)}"
+          ${this.saving ? "disabled" : ""}
         >
           Enter This World
         </button>
@@ -438,20 +486,23 @@ export class WorldScreen {
   }
 
   async enterWorld(worldId) {
+    if (this.saving || this.destroyed) return;
+
     const world = WORLD_REGIONS.find(
       item => item.id === worldId
     );
 
-    if (!world || !this.isWorldUnlocked(world)) return;
+    if (!world || !this.isWorldUnlocked(world)) {
+      this.showMessage("This world is locked.");
+      return;
+    }
+
+    this.saving = true;
 
     try {
-      /*
-       * Save the selected environment through PlayerService.
-       * The renderer integration will apply the environment
-       * when the 3D arena is mounted.
-       */
-
-      if (typeof this.playerService?.updateProfile === "function") {
+      if (
+        typeof this.playerService?.updateProfile === "function"
+      ) {
         await this.playerService.updateProfile(profile => {
           profile.worlds = profile.worlds || {};
           profile.worlds.selected = world.id;
@@ -462,20 +513,34 @@ export class WorldScreen {
 
       this.selectedWorld = world.id;
 
+      /*
+       * SceneManager.setEnvironment() accepts colors,
+       * not environment ID strings.
+       */
+      if (
+        typeof this.sceneManager?.setEnvironment === "function"
+      ) {
+        this.sceneManager.setEnvironment(
+          world.background,
+          world.fog
+        );
+      }
+
       this.eventBus?.emit?.("world:selected", {
         worldId: world.id,
         environment: world.environment,
-        theme: world.theme
+        theme: world.theme,
+        background: world.background,
+        fog: world.fog
       });
 
-      if (typeof this.sceneManager?.setEnvironment === "function") {
-        await this.sceneManager.setEnvironment(world.environment);
-      }
+      /*
+       * SettingsService is not assumed to have a generic
+       * set() method. The selected world is saved in profile.
+       */
 
-      if (typeof this.settingsService?.set === "function") {
-        await this.settingsService.set("selectedWorld", world.id);
-      }
-
+      this.updateWorldCards();
+      this.showSelectedWorld(world);
       this.showMessage(`${world.name} selected.`);
     } catch (error) {
       console.error("Unable to enter world:", error);
@@ -483,6 +548,22 @@ export class WorldScreen {
       this.showMessage(
         error?.message || "Unable to select this world."
       );
+    } finally {
+      this.saving = false;
+    }
+  }
+
+  updateWorldCards() {
+    if (!this.elements.grid) return;
+
+    this.elements.grid.innerHTML =
+      WORLD_REGIONS.map(world =>
+        this.renderWorldCard(world)
+      ).join("");
+
+    if (this.elements.worldCount) {
+      this.elements.worldCount.textContent =
+        `${this.unlockedWorlds.size}/${WORLD_REGIONS.length} Unlocked`;
     }
   }
 
@@ -499,19 +580,29 @@ export class WorldScreen {
       return;
     }
 
-    const panel = this.elements.selectedPanel;
-
-    if (panel) {
-      panel.hidden = false;
-      panel.textContent = message;
+    if (this.elements.selectedPanel) {
+      this.elements.selectedPanel.hidden = false;
+      this.elements.selectedPanel.innerHTML = `
+        <div class="world-selected-content">
+          <p>${this.escapeHTML(message)}</p>
+          <button
+            type="button"
+            data-action="close-panel"
+            class="world-panel-close"
+            aria-label="Close"
+          >×</button>
+        </div>
+      `;
     }
   }
 
   goBack() {
     if (typeof this.navigation?.back === "function") {
       this.navigation.back();
-    } else {
-      this.navigation?.navigate?.("home");
+    } else if (
+      typeof this.navigation?.navigate === "function"
+    ) {
+      this.navigation.navigate("home");
     }
   }
 
@@ -527,6 +618,7 @@ export class WorldScreen {
 
   destroy() {
     this.destroyed = true;
+    this.saving = false;
 
     if (this.container) {
       this.container.removeEventListener(
@@ -550,4 +642,3 @@ export function createWorldScreen(options = {}) {
    FILE 59 END
    WORLD SCREEN COMPLETE
 ========================================================= */
-      
