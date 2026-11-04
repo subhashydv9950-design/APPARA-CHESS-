@@ -1,8 +1,8 @@
 
 /* =========================================================
    APPARA CHESS — FILE 58
-   SCREEN: TOURNAMENTS
    PATH: js/screens/tournament-screen.js
+   PART 1/2 — START
 ========================================================= */
 
 const TOURNAMENT_FILTERS = [
@@ -64,6 +64,10 @@ export class TournamentScreen {
     return this;
   }
 
+  initialize(container = this.container) {
+    return this.mount(container);
+  }
+
   loadPlayer() {
     try {
       const profile = this.playerService?.getProfile?.();
@@ -89,17 +93,14 @@ export class TournamentScreen {
       <section class="tournament-screen">
 
         <header class="tournament-header">
-          <button
-            class="tournament-back-button"
-            type="button"
-            data-action="back"
-            aria-label="Go back"
-          >
-            <span aria-hidden="true">←</span>
-          </button>
+          <button class="tournament-back-button"
+            type="button" data-action="back"
+            aria-label="Go back">←</button>
 
           <div class="tournament-heading">
-            <span class="tournament-eyebrow">COMPETE • RISE • CONQUER</span>
+            <span class="tournament-eyebrow">
+              COMPETE • RISE • CONQUER
+            </span>
             <h1>Chess Tournaments</h1>
             <p>Enter the arena and prove your strategy.</p>
           </div>
@@ -111,18 +112,17 @@ export class TournamentScreen {
 
         <section class="tournament-feature">
           <div class="tournament-feature-content">
-            <span class="tournament-feature-tag">THE ROYAL ARENA</span>
+            <span class="tournament-feature-tag">
+              THE ROYAL ARENA
+            </span>
             <h2>Your next victory awaits.</h2>
             <p>
               Join competitive chess events, challenge new opponents
               and climb the tournament standings.
             </p>
 
-            <button
-              class="tournament-feature-button"
-              type="button"
-              data-action="refresh"
-            >
+            <button class="tournament-feature-button"
+              type="button" data-action="refresh">
               Explore Tournaments
             </button>
           </div>
@@ -159,20 +159,13 @@ export class TournamentScreen {
               <h2>Find Your Tournament</h2>
             </div>
 
-            <button
-              class="tournament-refresh-button"
-              type="button"
-              data-action="refresh"
-              aria-label="Refresh tournaments"
-            >
-              ↻
-            </button>
+            <button class="tournament-refresh-button"
+              type="button" data-action="refresh"
+              aria-label="Refresh tournaments">↻</button>
           </div>
 
-          <nav
-            class="tournament-filters"
-            aria-label="Tournament filters"
-          >
+          <nav class="tournament-filters"
+            aria-label="Tournament filters">
             ${TOURNAMENT_FILTERS.map(filter => `
               <button
                 class="tournament-filter ${
@@ -181,18 +174,14 @@ export class TournamentScreen {
                 type="button"
                 data-action="filter"
                 data-filter="${filter.id}"
-                aria-pressed="${filter.id === "all"}"
-              >
+                aria-pressed="${filter.id === "all"}">
                 ${this.escapeHTML(filter.label)}
               </button>
             `).join("")}
           </nav>
 
-          <div
-            class="tournament-list"
-            id="tournament-list"
-            aria-live="polite"
-          >
+          <div class="tournament-list"
+            id="tournament-list" aria-live="polite">
             <div class="tournament-loading">
               Loading tournaments...
             </div>
@@ -215,11 +204,9 @@ export class TournamentScreen {
           </div>
         </section>
 
-        <section
-          class="tournament-details"
-          id="tournament-details"
-          hidden
-        ></section>
+        <section class="tournament-details"
+          id="tournament-details" hidden>
+        </section>
 
       </section>
     `;
@@ -320,7 +307,6 @@ export class TournamentScreen {
       this.renderTournamentList();
     } catch (error) {
       console.error("Tournament loading failed:", error);
-
       this.showError(
         error?.message || "Unable to load tournaments."
       );
@@ -340,7 +326,6 @@ export class TournamentScreen {
       .querySelectorAll(".tournament-filter")
       .forEach(button => {
         const active = button.dataset.filter === filter;
-
         button.classList.toggle("active", active);
         button.setAttribute("aria-pressed", String(active));
       });
@@ -376,7 +361,7 @@ export class TournamentScreen {
     }
 
     if (
-      ["completed", "finished", "ended"].includes(
+      ["completed", "finished", "ended", "cancelled"].includes(
         explicitStatus
       )
     ) {
@@ -392,7 +377,6 @@ export class TournamentScreen {
     );
 
     if (endTime && now > endTime) return "completed";
-
     if (startTime && now >= startTime) return "live";
 
     return "upcoming";
@@ -412,22 +396,26 @@ export class TournamentScreen {
     }
 
     const parsed = new Date(value).getTime();
-
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
+  getTournamentId(tournament) {
+    return tournament?.id ||
+      tournament?.tournamentID ||
+      tournament?.tournamentId ||
+      null;
+  }
+
   updateStats() {
-    const joinedCount = this.tournaments.filter(
-      tournament => this.joinedTournamentIds.has(
-        tournament.id || tournament.tournamentId
+    const joinedCount = this.tournaments.filter(tournament =>
+      this.joinedTournamentIds.has(
+        this.getTournamentId(tournament)
       )
     ).length;
 
     const availableCount = this.tournaments.filter(
-      tournament => {
-        const status = this.getTournamentStatus(tournament);
-        return status === "upcoming";
-      }
+      tournament =>
+        this.getTournamentStatus(tournament) === "upcoming"
     ).length;
 
     const liveCount = this.tournaments.filter(
@@ -435,14 +423,17 @@ export class TournamentScreen {
         this.getTournamentStatus(tournament) === "live"
     ).length;
 
-    this.elements.joinedCount.textContent =
-      String(joinedCount);
+    if (this.elements.joinedCount) {
+      this.elements.joinedCount.textContent = String(joinedCount);
+    }
 
-    this.elements.availableCount.textContent =
-      String(availableCount);
+    if (this.elements.availableCount) {
+      this.elements.availableCount.textContent = String(availableCount);
+    }
 
-    this.elements.liveCount.textContent =
-      String(liveCount);
+    if (this.elements.liveCount) {
+      this.elements.liveCount.textContent = String(liveCount);
+    }
   }
 
   renderTournamentList() {
@@ -457,35 +448,40 @@ export class TournamentScreen {
             There are no tournaments in this category right now.
             Check again later.
           </p>
-
-          <button
-            type="button"
+          <button type="button"
             data-action="refresh"
-            class="tournament-empty-button"
-          >
+            class="tournament-empty-button">
             Refresh
           </button>
         </div>
       `;
-
       return;
     }
 
     this.elements.list.innerHTML =
       this.filteredTournaments.map(tournament => {
-        const id = tournament.id || tournament.tournamentId;
+        const id = this.getTournamentId(tournament);
         const status = this.getTournamentStatus(tournament);
         const joined = this.joinedTournamentIds.has(id);
 
         const title = this.escapeHTML(
-          tournament.name || tournament.title || "Chess Tournament"
+          tournament.name ||
+          tournament.title ||
+          "Chess Tournament"
         );
 
         const format = this.escapeHTML(
-          tournament.format || tournament.timeControl || "Standard"
+          tournament.format ||
+          tournament.timeControl ||
+          "Standard"
         );
 
-        const players = Number(tournament.currentPlayers || 0);
+        const players = Number(
+          tournament.currentPlayers ??
+          tournament.participantCount ??
+          0
+        );
+
         const capacity = Number(tournament.maxPlayers || 0);
 
         const playerText = capacity > 0
@@ -495,6 +491,7 @@ export class TournamentScreen {
         const prize = this.escapeHTML(
           tournament.prizeLabel ||
           tournament.prize ||
+          tournament.prizePool ||
           "See event details"
         );
 
@@ -518,12 +515,10 @@ export class TournamentScreen {
 
         return `
           <article class="tournament-card">
-
             <div class="tournament-card-top">
               <span class="tournament-status ${status}">
                 ${statusLabel}
               </span>
-
               <span class="tournament-format-label">
                 ${format}
               </span>
@@ -545,33 +540,38 @@ export class TournamentScreen {
                 )}
               </span>
 
-              <button
-                type="button"
+              <button type="button"
                 class="tournament-action-button"
                 data-action="${action}"
-                data-id="${this.escapeHTML(id)}"
-              >
+                data-id="${this.escapeHTML(id || "")}">
                 ${actionLabel}
               </button>
             </div>
-
           </article>
         `;
       }).join("");
   }
 
+/* =========================================================
+   FILE 58 — PART 1/2 END
+   PART 2/2 CONTINUES INSIDE TournamentScreen CLASS
+========================================================= */
+           
+/* =========================================================
+   FILE 58 — PART 2/2 — START
+   CONTINUES INSIDE TournamentScreen CLASS
+========================================================= */
+
   async joinTournament(id) {
     if (!id || this.joining || this.destroyed) return;
 
     if (!this.currentPlayerId) {
-      this.showMessage(
-        "Sign in to join tournaments."
-      );
+      this.showMessage("Sign in to join tournaments.");
       return;
     }
 
-    const tournament = this.tournaments.find(item =>
-      (item.id || item.tournamentId) === id
+    const tournament = this.tournaments.find(
+      item => this.getTournamentId(item) === id
     );
 
     if (!tournament) {
@@ -586,9 +586,9 @@ export class TournamentScreen {
       return;
     }
 
-    if (typeof this.tournamentService?.joinTournament !== "function") {
+    if (typeof this.tournamentService?.register !== "function") {
       this.showMessage(
-        "Tournament registration is not available yet."
+        "Tournament registration service is unavailable."
       );
       return;
     }
@@ -597,7 +597,7 @@ export class TournamentScreen {
 
     try {
       const result =
-        await this.tournamentService.joinTournament(id);
+        await this.tournamentService.register(id);
 
       if (this.destroyed) return;
 
@@ -608,7 +608,6 @@ export class TournamentScreen {
       }
 
       this.joinedTournamentIds.add(id);
-
       await this.saveJoinedTournamentIds();
 
       this.showMessage(
@@ -635,15 +634,14 @@ export class TournamentScreen {
 
     await this.playerService.updateProfile(profile => {
       profile.tournaments = profile.tournaments || {};
-
       profile.tournaments.joinedIds =
         [...this.joinedTournamentIds];
     });
   }
 
   showTournamentDetails(id) {
-    const tournament = this.tournaments.find(item =>
-      (item.id || item.tournamentId) === id
+    const tournament = this.tournaments.find(
+      item => this.getTournamentId(item) === id
     );
 
     if (!tournament || !this.elements.details) return;
@@ -654,7 +652,9 @@ export class TournamentScreen {
     const joined = this.joinedTournamentIds.has(id);
 
     const title = this.escapeHTML(
-      tournament.name || tournament.title || "Chess Tournament"
+      tournament.name ||
+      tournament.title ||
+      "Chess Tournament"
     );
 
     const description = this.escapeHTML(
@@ -672,32 +672,38 @@ export class TournamentScreen {
         `).join("")
       : "<li>Standard chess rules apply.</li>";
 
+    const tournamentFormat = this.escapeHTML(
+      tournament.format || "Standard"
+    );
+
+    const prize = this.escapeHTML(
+      tournament.prizeLabel ||
+      tournament.prize ||
+      tournament.prizePool ||
+      "Not specified"
+    );
+
     this.elements.details.hidden = false;
 
     this.elements.details.innerHTML = `
       <div class="tournament-details-panel">
 
-        <button
-          type="button"
+        <button type="button"
           class="tournament-details-close"
           data-action="close-details"
-          aria-label="Close details"
-        >
-          ×
-        </button>
+          aria-label="Close details">×</button>
 
-        <span class="tournament-eyebrow">TOURNAMENT DETAILS</span>
+        <span class="tournament-eyebrow">
+          TOURNAMENT DETAILS
+        </span>
 
         <h2>${title}</h2>
-
         <p>${description}</p>
 
         <div class="tournament-detail-grid">
           <div>
             <span>Format</span>
-            <strong>
-              ${this.escapeHTML(tournament.format || "Standard")}
-            </strong>
+            <strong>${tournamentFormat}</strong>
           </div>
 
           <div>
@@ -718,11 +724,7 @@ export class TournamentScreen {
 
           <div>
             <span>Prize</span>
-            <strong>
-              ${this.escapeHTML(
-                tournament.prizeLabel || tournament.prize || "Not specified"
-              )}
-            </strong>
+            <strong>${prize}</strong>
           </div>
         </div>
 
@@ -734,13 +736,11 @@ export class TournamentScreen {
         ${
           status === "upcoming" && !joined
             ? `
-              <button
-                type="button"
+              <button type="button"
                 class="tournament-action-button"
                 data-action="join"
                 data-id="${this.escapeHTML(id)}"
-                ${this.joining ? "disabled" : ""}
-              >
+                ${this.joining ? "disabled" : ""}>
                 Join Tournament
               </button>
             `
@@ -800,12 +800,9 @@ export class TournamentScreen {
       <div class="tournament-error">
         <h3>Unable to load tournaments</h3>
         <p>${this.escapeHTML(message)}</p>
-
-        <button
-          type="button"
+        <button type="button"
           data-action="refresh"
-          class="tournament-empty-button"
-        >
+          class="tournament-empty-button">
           Try Again
         </button>
       </div>
@@ -822,7 +819,6 @@ export class TournamentScreen {
       const notice = document.createElement("p");
       notice.className = "tournament-notice";
       notice.textContent = message;
-
       this.elements.list.prepend(notice);
     }
   }
@@ -876,5 +872,4 @@ export function createTournamentScreen(options = {}) {
    FILE 58 END
    TOURNAMENT SCREEN COMPLETE
 ========================================================= */
-
-    
+     
