@@ -1,0 +1,621 @@
+/* =========================================================
+   APPARA CHESS — FILE 71
+   CHESS ARENA STYLES
+   File: css/chess-arena.css
+   ========================================================= */
+
+/* ---------- ARENA ROOT ---------- */
+
+.chess-arena {
+  --arena-light-square: #e8d9bd;
+  --arena-dark-square: #593b70;
+  --arena-board-border: #c69b4d;
+  --arena-highlight: rgba(255, 220, 80, 0.48);
+  --arena-legal: rgba(80, 210, 135, 0.42);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+  min-width: 0;
+  padding: clamp(10px, 2vw, 24px);
+  overflow: hidden;
+}
+
+.chess-arena * {
+  box-sizing: border-box;
+}
+
+/* ---------- ARENA BACKGROUND ---------- */
+
+.arena-background {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(ellipse at 50% 45%, rgba(107, 62, 148, 0.2), transparent 65%),
+    linear-gradient(145deg, #171020, #08070c);
+}
+
+.arena-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: -1;
+  width: min(90%, 700px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(150, 92, 207, 0.13), transparent 68%);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* ---------- GAME PLAYERS ---------- */
+
+.arena-player {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: min(100%, 760px);
+  min-height: 58px;
+  padding: 9px 13px;
+  border: 1px solid rgba(232, 196, 106, 0.2);
+  border-radius: 13px;
+  background: rgba(22, 17, 30, 0.88);
+}
+
+.arena-player-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.arena-player-avatar {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: 2px solid rgba(232, 196, 106, 0.65);
+  border-radius: 50%;
+  object-fit: cover;
+  background: #30233d;
+}
+
+.arena-player-details {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.arena-player-name {
+  max-width: 190px;
+  overflow: hidden;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arena-player-rank {
+  color: #b9a8c9;
+  font-size: 0.73rem;
+}
+
+.arena-player-clock {
+  min-width: 78px;
+  padding: 8px 12px;
+  border: 1px solid rgba(232, 196, 106, 0.25);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.32);
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 850;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.arena-player-clock.active {
+  border-color: #e8c46a;
+  background: rgba(232, 196, 106, 0.13);
+  color: #f4d987;
+  box-shadow: 0 0 18px rgba(232, 196, 106, 0.12);
+}
+
+.arena-player-clock.low-time {
+  border-color: #e45d68;
+  color: #ff858b;
+}
+
+/* ---------- BOARD FRAME ---------- */
+
+.chess-board-frame {
+  position: relative;
+  width: min(100%, 720px);
+  padding: clamp(7px, 1.5vw, 15px);
+  border: 2px solid var(--arena-board-border);
+  border-radius: 9px;
+  background:
+    linear-gradient(145deg, #9c7540, #4a3023 48%, #b68b4d);
+  box-shadow:
+    0 18px 42px rgba(0, 0, 0, 0.5),
+    inset 0 1px 2px rgba(255, 255, 255, 0.35),
+    inset 0 -3px 8px rgba(0, 0, 0, 0.35);
+}
+
+.chess-board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-rows: repeat(8, minmax(0, 1fr));
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+/* ---------- BOARD SQUARES ---------- */
+
+.chess-square {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  aspect-ratio: 1;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.chess-square.light {
+  background: var(--arena-light-square);
+}
+
+.chess-square.dark {
+  background: var(--arena-dark-square);
+}
+
+.chess-square:focus-visible {
+  z-index: 3;
+  outline: 3px solid #f8d66f;
+  outline-offset: -3px;
+}
+
+.chess-square.selected {
+  background-color: var(--arena-highlight);
+  box-shadow: inset 0 0 0 4px rgba(255, 215, 75, 0.85);
+}
+
+.chess-square.last-move {
+  background-image: linear-gradient(rgba(255, 215, 75, 0.28), rgba(255, 215, 75, 0.28));
+}
+
+.chess-square.in-check {
+  background-image: radial-gradient(circle, rgba(255, 35, 55, 0.7), rgba(255, 35, 55, 0.12) 72%);
+}
+
+.chess-square.legal-move::after {
+  content: "";
+  position: absolute;
+  width: 25%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--arena-legal);
+  box-shadow: 0 0 0 2px rgba(35, 145, 90, 0.28);
+  pointer-events: none;
+}
+
+.chess-square.legal-capture::after {
+  content: "";
+  position: absolute;
+  inset: 4%;
+  border: 4px solid rgba(55, 205, 125, 0.7);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.chess-square.coordinate-rank::before,
+.chess-square.coordinate-file::before {
+  position: absolute;
+  z-index: 2;
+  color: rgba(0, 0, 0, 0.58);
+  font-size: clamp(7px, 1.15vw, 11px);
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.chess-square.coordinate-rank::before {
+  content: attr(data-rank);
+  top: 2px;
+  left: 3px;
+}
+
+.chess-square.coordinate-file::before {
+  content: attr(data-file);
+  right: 3px;
+  bottom: 2px;
+}
+
+/* ---------- CHESS PIECES ---------- */
+
+.chess-piece {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 88%;
+  height: 88%;
+  color: #fff;
+  font-family: "DejaVu Sans", "Segoe UI Symbol", serif;
+  font-size: clamp(24px, 6.5vw, 62px);
+  line-height: 1;
+  text-shadow:
+    0 2px 2px rgba(0, 0, 0, 0.65),
+    0 0 8px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+  transition: transform 130ms ease;
+}
+
+.chess-piece.white-piece {
+  color: #fff8e9;
+  text-shadow:
+    0 2px 1px #806a4a,
+    0 3px 5px rgba(0, 0, 0, 0.5);
+}
+
+.chess-piece.black-piece {
+  color: #29212f;
+  text-shadow:
+    0 1px 1px rgba(255, 255, 255, 0.45),
+    0 3px 5px rgba(0, 0, 0, 0.6);
+}
+
+.chess-piece.moving {
+  z-index: 5;
+  transform: scale(1.12);
+}
+
+.chess-piece.captured {
+  opacity: 0.35;
+  transform: scale(0.8);
+}
+
+/* ---------- BOARD COORDINATES ---------- */
+
+.board-coordinates {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  pointer-events: none;
+}
+
+.board-coordinate {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 2px 3px;
+  color: rgba(0, 0, 0, 0.5);
+  font-size: clamp(7px, 1vw, 10px);
+  font-weight: 800;
+}
+
+/* ---------- CAPTURED PIECES ---------- */
+
+.arena-captured {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  color: #c9bbd5;
+  font-size: 0.85rem;
+}
+
+.arena-captured-piece {
+  font-size: 1.1rem;
+  opacity: 0.85;
+}
+
+/* ---------- GAME TOOLBAR ---------- */
+
+.arena-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: min(100%, 760px);
+}
+
+.arena-tool-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 42px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid rgba(232, 196, 106, 0.25);
+  border-radius: 10px;
+  background: rgba(27, 20, 37, 0.92);
+  color: #eee5f5;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.arena-tool-button:hover {
+  border-color: #e8c46a;
+  background: rgba(87, 57, 113, 0.7);
+}
+
+.arena-tool-button:active {
+  transform: scale(0.96);
+}
+
+.arena-tool-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---------- MOVE HISTORY ---------- */
+
+.arena-move-history {
+  width: min(100%, 760px);
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid rgba(232, 196, 106, 0.18);
+  border-radius: 12px;
+  background: rgba(16, 12, 23, 0.9);
+}
+
+.arena-move-row {
+  display: grid;
+  grid-template-columns: 34px 1fr 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: #e9dfef;
+  font-size: 0.85rem;
+}
+
+.arena-move-row:last-child {
+  border-bottom: 0;
+}
+
+.arena-move-number {
+  color: #a995ba;
+  font-weight: 800;
+}
+
+.arena-move-current {
+  border-radius: 5px;
+  background: rgba(232, 196, 106, 0.16);
+  color: #f4d987;
+}
+
+/* ---------- GAME STATUS ---------- */
+
+.arena-status {
+  width: min(100%, 760px);
+  padding: 11px 14px;
+  border: 1px solid rgba(232, 196, 106, 0.2);
+  border-radius: 10px;
+  background: rgba(22, 17, 30, 0.88);
+  color: #eee5f5;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.arena-status.check {
+  border-color: rgba(240, 85, 90, 0.7);
+  color: #ff8d93;
+}
+
+.arena-status.checkmate {
+  border-color: #e8c46a;
+  color: #f4d987;
+}
+
+/* ---------- PROMOTION DIALOG ---------- */
+
+.promotion-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.promotion-dialog {
+  width: min(100%, 340px);
+  padding: 20px;
+  border: 1px solid #b99150;
+  border-radius: 16px;
+  background: #1c1427;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  text-align: center;
+}
+
+.promotion-title {
+  margin-bottom: 16px;
+  color: #f4d987;
+  font-weight: 850;
+}
+
+.promotion-options {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.promotion-option {
+  display: grid;
+  place-items: center;
+  min-height: 64px;
+  border: 1px solid rgba(232, 196, 106, 0.3);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 2rem;
+  cursor: pointer;
+}
+
+.promotion-option:hover {
+  border-color: #e8c46a;
+  background: rgba(232, 196, 106, 0.14);
+}
+
+/* ---------- GAME RESULT ---------- */
+
+.arena-result-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(4, 3, 8, 0.82);
+  backdrop-filter: blur(8px);
+}
+
+.arena-result-panel {
+  width: min(100%, 420px);
+  padding: clamp(22px, 4vw, 34px);
+  border: 1px solid rgba(232, 196, 106, 0.55);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(139, 84, 181, 0.25), transparent 65%),
+    #191220;
+  box-shadow: 0 22px 65px rgba(0, 0, 0, 0.55);
+  text-align: center;
+}
+
+.arena-result-title {
+  color: #f4d987;
+  font-size: clamp(1.4rem, 5vw, 2rem);
+  font-weight: 950;
+}
+
+.arena-result-description {
+  margin-top: 10px;
+  color: #d1c5dc;
+  line-height: 1.5;
+}
+
+/* ---------- BOARD FLIP ---------- */
+
+.chess-board.flipped {
+  transform: rotate(180deg);
+}
+
+.chess-board.flipped .chess-piece {
+  transform: rotate(180deg);
+}
+
+/* ---------- RESPONSIVE ---------- */
+
+@media (max-width: 700px) {
+  .chess-arena {
+    gap: 11px;
+    padding: 8px;
+  }
+
+  .arena-player {
+    min-height: 50px;
+    padding: 7px 9px;
+  }
+
+  .arena-player-avatar {
+    width: 34px;
+    height: 34px;
+  }
+
+  .arena-player-clock {
+    min-width: 66px;
+    padding: 7px 8px;
+    font-size: 0.95rem;
+  }
+
+  .chess-board-frame {
+    width: 100%;
+    padding: 6px;
+  }
+
+  .arena-tool-button {
+    min-height: 38px;
+    padding: 7px 9px;
+    font-size: 0.76rem;
+  }
+
+  .arena-move-history {
+    max-height: 125px;
+  }
+}
+
+@media (max-width: 380px) {
+  .arena-player-name {
+    max-width: 115px;
+    font-size: 0.8rem;
+  }
+
+  .arena-player-rank {
+    font-size: 0.68rem;
+  }
+
+  .arena-toolbar {
+    gap: 5px;
+  }
+
+  .arena-tool-button {
+    min-width: 36px;
+    padding: 6px;
+  }
+
+  .chess-piece {
+    font-size: clamp(21px, 8vw, 34px);
+  }
+}
+
+/* ---------- ACCESSIBILITY ---------- */
+
+.chess-arena button:focus-visible {
+  outline: 2px solid #f4d987;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chess-arena *,
+  .chess-arena *::before,
+  .chess-arena *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* =========================================================
+   END OF FILE 71 — css/chess-arena.css
+   ========================================================= */
