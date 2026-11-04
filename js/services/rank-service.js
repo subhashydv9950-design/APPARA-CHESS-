@@ -1,6 +1,7 @@
 // ============================================================
 // APPARA CHESS — RANK SERVICE
-// FILE 39 — COMPLETE
+// FILE 62 — COMPLETE
+// PATH: js/services/rank-service.js
 // ============================================================
 
 export const RANK_EVENTS = Object.freeze({
@@ -10,90 +11,17 @@ export const RANK_EVENTS = Object.freeze({
     ERROR: "rankError"
 });
 
-// Custom APPARA CHESS ranks.
-// These are game ranks, not official FIDE titles.
-
 export const RANK_TIERS = Object.freeze([
-    {
-        id: "bronze",
-        name: "Bronze",
-        minRating: 0,
-        maxRating: 799,
-        color: "#CD7F32",
-        divisions: ["III", "II", "I"]
-    },
-    {
-        id: "silver",
-        name: "Silver",
-        minRating: 800,
-        maxRating: 999,
-        color: "#C0C0C0",
-        divisions: ["III", "II", "I"]
-    },
-    {
-        id: "gold",
-        name: "Gold",
-        minRating: 1000,
-        maxRating: 1199,
-        color: "#FFD700",
-        divisions: ["III", "II", "I"]
-    },
-    {
-        id: "platinum",
-        name: "Platinum",
-        minRating: 1200,
-        maxRating: 1399,
-        color: "#70D6CE",
-        divisions: ["III", "II", "I"]
-    },
-    {
-        id: "diamond",
-        name: "Diamond",
-        minRating: 1400,
-        maxRating: 1599,
-        color: "#55C9FF",
-        divisions: ["III", "II", "I"]
-    },
-    {
-        id: "master",
-        name: "Master",
-        minRating: 1600,
-        maxRating: 1799,
-        color: "#A78BFA",
-        divisions: ["III", "II", "I"]
-    },
-    {
-        id: "elite",
-        name: "Elite",
-        minRating: 1800,
-        maxRating: 1999,
-        color: "#FF6B9D",
-        divisions: ["III", "II", "I"]
-    },
-    {
-        id: "champion",
-        name: "Champion",
-        minRating: 2000,
-        maxRating: 2199,
-        color: "#FF9F43",
-        divisions: ["III", "II", "I"]
-    },
-    {
-        id: "mythic",
-        name: "Mythic",
-        minRating: 2200,
-        maxRating: 2399,
-        color: "#C084FC",
-        divisions: ["III", "II", "I"]
-    },
-    {
-        id: "royal_legend",
-        name: "Royal Legend",
-        minRating: 2400,
-        maxRating: Infinity,
-        color: "#F5D76E",
-        divisions: ["LEGEND"]
-    }
+    { id: "bronze", name: "Bronze", minRating: 0, maxRating: 799, color: "#CD7F32", divisions: ["III", "II", "I"] },
+    { id: "silver", name: "Silver", minRating: 800, maxRating: 999, color: "#C0C0C0", divisions: ["III", "II", "I"] },
+    { id: "gold", name: "Gold", minRating: 1000, maxRating: 1199, color: "#FFD700", divisions: ["III", "II", "I"] },
+    { id: "platinum", name: "Platinum", minRating: 1200, maxRating: 1399, color: "#70D6CE", divisions: ["III", "II", "I"] },
+    { id: "diamond", name: "Diamond", minRating: 1400, maxRating: 1599, color: "#55C9FF", divisions: ["III", "II", "I"] },
+    { id: "master", name: "Master", minRating: 1600, maxRating: 1799, color: "#A78BFA", divisions: ["III", "II", "I"] },
+    { id: "elite", name: "Elite", minRating: 1800, maxRating: 1999, color: "#FF6B9D", divisions: ["III", "II", "I"] },
+    { id: "champion", name: "Champion", minRating: 2000, maxRating: 2199, color: "#FF9F43", divisions: ["III", "II", "I"] },
+    { id: "mythic", name: "Mythic", minRating: 2200, maxRating: 2399, color: "#C084FC", divisions: ["III", "II", "I"] },
+    { id: "royal_legend", name: "Royal Legend", minRating: 2400, maxRating: Infinity, color: "#F5D76E", divisions: ["LEGEND"] }
 ]);
 
 export const RATING_MODES = Object.freeze([
@@ -121,20 +49,31 @@ export class RankService {
 
         this.playerService = options.playerService || null;
 
+        // Optional provider can later connect a trusted
+        // backend leaderboard without changing the screen.
+        this.leaderboardProvider =
+            typeof options.leaderboardProvider === "function"
+                ? options.leaderboardProvider
+                : null;
+
         this.listeners = new Map();
         this.initialized = false;
         this.disposed = false;
         this.lastError = null;
     }
 
-    // ========================================================
+    // --------------------------------------------------------
     // INITIALIZE
-    // ========================================================
+    // --------------------------------------------------------
 
     initialize(playerService = this.playerService) {
         this.ensureActive();
 
-        if (!playerService || !playerService.getProfile()) {
+        if (
+            !playerService ||
+            typeof playerService.getProfile !== "function" ||
+            !playerService.getProfile()
+        ) {
             throw new Error("Loaded PlayerService is required.");
         }
 
@@ -144,9 +83,9 @@ export class RankService {
         return this.getAllRankings();
     }
 
-    // ========================================================
-    // GET RANK FROM RATING
-    // ========================================================
+    // --------------------------------------------------------
+    // RANK CALCULATION
+    // --------------------------------------------------------
 
     getRank(rating) {
         const value = Math.max(
@@ -154,9 +93,9 @@ export class RankService {
             Math.floor(Number(rating) || 0)
         );
 
-        const tier = RANK_TIERS.find(
-            item => value >= item.minRating &&
-                value <= item.maxRating
+        const tier = RANK_TIERS.find(item =>
+            value >= item.minRating &&
+            value <= item.maxRating
         ) || RANK_TIERS[0];
 
         const divisionIndex = tier.divisions.length === 1
@@ -165,7 +104,7 @@ export class RankService {
                 2,
                 Math.floor(
                     ((value - tier.minRating) /
-                    Math.max(1, tier.maxRating - tier.minRating + 1)) * 3
+                    (tier.maxRating - tier.minRating + 1)) * 3
                 )
             );
 
@@ -180,21 +119,13 @@ export class RankService {
         };
     }
 
-    // ========================================================
-    // GET CURRENT RANK
-    // ========================================================
-
     getCurrentRank(mode = "blitz") {
         this.ensureInitialized();
 
-        const rating = this.playerService.getRating(mode);
-
-        return this.getRank(rating);
+        return this.getRank(
+            this.playerService.getRating(mode)
+        );
     }
-
-    // ========================================================
-    // GET ALL RANKINGS
-    // ========================================================
 
     getAllRankings() {
         this.ensureInitialized();
@@ -204,7 +135,7 @@ export class RankService {
 
         for (const mode of RATING_MODES) {
             result[mode] = {
-                rating: ratings[mode],
+                rating: Number(ratings[mode]) || this.options.startingRating,
                 rank: this.getRank(ratings[mode])
             };
         }
@@ -212,9 +143,128 @@ export class RankService {
         return result;
     }
 
-    // ========================================================
-    // ELO EXPECTED SCORE
-    // ========================================================
+    // --------------------------------------------------------
+    // LEADERBOARD
+    // --------------------------------------------------------
+
+    async getLeaderboard({
+        mode = "overall",
+        period = "all-time",
+        limit = 100
+    } = {}) {
+        this.ensureInitialized();
+
+        const validModes = [
+            "overall",
+            ...RATING_MODES
+        ];
+
+        const validPeriods = [
+            "all-time",
+            "monthly",
+            "weekly"
+        ];
+
+        if (!validModes.includes(mode)) {
+            throw new Error("Invalid leaderboard mode.");
+        }
+
+        if (!validPeriods.includes(period)) {
+            throw new Error("Invalid leaderboard period.");
+        }
+
+        const safeLimit = Math.min(
+            100,
+            Math.max(1, Math.floor(Number(limit) || 100))
+        );
+
+        // A real global leaderboard must come from a
+        // trusted backend. Use the provider when configured.
+        if (this.leaderboardProvider) {
+            const result = await this.leaderboardProvider({
+                mode,
+                period,
+                limit: safeLimit
+            });
+
+            const players = Array.isArray(result)
+                ? result
+                : result?.players;
+
+            if (!Array.isArray(players)) {
+                throw new Error(
+                    "Leaderboard provider returned invalid data."
+                );
+            }
+
+            return players
+                .map(player => this.normalizeLeaderboardPlayer(player, mode))
+                .sort((a, b) => b.rating - a.rating)
+                .slice(0, safeLimit);
+        }
+
+        // Offline fallback: show only the current player.
+        // This is deliberately NOT presented as global data.
+        const profile = this.playerService.getProfile();
+
+        if (!profile) return [];
+
+        const ratings = profile.ratings || {};
+
+        const rating = mode === "overall"
+            ? Math.round(
+                RATING_MODES.reduce(
+                    (sum, key) => sum + (Number(ratings[key]) || this.options.startingRating),
+                    0
+                ) / RATING_MODES.length
+            )
+            : Number(ratings[mode]) || this.options.startingRating;
+
+        return [{
+            playerId: profile.playerId || profile.uid || "local-player",
+            displayName: profile.displayName || "Chess Player",
+            rating,
+            isCurrentPlayer: true,
+            isLocalPreview: true,
+            rank: this.getRank(rating)
+        }];
+    }
+
+    normalizeLeaderboardPlayer(player = {}, mode = "blitz") {
+        const ratings = player.ratings || {};
+
+        const rating = mode === "overall"
+            ? Number(
+                player.rating ??
+                RATING_MODES.reduce(
+                    (sum, key) => sum + (Number(ratings[key]) || 0),
+                    0
+                ) / RATING_MODES.length
+            )
+            : Number(
+                player.rating ??
+                ratings[mode] ??
+                player.elo ??
+                0
+            );
+
+        return {
+            playerId: String(
+                player.playerId || player.uid || player.id || ""
+            ),
+            displayName: String(
+                player.displayName || player.name || "Chess Player"
+            ),
+            rating: Math.max(0, Math.floor(rating || 0)),
+            rank: this.getRank(rating),
+            country: String(player.country || ""),
+            avatar: String(player.avatar || "")
+        };
+    }
+
+    // --------------------------------------------------------
+    // ELO
+    // --------------------------------------------------------
 
     getExpectedScore(playerRating, opponentRating) {
         return 1 / (
@@ -224,10 +274,6 @@ export class RankService {
             )
         );
     }
-
-    // ========================================================
-    // CALCULATE NEW RATING
-    // ========================================================
 
     calculateNewRating(
         playerRating,
@@ -241,13 +287,23 @@ export class RankService {
             throw new Error("Score must be 0, 0.5 or 1.");
         }
 
+        const player = Number(playerRating);
+        const opponent = Number(opponentRating);
+
+        if (
+            !Number.isFinite(player) ||
+            !Number.isFinite(opponent)
+        ) {
+            throw new Error("Invalid rating values.");
+        }
+
         const expected = this.getExpectedScore(
-            playerRating,
-            opponentRating
+            player,
+            opponent
         );
 
         const updated = Math.round(
-            playerRating + kFactor * (actualScore - expected)
+            player + kFactor * (actualScore - expected)
         );
 
         return Math.max(
@@ -256,9 +312,9 @@ export class RankService {
         );
     }
 
-    // ========================================================
-    // APPLY VERIFIED GAME RESULT
-    // ========================================================
+    // --------------------------------------------------------
+    // APPLY GAME RESULT
+    // --------------------------------------------------------
 
     async applyGameResult({
         mode = "blitz",
@@ -290,7 +346,13 @@ export class RankService {
                 ? 0.5
                 : 0;
 
-        const gamesPlayed = profile.ratingGames?.[mode] || 0;
+        if (!profile.ratingGames) {
+            profile.ratingGames = {};
+        }
+
+        const gamesPlayed = Number(
+            profile.ratingGames[mode] || 0
+        );
 
         const kFactor = gamesPlayed < this.options.provisionalGames
             ? 40
@@ -308,10 +370,6 @@ export class RankService {
 
         if (!profile.ratings) {
             profile.ratings = {};
-        }
-
-        if (!profile.ratingGames) {
-            profile.ratingGames = {};
         }
 
         profile.ratings[mode] = newRating;
@@ -342,9 +400,9 @@ export class RankService {
         return payload;
     }
 
-    // ========================================================
-    // RATING PROGRESS TO NEXT RANK
-    // ========================================================
+    // --------------------------------------------------------
+    // RANK PROGRESS
+    // --------------------------------------------------------
 
     getRankProgress(mode = "blitz") {
         this.ensureInitialized();
@@ -384,28 +442,21 @@ export class RankService {
         };
     }
 
-    // ========================================================
-    // SEASON INFORMATION
-    // ========================================================
+    // --------------------------------------------------------
+    // SEASON
+    // --------------------------------------------------------
 
     getSeasonInfo() {
         const now = new Date();
+        const length = this.options.seasonLengthDays;
+        const duration = length * 24 * 60 * 60 * 1000;
 
-        const seasonLength = this.options.seasonLengthDays;
         const seasonNumber = Math.floor(
-            now.getTime() /
-            (seasonLength * 24 * 60 * 60 * 1000)
+            now.getTime() / duration
         );
 
-        const start = new Date(
-            seasonNumber *
-            seasonLength * 24 * 60 * 60 * 1000
-        );
-
-        const end = new Date(
-            start.getTime() +
-            seasonLength * 24 * 60 * 60 * 1000
-        );
+        const start = new Date(seasonNumber * duration);
+        const end = new Date(start.getTime() + duration);
 
         return {
             seasonId: `season-${seasonNumber}`,
@@ -419,9 +470,9 @@ export class RankService {
         };
     }
 
-    // ========================================================
-    // EVENT SYSTEM
-    // ========================================================
+    // --------------------------------------------------------
+    // EVENTS
+    // --------------------------------------------------------
 
     on(eventName, callback) {
         this.ensureActive();
@@ -470,9 +521,9 @@ export class RankService {
         }
     }
 
-    // ========================================================
+    // --------------------------------------------------------
     // GUARDS
-    // ========================================================
+    // --------------------------------------------------------
 
     ensureActive() {
         if (this.disposed) {
@@ -488,28 +539,29 @@ export class RankService {
         }
     }
 
-    // ========================================================
+    // --------------------------------------------------------
     // DISPOSE
-    // ========================================================
+    // --------------------------------------------------------
 
     dispose() {
         if (this.disposed) return;
 
         this.listeners.clear();
         this.playerService = null;
+        this.leaderboardProvider = null;
         this.initialized = false;
         this.disposed = true;
     }
 }
 
-// ============================================================
+// ------------------------------------------------------------
 // FACTORY
-// ============================================================
+// ------------------------------------------------------------
 
 export function createRankService(options = {}) {
     return new RankService(options);
 }
 
 // ============================================================
-// FILE 39 END — COMPLETE
+// FILE 62 END — COMPLETE
 // ============================================================
