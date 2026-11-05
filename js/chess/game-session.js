@@ -2,7 +2,8 @@
    APPARA CHESS
    FILE 68: GAME SESSION ADAPTER
    Path: js/chess/game-session.js
-   Connects GameState, ChessAI and GameScreen
+   PURPOSE: Connect GameState, ChessAI and GameScreen
+   PART 1/2
    ========================================================= */
 
 import {
@@ -14,24 +15,23 @@ import {
   ChessAI
 } from "./ai-engine.js";
 
-import {
-  EventBus,
-  APP_EVENTS
-} from "../core/event-bus.js";
-
 
 /* ---------------------------------------------------------
    1. GAME STATE ADAPTER
 --------------------------------------------------------- */
 
 export class GameSessionState {
+
   constructor(options = {}) {
+
     this.mode = options.mode || GAME_MODES.OFFLINE;
 
     this.state = new GameState({
       mode: this.mode,
       rated: Boolean(options.rated),
+      startingFen: options.startingFen,
       timeControl: options.timeControl || null,
+
       players: options.players || {
         white: {
           name: options.playerName || "You"
@@ -43,42 +43,30 @@ export class GameSessionState {
     });
 
     this.listeners = new Map();
-    this.unsubscribers = [];
+    this.disposed = false;
 
-    this.state.start();
+    const startResult = this.state.start();
+
+    if (!startResult.success) {
+      throw new Error(
+        startResult.error || "Unable to start chess session."
+      );
+    }
 
     this.matchId = this.state.getMatchId();
-
-    this.subscribeToGameEvents();
   }
 
 
   /* -------------------------------------------------------
-     2. GAME EVENT SUBSCRIPTION
-  ------------------------------------------------------- */
-
-  subscribeToGameEvents() {
-    const unsubscribeMove = EventBus.on(
-      APP_EVENTS.GAME.MOVE,
-      event => {
-        const detail = event?.detail || {};
-
-        if (detail.matchId !== this.matchId) return;
-
-        this.notify("change", this.getSnapshot());
-      }
-    );
-
-    this.unsubscribers.push(unsubscribeMove);
-  }
-
-
-  /* -------------------------------------------------------
-     3. LOCAL EVENT LISTENERS
+     2. LOCAL EVENT LISTENERS
   ------------------------------------------------------- */
 
   on(eventName, callback) {
-    if (typeof callback !== "function") {
+
+    if (
+      this.disposed ||
+      typeof callback !== "function"
+    ) {
       return () => {};
     }
 
@@ -95,6 +83,7 @@ export class GameSessionState {
 
 
   off(eventName, callback) {
+
     const listeners = this.listeners.get(eventName);
 
     if (!listeners) return false;
@@ -110,16 +99,20 @@ export class GameSessionState {
 
 
   notify(eventName, data) {
+
+    if (this.disposed) return;
+
     const listeners = this.listeners.get(eventName);
 
     if (!listeners) return;
 
     for (const callback of [...listeners]) {
+
       try {
         callback(data);
       } catch (error) {
         console.error(
-          "[APPARA CHESS] Game listener error:",
+          "[APPARA CHESS] Session listener error:",
           error
         );
       }
@@ -127,25 +120,39 @@ export class GameSessionState {
   }
 
 
+  notifyChange() {
+    this.notify("change", this.getSnapshot());
+  }
+
+
   /* -------------------------------------------------------
-     4. GAME SNAPSHOT
+     3. GAME SNAPSHOT
   ------------------------------------------------------- */
 
   getSnapshot() {
+
     const snapshot = this.state.getState();
 
     return {
       ...snapshot,
+
       turn: snapshot.currentTurn,
+
       fen: snapshot.fen,
+
       board: snapshot.board,
-      history: snapshot.history || []
+
+      history: snapshot.history || [],
+
+      gameOver: this.state.isGameOver(),
+
+      paused: this.state.isPaused()
     };
   }
 
 
   /* -------------------------------------------------------
-     5. CHESS POSITION
+     4. CHESS POSITION
   ------------------------------------------------------- */
 
   getFEN() {
@@ -159,7 +166,10 @@ export class GameSessionState {
 
 
   getLegalMoves(square) {
-    if (!square) return [];
+
+    if (!square || this.disposed) {
+      return [];
+    }
 
     return this.state.engine.getLegalMoves({
       square,
@@ -174,11 +184,21 @@ export class GameSessionState {
 
 
   getPiece(square) {
+
+    if (!square || this.disposed) {
+      return null;
+    }
+
     return this.state.engine.getPiece(square);
   }
 
 
   getBoard() {
+
+    if (this.disposed) {
+      return [];
+    }
+
     return this.state.engine.getBoard();
   }
 
@@ -189,16 +209,20 @@ export class GameSessionState {
 
 
   /* -------------------------------------------------------
-     6. GAME STATUS
+     5. GAME STATUS
   ------------------------------------------------------- */
 
   getGameStatus() {
+
     const status = this.state.getGameStatus();
 
     return {
       ...status,
+
       gameOver: Boolean(status.gameOver),
+
       isGameOver: Boolean(status.gameOver),
+
       inCheck: Boolean(status.inCheck)
     };
   }
@@ -215,14 +239,22 @@ export class GameSessionState {
 
 
   /* -------------------------------------------------------
-     7. MOVE CONTROL
+     6. MOVE CONTROL
   ------------------------------------------------------- */
 
   makeMove(move) {
+
+    if (this.disposed) {
+      return {
+        success: false,
+        error: "Game session has been disposed."
+      };
+    }
+
     const result = this.state.makeMove(move);
 
     if (result?.success) {
-      this.notify("change", this.getSnapshot());
+      this.notifyChange();
     }
 
     return result;
@@ -230,10 +262,18 @@ export class GameSessionState {
 
 
   undoMove() {
+
+    if (this.disposed) {
+      return {
+        success: false,
+        error: "Game session has been disposed."
+      };
+    }
+
     const result = this.state.undoMove();
 
     if (result?.success) {
-      this.notify("change", this.getSnapshot());
+      this.notifyChange();
     }
 
     return result;
@@ -241,14 +281,15 @@ export class GameSessionState {
 
 
   /* -------------------------------------------------------
-     8. GAME CONTROL
+     7. GAME CONTROL
   ------------------------------------------------------- */
 
   pause() {
+
     const result = this.state.pause();
 
     if (result?.success) {
-      this.notify("change", this.getSnapshot());
+      this.notifyChange();
     }
 
     return result;
@@ -256,10 +297,11 @@ export class GameSessionState {
 
 
   resume() {
+
     const result = this.state.resume();
 
     if (result?.success) {
-      this.notify("change", this.getSnapshot());
+      this.notifyChange();
     }
 
     return result;
@@ -267,10 +309,11 @@ export class GameSessionState {
 
 
   resign(color = "w") {
+
     const result = this.state.resign(color);
 
     if (result?.success) {
-      this.notify("change", this.getSnapshot());
+      this.notifyChange();
     }
 
     return result;
@@ -278,10 +321,38 @@ export class GameSessionState {
 
 
   claimDraw(reason) {
+
     const result = this.state.claimDraw(reason);
 
     if (result?.success) {
-      this.notify("change", this.getSnapshot());
+      this.notifyChange();
+    }
+
+    return result;
+  }
+   
+  /* -------------------------------------------------------
+     8. PLAYER MANAGEMENT
+  ------------------------------------------------------- */
+
+  setPlayer(color, playerData = {}) {
+
+    const result = this.state.setPlayer(color, playerData);
+
+    if (result?.success) {
+      this.notifyChange();
+    }
+
+    return result;
+  }
+
+
+  setPlayers(players = {}) {
+
+    const result = this.state.setPlayers(players);
+
+    if (result?.success) {
+      this.notifyChange();
     }
 
     return result;
@@ -289,7 +360,40 @@ export class GameSessionState {
 
 
   /* -------------------------------------------------------
-     9. MATCH INFORMATION
+     9. POSITION MANAGEMENT
+  ------------------------------------------------------- */
+
+  loadPosition(fen) {
+
+    const result = this.state.loadPosition(fen);
+
+    if (result?.success) {
+      this.notifyChange();
+    }
+
+    return result;
+  }
+
+
+  reset(options = {}) {
+
+    const result = this.state.reset(options);
+
+    if (result?.success) {
+
+      this.mode = this.state.state.mode;
+
+      this.matchId = this.state.getMatchId();
+
+      this.notifyChange();
+    }
+
+    return result;
+  }
+
+
+  /* -------------------------------------------------------
+     10. MATCH INFORMATION
   ------------------------------------------------------- */
 
   getMatchId() {
@@ -302,68 +406,121 @@ export class GameSessionState {
   }
 
 
+  getPlayer(color) {
+
+    if (color !== "w" && color !== "b") {
+      return null;
+    }
+
+    const key = color === "w" ? "white" : "black";
+
+    return {
+      ...this.state.state.players[key]
+    };
+  }
+
+
   /* -------------------------------------------------------
-     10. DISPOSAL
+     11. DISPOSAL
   ------------------------------------------------------- */
 
   dispose() {
-    for (const unsubscribe of this.unsubscribers) {
-      try {
-        unsubscribe();
-      } catch (error) {
-        console.warn("Game event cleanup failed:", error);
-      }
-    }
 
-    this.unsubscribers = [];
+    if (this.disposed) return;
+
+    this.disposed = true;
+
     this.listeners.clear();
   }
+
 }
 
 
 /* ---------------------------------------------------------
-   11. AI ADAPTER
+   12. AI ADAPTER
 --------------------------------------------------------- */
 
 export class GameSessionAI {
+
   constructor(options = {}) {
+
     this.engine = new ChessAI({
       level: options.level || "medium"
     });
+
+    this.disposed = false;
   }
 
 
   async getBestMove(fen, difficulty = "medium") {
-    if (difficulty && difficulty !== this.engine.level) {
-      this.engine.setLevel(difficulty);
-    }
 
-    const result = await this.engine.getMove(fen);
-
-    if (!result?.success || !result.move) {
+    if (this.disposed || !fen) {
       return null;
     }
 
-    return result.move;
+    if (
+      difficulty &&
+      difficulty !== this.engine.level
+    ) {
+      this.engine.setLevel(difficulty);
+    }
+
+    try {
+
+      const result = await this.engine.getMove(fen);
+
+      if (
+        this.disposed ||
+        !result?.success ||
+        !result.move
+      ) {
+        return null;
+      }
+
+      return result.move;
+
+    } catch (error) {
+
+      console.error(
+        "[APPARA CHESS] AI calculation failed:",
+        error
+      );
+
+      return null;
+    }
   }
 
 
   setDifficulty(level) {
+
+    if (this.disposed) return false;
+
     return this.engine.setLevel(level);
   }
 
 
   cancel() {
+
+    if (this.disposed) return false;
+
     return this.engine.cancel();
   }
 
 
   getStats() {
+
+    if (this.disposed) return null;
+
     return this.engine.getStats();
   }
 
 
   dispose() {
+
+    if (this.disposed) return;
+
+    this.disposed = true;
+
     this.engine.cancel();
     this.engine.reset();
   }
@@ -371,10 +528,11 @@ export class GameSessionAI {
 
 
 /* ---------------------------------------------------------
-   12. GAME SESSION FACTORY
+   13. GAME SESSION FACTORY
 --------------------------------------------------------- */
 
 export function createGameSession(options = {}) {
+
   const gameState = new GameSessionState(options);
 
   const aiEngine = new GameSessionAI({
@@ -384,10 +542,13 @@ export function createGameSession(options = {}) {
   let disposed = false;
 
   return {
+
     gameState,
+
     aiEngine,
 
     dispose() {
+
       if (disposed) return;
 
       disposed = true;
@@ -395,6 +556,7 @@ export function createGameSession(options = {}) {
       aiEngine.dispose();
       gameState.dispose();
     }
+
   };
 }
 
@@ -402,4 +564,5 @@ export function createGameSession(options = {}) {
 /* =========================================================
    FILE 68 COMPLETE
    Path: js/chess/game-session.js
+   PART 2/2 — FULL FILE COMPLETE
    ========================================================= */
