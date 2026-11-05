@@ -1,0 +1,142 @@
+
+/* =========================================================
+   APPARA CHESS
+   FILE: css/three-chess.css
+   PURPOSE: Premium 3D Chess Board Interface
+   PART 1/1 — FULL FILE
+   ========================================================= */
+
+.ac-3d-board-container {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  min-width: 0;
+  min-height: 320px;
+  overflow: hidden;
+  border: 1px solid rgba(201, 164, 92, 0.42);
+  border-radius: 16px;
+  background:
+    radial-gradient(
+      ellipse at 50% 45%,
+      rgba(93, 51, 129, 0.28),
+      transparent 68%
+    ),
+    linear-gradient(145deg, #171020, #08060d);
+  box-shadow:
+    0 18px 45px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ac-3d-board-container canvas,
+.apparachess-3d-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  outline: none;
+  touch-action: none;
+}
+
+.ac-3d-camera-toolbar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 5px;
+}
+
+.ac-3d-camera-toolbar button {
+  min-width: 48px;
+  min-height: 38px;
+  padding: 8px 13px;
+  border: 1px solid rgba(201, 164, 92, 0.48);
+  border-radius: 9px;
+  background: linear-gradient(145deg, #30213f, #171020);
+  color: #f0d69a;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  box-shadow:
+    0 3px 10px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ac-3d-camera-toolbar button:hover {
+  border-color: #e4c27b;
+  background: linear-gradient(145deg, #49315e, #21152d);
+}
+
+.ac-3d-camera-toolbar button:active {
+  transform: scale(0.96);
+}
+
+.ac-3d-camera-toolbar button:focus-visible {
+  outline: 2px solid #f0d69a;
+  outline-offset: 3px;
+}
+
+.ac-board-frame:has(.ac-3d-board-container) {
+  overflow: visible;
+}
+
+.ac-board-frame:has(.ac-3d-board-container) .ac-3d-board-container {
+  margin-inline: auto;
+}
+
+@media (max-width: 600px) {
+  .ac-3d-board-container {
+    min-height: 300px;
+    border-radius: 12px;
+  }
+
+  .ac-3d-board-container canvas,
+  .apparachess-3d-canvas {
+    min-height: 300px;
+  }
+
+  .ac-3d-camera-toolbar {
+    gap: 6px;
+    padding: 9px 2px;
+  }
+
+  .ac-3d-camera-toolbar button {
+    min-width: 42px;
+    min-height: 36px;
+    padding: 7px 10px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 360px) {
+  .ac-3d-camera-toolbar {
+    gap: 5px;
+  }
+
+  .ac-3d-camera-toolbar button {
+    min-width: 38px;
+    padding-inline: 8px;
+    font-size: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ac-3d-camera-toolbar button {
+    transition: none;
+  }
+}
+
+/* =========================================================
+   FILE COMPLETE
+   css/three-chess.css
+   PART 1/1 — FULL FILE COMPLETE
+   ========================================================= */
