@@ -1,36 +1,14 @@
-
 /* =========================================================
-   APPARA CHESS — FILE 57A
-   SCREEN: PUZZLES CENTER
-   PATH: js/screens/puzzles-screen.js
-   PART 1/2 — SAME FILE
-========================================================= */
+   APPARA CHESS
+   CORRECTION 14A — PART 1/2
+   FILE: js/screens/puzzles-screen.js
+   ========================================================= */
 
 const PUZZLE_CATEGORIES = [
-  {
-    id: "daily",
-    title: "Daily Challenge",
-    subtitle: "A fresh challenge every day",
-    icon: "📅"
-  },
-  {
-    id: "mate",
-    title: "Checkmate Puzzles",
-    subtitle: "Find the winning checkmate",
-    icon: "♔"
-  },
-  {
-    id: "tactics",
-    title: "Tactical Puzzles",
-    subtitle: "Forks, pins and combinations",
-    icon: "⚔"
-  },
-  {
-    id: "endgame",
-    title: "Endgame Puzzles",
-    subtitle: "Master the final phase",
-    icon: "♜"
-  }
+  { id: "daily", title: "Daily Challenge", subtitle: "A fresh challenge every day", icon: "📅" },
+  { id: "mate", title: "Checkmate Puzzles", subtitle: "Find the winning checkmate", icon: "♔" },
+  { id: "tactics", title: "Tactical Puzzles", subtitle: "Forks, pins and combinations", icon: "⚔" },
+  { id: "endgame", title: "Endgame Puzzles", subtitle: "Master the final phase", icon: "♜" }
 ];
 
 const PUZZLE_DIFFICULTIES = [
@@ -58,17 +36,19 @@ export class PuzzlesScreen {
     this.solvedPuzzles = new Set();
     this.attempts = 0;
     this.hintsUsed = 0;
+
     this.loading = false;
     this.solved = false;
     this.destroyed = false;
 
-    this.elements = {};
+    this.selectedSquare = null;
     this.unsubscribePuzzle = null;
+    this.elements = {};
   }
 
   mount(container = this.container) {
     if (!container) {
-      throw new Error("PuzzlesScreen requires a container element.");
+      throw new Error("PuzzlesScreen requires a container.");
     }
 
     this.container = container;
@@ -87,12 +67,8 @@ export class PuzzlesScreen {
       <main class="puzzles-screen">
 
         <header class="puzzles-header">
-          <button
-            type="button"
-            class="puzzles-back-button"
-            data-action="back"
-            aria-label="Go back"
-          >←</button>
+          <button type="button" class="puzzles-back-button"
+            data-action="back">←</button>
 
           <div class="puzzles-heading">
             <span class="puzzles-eyebrow">APPARA CHESS ACADEMY</span>
@@ -100,26 +76,19 @@ export class PuzzlesScreen {
             <p>Train your mind. Discover the winning move.</p>
           </div>
 
-          <div class="puzzles-header-icon" aria-hidden="true">♞</div>
+          <div class="puzzles-header-icon">♞</div>
         </header>
 
         <section class="puzzles-hero">
           <div class="puzzles-hero-content">
             <span class="puzzles-hero-label">SHARPEN YOUR MIND</span>
             <h2>Every position has a secret.</h2>
-            <p>
-              Solve chess positions, improve your calculation
-              and become a stronger player.
-            </p>
+            <p>Solve chess positions and improve your calculation.</p>
             <button type="button" data-action="daily">
               Daily Challenge →
             </button>
           </div>
-
-          <div class="puzzles-hero-art" aria-hidden="true">
-            <span>♛</span>
-            <span>♞</span>
-          </div>
+          <div class="puzzles-hero-art">♛ ♞</div>
         </section>
 
         <section class="puzzles-stats">
@@ -128,13 +97,11 @@ export class PuzzlesScreen {
             <strong data-role="solved-count">0</strong>
             <small>Solved</small>
           </div>
-
           <div class="puzzles-stat-card">
             <span>⚡</span>
             <strong data-role="attempt-count">0</strong>
             <small>Attempts</small>
           </div>
-
           <div class="puzzles-stat-card">
             <span>🏆</span>
             <strong data-role="success-rate">0%</strong>
@@ -144,44 +111,30 @@ export class PuzzlesScreen {
 
         <section class="puzzles-section">
           <div class="puzzles-section-heading">
-            <div>
-              <span class="puzzles-kicker">EXPLORE CHALLENGES</span>
-              <h2>Puzzle Categories</h2>
-            </div>
+            <h2>Puzzle Categories</h2>
           </div>
-
           <div class="puzzles-category-grid">
             ${PUZZLE_CATEGORIES.map(category => `
-              <button
-                type="button"
+              <button type="button"
                 class="puzzles-category-card ${category.id === this.selectedCategory ? "active" : ""}"
                 data-category="${category.id}"
-                aria-pressed="${category.id === this.selectedCategory}"
-              >
+                aria-pressed="${category.id === this.selectedCategory}">
                 <span class="puzzles-category-icon">${category.icon}</span>
-                <strong>${category.title}</strong>
-                <small>${category.subtitle}</small>
+                <strong>${this.escapeHTML(category.title)}</strong>
+                <small>${this.escapeHTML(category.subtitle)}</small>
               </button>
             `).join("")}
           </div>
         </section>
 
         <section class="puzzles-section">
-          <div class="puzzles-section-heading">
-            <div>
-              <span class="puzzles-kicker">CHOOSE YOUR LEVEL</span>
-              <h2>Difficulty</h2>
-            </div>
-          </div>
-
+          <h2>Difficulty</h2>
           <div class="puzzles-difficulty-list">
             ${PUZZLE_DIFFICULTIES.map(level => `
-              <button
-                type="button"
+              <button type="button"
                 class="puzzles-difficulty-button ${level.id === this.selectedDifficulty ? "active" : ""}"
                 data-difficulty="${level.id}"
-                aria-pressed="${level.id === this.selectedDifficulty}"
-              >
+                aria-pressed="${level.id === this.selectedDifficulty}">
                 ${level.label}
               </button>
             `).join("")}
@@ -194,10 +147,8 @@ export class PuzzlesScreen {
               <span class="puzzles-kicker">YOUR NEXT CHALLENGE</span>
               <h2 data-role="puzzle-title">Loading Puzzle...</h2>
             </div>
-
-            <span class="puzzles-difficulty-badge" data-role="puzzle-difficulty">
-              EASY
-            </span>
+            <span class="puzzles-difficulty-badge"
+              data-role="puzzle-difficulty">EASY</span>
           </div>
 
           <div class="puzzles-board-placeholder" data-role="board-area">
@@ -207,21 +158,16 @@ export class PuzzlesScreen {
             </div>
           </div>
 
-          <div class="puzzles-prompt" data-role="prompt">
-            Find the best move for the current position.
-          </div>
+          <p class="puzzles-prompt" data-role="prompt">
+            Select the piece and then its destination square.
+          </p>
 
-          <div class="puzzles-feedback" data-role="feedback" aria-live="polite"></div>
+          <div class="puzzles-feedback" data-role="feedback"
+            aria-live="polite"></div>
 
           <div class="puzzles-controls">
-            <button type="button" data-action="hint">
-              💡 Hint
-            </button>
-
-            <button type="button" data-action="check">
-              Check Answer
-            </button>
-
+            <button type="button" data-action="hint">💡 Hint</button>
+            <button type="button" data-action="check">Check Answer</button>
             <button type="button" data-action="next" disabled>
               Next Puzzle →
             </button>
@@ -229,20 +175,13 @@ export class PuzzlesScreen {
         </section>
 
         <section class="puzzles-section puzzles-extra-section">
-          <div class="puzzles-section-heading">
-            <div>
-              <span class="puzzles-kicker">KEEP IMPROVING</span>
-              <h2>More Practice</h2>
-            </div>
-          </div>
-
+          <h2>More Practice</h2>
           <div class="puzzles-extra-grid">
             <button type="button" data-action="training">
               <span>♙</span>
               <strong>Guided Training</strong>
               <small>Learn chess step by step</small>
             </button>
-
             <button type="button" data-action="play">
               <span>♔</span>
               <strong>Practice Game</strong>
@@ -255,7 +194,6 @@ export class PuzzlesScreen {
           <span>APPARA CHESS</span>
           <span>THE ROYAL CHESS EXPERIENCE</span>
         </footer>
-
       </main>
     `;
 
@@ -269,13 +207,11 @@ export class PuzzlesScreen {
     this.elements.solvedCount = find('[data-role="solved-count"]');
     this.elements.attemptCount = find('[data-role="attempt-count"]');
     this.elements.successRate = find('[data-role="success-rate"]');
-
     this.elements.title = find('[data-role="puzzle-title"]');
     this.elements.difficulty = find('[data-role="puzzle-difficulty"]');
     this.elements.board = find('[data-role="board-area"]');
     this.elements.prompt = find('[data-role="prompt"]');
     this.elements.feedback = find('[data-role="feedback"]');
-
     this.elements.hintButton = find('[data-action="hint"]');
     this.elements.checkButton = find('[data-action="check"]');
     this.elements.nextButton = find('[data-action="next"]');
@@ -283,58 +219,55 @@ export class PuzzlesScreen {
 
   bindEvents() {
     this.container.addEventListener("click", event => {
-      const categoryButton = event.target.closest("[data-category]");
+      const category = event.target.closest("[data-category]");
 
-      if (categoryButton) {
-        this.selectCategory(categoryButton.dataset.category);
+      if (category) {
+        this.selectCategory(category.dataset.category);
         return;
       }
 
-      const difficultyButton = event.target.closest("[data-difficulty]");
+      const difficulty = event.target.closest("[data-difficulty]");
 
-      if (difficultyButton) {
-        this.selectDifficulty(difficultyButton.dataset.difficulty);
+      if (difficulty) {
+        this.selectDifficulty(difficulty.dataset.difficulty);
         return;
       }
 
-      const actionButton = event.target.closest("[data-action]");
+      const square = event.target.closest("[data-square]");
 
-      if (!actionButton) return;
+      if (square) {
+        this.selectBoardSquare(square.dataset.square);
+        return;
+      }
 
-      switch (actionButton.dataset.action) {
+      const action = event.target.closest("[data-action]");
+
+      if (!action) return;
+
+      switch (action.dataset.action) {
         case "back":
           this.goBack();
           break;
-
         case "daily":
           this.selectCategory("daily");
           break;
-
         case "hint":
           this.showHint();
           break;
-
         case "check":
           this.checkAnswer();
           break;
-
         case "next":
           this.nextPuzzle();
           break;
-
         case "training":
           this.navigation?.navigate("training");
           break;
-
         case "play":
           this.navigation?.navigate("game", {
             mode: "offline",
-            setup: true,
             source: "puzzles"
           });
-          break;
-
-        default:
           break;
       }
     });
@@ -342,7 +275,7 @@ export class PuzzlesScreen {
 
   selectCategory(categoryId) {
     if (!PUZZLE_CATEGORIES.some(item => item.id === categoryId)) {
-      return;
+      return false;
     }
 
     this.selectedCategory = categoryId;
@@ -354,11 +287,12 @@ export class PuzzlesScreen {
     });
 
     this.loadSelectedCategory();
+    return true;
   }
 
   selectDifficulty(difficultyId) {
     if (!PUZZLE_DIFFICULTIES.some(item => item.id === difficultyId)) {
-      return;
+      return false;
     }
 
     this.selectedDifficulty = difficultyId;
@@ -370,6 +304,7 @@ export class PuzzlesScreen {
     });
 
     this.loadSelectedCategory();
+    return true;
   }
 
   async loadPuzzleProgress() {
@@ -391,12 +326,10 @@ export class PuzzlesScreen {
   }
 
   async loadSelectedCategory() {
-    if (!this.puzzleService || this.loading) {
-      if (!this.puzzleService) {
-        this.showEmptyPuzzle(
-          "Puzzle service is not available yet."
-        );
-      }
+    if (this.loading || this.destroyed) return;
+
+    if (!this.puzzleService) {
+      this.showEmptyPuzzle("Puzzle service is not connected yet.");
       return;
     }
 
@@ -407,43 +340,38 @@ export class PuzzlesScreen {
     this.elements.feedback.textContent = "";
     this.elements.board.innerHTML = `
       <div class="puzzles-loading">
-        <span>♟</span>
-        <p>Preparing your puzzle...</p>
+        <span>♟</span><p>Preparing your puzzle...</p>
       </div>
     `;
 
     try {
       let result;
 
-      if (
-        this.selectedCategory === "daily" &&
-        typeof this.puzzleService.getDailyPuzzle === "function"
-      ) {
+      if (this.selectedCategory === "daily") {
         result = await this.puzzleService.getDailyPuzzle();
-      } else if (
-        typeof this.puzzleService.getPuzzles === "function"
-      ) {
-        result = await this.puzzleService.getPuzzles({
-          category: this.selectedCategory,
-          difficulty: this.selectedDifficulty,
-          limit: 10
-        });
-      } else if (
-        typeof this.puzzleService.getPuzzleSet === "function"
-      ) {
+      } else {
+        const themeMap = {
+          mate: "mate",
+          tactics: "tactics",
+          endgame: "endgame"
+        };
+
         result = await this.puzzleService.getPuzzleSet({
-          category: this.selectedCategory,
-          difficulty: this.selectedDifficulty
+          difficulty: this.selectedDifficulty,
+          theme: themeMap[this.selectedCategory],
+          limit: 10
         });
       }
 
       if (this.destroyed) return;
 
       this.setPuzzleResult(result);
+
     } catch (error) {
       this.showEmptyPuzzle(
-        error?.message || "Unable to load puzzles. Please try again."
+        error?.message || "Unable to load puzzles."
       );
+
     } finally {
       this.loading = false;
     }
@@ -457,73 +385,75 @@ export class PuzzlesScreen {
 
     if (Array.isArray(result)) {
       this.puzzleList = result;
-      this.currentIndex = 0;
-      this.currentPuzzle = this.puzzleList[0] || null;
     } else if (Array.isArray(result.puzzles)) {
       this.puzzleList = result.puzzles;
-      this.currentIndex = 0;
-      this.currentPuzzle = this.puzzleList[0] || null;
     } else {
       this.puzzleList = [result];
-      this.currentIndex = 0;
-      this.currentPuzzle = result.puzzle || result;
     }
+
+    this.currentIndex = 0;
+    this.currentPuzzle = this.puzzleList[0] || null;
 
     if (!this.currentPuzzle) {
       this.showEmptyPuzzle("No puzzle found in this category.");
       return;
     }
 
+    // PuzzleService requires startPuzzle before checkMove.
+    const started = this.puzzleService.startPuzzle(
+      this.currentPuzzle
+    );
+
+    this.currentPuzzle = started.puzzle;
     this.renderCurrentPuzzle();
   }
 
   resetPuzzleState() {
     this.solved = false;
     this.hintsUsed = 0;
-    this.elements.nextButton.disabled = true;
-    this.elements.checkButton.disabled = false;
-    this.elements.hintButton.disabled = false;
+    this.selectedSquare = null;
+
+    if (this.elements.nextButton) {
+      this.elements.nextButton.disabled = true;
+    }
+
+    if (this.elements.checkButton) {
+      this.elements.checkButton.disabled = false;
+    }
+
+    if (this.elements.hintButton) {
+      this.elements.hintButton.disabled = false;
+    }
   }
 
   renderCurrentPuzzle() {
     const puzzle = this.currentPuzzle;
 
-    const title = puzzle.title || "Chess Challenge";
-    const difficulty = puzzle.difficulty || this.selectedDifficulty;
-    const prompt = puzzle.instruction ||
-      puzzle.description ||
-      "Find the best move for the current position.";
+    this.elements.title.textContent =
+      puzzle.title || "Chess Challenge";
 
-    this.elements.title.textContent = title;
-    this.elements.difficulty.textContent = String(difficulty).toUpperCase();
-    this.elements.prompt.textContent = prompt;
+    this.elements.difficulty.textContent =
+      String(puzzle.difficulty || this.selectedDifficulty).toUpperCase();
+
+    this.elements.prompt.textContent =
+      puzzle.description || "Select a piece, then its destination square.";
 
     this.elements.feedback.textContent = "";
     this.elements.board.innerHTML = "";
 
     this.renderPuzzleBoard(puzzle);
-
-    this.elements.nextButton.disabled =
-      this.puzzleList.length <= 1 || this.currentIndex >= this.puzzleList.length - 1;
   }
 
   renderPuzzleBoard(puzzle) {
-    const fen = puzzle.fen || puzzle.position || "";
-
-    if (!fen) {
-      this.elements.board.innerHTML = `
-        <div class="puzzles-board-unavailable">
-          <span>♟</span>
-          <p>Board position is not available for this puzzle.</p>
-        </div>
-      `;
+    if (!puzzle.fen) {
+      this.showEmptyPuzzle("Board position is missing from this puzzle.");
       return;
     }
 
     this.elements.board.innerHTML = `
       <div class="puzzles-board-frame">
         <div class="puzzles-board" data-role="puzzle-board">
-          ${this.createBoardSquares(fen)}
+          ${this.createBoardSquares(puzzle.fen)}
         </div>
       </div>
     `;
@@ -536,6 +466,8 @@ export class PuzzlesScreen {
       k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟"
     };
 
+    if (rows.length !== 8) return "";
+
     let html = "";
 
     rows.forEach((row, rowIndex) => {
@@ -543,9 +475,9 @@ export class PuzzlesScreen {
 
       for (const character of row) {
         if (/\d/.test(character)) {
-          const emptyCount = Number(character);
+          const count = Number(character);
 
-          for (let i = 0; i < emptyCount; i++) {
+          for (let i = 0; i < count; i++) {
             html += this.createSquare(rowIndex, column, "");
             column++;
           }
@@ -564,12 +496,18 @@ export class PuzzlesScreen {
   }
 
   createSquare(row, column, piece) {
+    const file = "abcdefgh"[column];
+    const rank = 8 - row;
+    const square = `${file}${rank}`;
     const light = (row + column) % 2 === 0;
 
     return `
-      <div class="puzzles-square ${light ? "light" : "dark"}">
+      <button type="button"
+        class="puzzles-square ${light ? "light" : "dark"}"
+        data-square="${square}"
+        aria-label="${square}">
         ${piece ? `<span>${piece}</span>` : ""}
-      </div>
+      </button>
     `;
   }
 
@@ -600,125 +538,137 @@ export class PuzzlesScreen {
   }
 
 /* =========================================================
-   FILE 57A END — PART 1/2
-   CLASS CONTINUES IN PART 57B.
-   DO NOT CLOSE THE CLASS HERE.
-========================================================= */
-   
+   CORRECTION 14A COMPLETE
+   FILE NOT COMPLETE YET
+   NEXT: CORRECTION 14B — PART 2/2
+   ========================================================= */
 /* =========================================================
-   APPARA CHESS — FILE 57B
-   SCREEN: PUZZLES CENTER
-   PART 2/2 — CONTINUATION
-========================================================= */
+   APPARA CHESS
+   CORRECTION 14B — PART 2/2
+   FILE: js/screens/puzzles-screen.js
+   CONTINUATION
+   ========================================================= */
 
-  async showHint() {
+  selectBoardSquare(square) {
     if (!this.currentPuzzle || this.solved || this.loading) return;
 
-    if (typeof this.puzzleService?.getHint !== "function") {
+    const button = this.container.querySelector(
+      `[data-square="${square}"]`
+    );
+
+    if (!button) return;
+
+    if (!this.selectedSquare) {
+      this.selectedSquare = square;
+      button.classList.add("selected");
       this.elements.feedback.textContent =
-        "Hint is not available for this puzzle.";
+        `Selected ${square}. Now select the destination square.`;
+      return;
+    }
+
+    const from = this.selectedSquare;
+    const to = square;
+
+    this.container.querySelectorAll(".puzzles-square.selected")
+      .forEach(item => item.classList.remove("selected"));
+
+    this.selectedSquare = null;
+
+    if (from === to) {
+      this.elements.feedback.textContent = "Select a different destination square.";
+      return;
+    }
+
+    this.submitMove({ from, to });
+  }
+
+  submitMove(move) {
+    if (!this.puzzleService?.checkMove) {
+      this.elements.feedback.textContent =
+        "Puzzle move checker is not available.";
       return;
     }
 
     try {
-      this.hintsUsed++;
+      const result = this.puzzleService.checkMove(move);
 
-      const puzzleId =
-        this.currentPuzzle.id || this.currentPuzzle.puzzleId;
+      this.attempts++;
+      this.updateStats();
 
-      const result = await this.puzzleService.getHint(puzzleId);
-
-      if (this.destroyed) return;
-
-      const hint = typeof result === "string"
-        ? result
-        : result?.hint || result?.message;
-
-      this.elements.feedback.textContent =
-        hint || "Think about checks, captures and threats.";
-    } catch (error) {
-      this.elements.feedback.textContent =
-        error?.message || "Unable to get a hint.";
-    }
-  }
-
-  async checkAnswer() {
-    if (!this.currentPuzzle || this.solved || this.loading) return;
-
-    const puzzleId =
-      this.currentPuzzle.id || this.currentPuzzle.puzzleId;
-
-    if (!puzzleId) {
-      this.elements.feedback.textContent =
-        "This puzzle does not have a valid ID.";
-      return;
-    }
-
-    const answer = this.currentPuzzle.answer ||
-      this.currentPuzzle.solution ||
-      this.currentPuzzle.moves?.[0];
-
-    if (!answer) {
-      this.elements.feedback.textContent =
-        "The answer for this puzzle is not available.";
-      return;
-    }
-
-    this.attempts++;
-    this.updateStats();
-
-    this.elements.feedback.textContent =
-      "Submit your move on the chessboard to check the answer.";
-
-    this.elements.feedback.classList.remove("success", "error");
-
-    /*
-      Puzzle validation must be performed by PuzzleService.
-      This screen intentionally does not award rewards locally.
-      The actual move-submission flow will be connected with
-      the chessboard interaction in the integration stage.
-    */
-
-    if (typeof this.puzzleService?.checkSolution === "function") {
-      try {
-        const result = await this.puzzleService.checkSolution(
-          puzzleId,
-          answer
-        );
-
-        if (this.destroyed) return;
-
-        if (result?.correct === true || result?.success === true) {
-          await this.handleCorrectAnswer(puzzleId, result);
-        } else {
-          this.handleIncorrectAnswer();
-        }
-      } catch (error) {
-        this.elements.feedback.textContent =
-          error?.message || "Unable to verify this answer.";
+      if (!result.correct) {
+        this.handleIncorrectAnswer(result);
+        return;
       }
 
-      return;
-    }
+      if (result.completed) {
+        this.handleCorrectAnswer(result);
+        return;
+      }
 
-    this.elements.feedback.textContent =
-      "Move submission will be connected to the interactive board.";
+      this.elements.feedback.textContent =
+        "Correct move! Continue with the next move in the solution.";
+
+      this.elements.feedback.classList.remove("error");
+      this.elements.feedback.classList.add("success");
+
+      if (result.nextMove) {
+        this.applyAutomaticReply(result.nextMove);
+      }
+
+    } catch (error) {
+      this.elements.feedback.textContent =
+        error?.message || "Unable to check this move.";
+    }
   }
 
-  handleIncorrectAnswer() {
+  applyAutomaticReply(move) {
+    /*
+      The service solution can contain both sides' moves.
+      The reply is applied to the visual position only when
+      the puzzle board can be updated safely.
+    */
+    if (!move?.from || !move?.to) return;
+
+    const fromButton = this.container.querySelector(
+      `[data-square="${move.from}"]`
+    );
+
+    const toButton = this.container.querySelector(
+      `[data-square="${move.to}"]`
+    );
+
+    if (!fromButton || !toButton) return;
+
+    const piece = fromButton.querySelector("span");
+
+    toButton.replaceChildren();
+
+    if (piece) {
+      toButton.append(piece.cloneNode(true));
+    }
+
+    fromButton.replaceChildren();
+  }
+
+  handleIncorrectAnswer(result = {}) {
     this.elements.feedback.textContent =
-      "Not quite. Review the position and try again.";
+      result.message || "Not quite. Review the position and try again.";
 
     this.elements.feedback.classList.remove("success");
     this.elements.feedback.classList.add("error");
   }
 
-  async handleCorrectAnswer(puzzleId, result = {}) {
+  async handleCorrectAnswer(result = {}) {
     this.solved = true;
-    this.solvedPuzzles.add(puzzleId);
+
+    const puzzleId = this.currentPuzzle?.id;
+
+    if (puzzleId) {
+      this.solvedPuzzles.add(puzzleId);
+    }
 
     this.elements.feedback.textContent =
-      result.message || "Excellent! Puzzle solved successfully.";
+      "Excellent! Puzzle solved successfully.";
 
     this.elements.feedback.classList.remove("error");
     this.elements.feedback.classList.add("success");
@@ -731,7 +681,41 @@ export class PuzzlesScreen {
 
     await this.savePuzzleProgress();
 
+    // Completion is recorded by the backend when the player is logged in.
+    try {
+      await this.puzzleService.completePuzzle();
+    } catch (error) {
+      this.elements.feedback.textContent +=
+        " Your local result is saved; online reward could not be recorded.";
+    }
+
     this.updateStats();
+  }
+
+  async showHint() {
+    if (!this.currentPuzzle || this.solved || this.loading) return;
+
+    const solution = this.currentPuzzle.solution;
+
+    if (!Array.isArray(solution) || !solution.length) {
+      this.elements.feedback.textContent =
+        "Hint is not available for this puzzle.";
+      return;
+    }
+
+    this.hintsUsed++;
+
+    const move = solution[0];
+
+    this.elements.feedback.textContent =
+      `Hint: Look carefully at the move from ${move.from} to ${move.to}.`;
+  }
+
+  async checkAnswer() {
+    if (!this.currentPuzzle || this.solved || this.loading) return;
+
+    this.elements.feedback.textContent =
+      "Select a piece on the board, then select its destination square.";
   }
 
   async savePuzzleProgress() {
@@ -739,23 +723,26 @@ export class PuzzlesScreen {
 
     if (!profile) return;
 
-    profile.puzzles = profile.puzzles || {};
-    profile.puzzles.solvedPuzzleIds = [...this.solvedPuzzles];
-    profile.puzzles.attempts = this.attempts;
+    const puzzles = {
+      ...(profile.puzzles || {}),
+      solvedPuzzleIds: [...this.solvedPuzzles],
+      attempts: this.attempts
+    };
 
-    if (typeof this.playerService.replaceProfile === "function") {
-      await this.playerService.replaceProfile(profile);
-    } else if (typeof this.playerService.updateProfile === "function") {
-      await this.playerService.updateProfile(current => {
-        current.puzzles = current.puzzles || {};
-        current.puzzles.solvedPuzzleIds = [...this.solvedPuzzles];
-        current.puzzles.attempts = this.attempts;
-      });
+    try {
+      if (typeof this.playerService.updateProfile === "function") {
+        await this.playerService.updateProfile({
+          puzzles
+        });
+      }
+    } catch (error) {
+      console.warn("Puzzle progress could not be saved:", error);
     }
   }
 
   updateStats() {
     const solved = this.solvedPuzzles.size;
+
     const rate = this.attempts > 0
       ? Math.round((solved / this.attempts) * 100)
       : 0;
@@ -769,12 +756,13 @@ export class PuzzlesScreen {
     }
 
     if (this.elements.successRate) {
-      this.elements.successRate.textContent = `${Math.min(rate, 100)}%`;
+      this.elements.successRate.textContent =
+        `${Math.min(rate, 100)}%`;
     }
   }
 
   nextPuzzle() {
-    if (!this.solved && this.currentPuzzle) {
+    if (!this.solved) {
       this.elements.feedback.textContent =
         "Solve the current puzzle before moving to the next one.";
       return;
@@ -790,7 +778,20 @@ export class PuzzlesScreen {
     this.currentPuzzle = this.puzzleList[this.currentIndex];
 
     this.resetPuzzleState();
-    this.renderCurrentPuzzle();
+
+    try {
+      const started = this.puzzleService.startPuzzle(
+        this.currentPuzzle
+      );
+
+      this.currentPuzzle = started.puzzle;
+      this.renderCurrentPuzzle();
+
+    } catch (error) {
+      this.showEmptyPuzzle(
+        error?.message || "The next puzzle could not be started."
+      );
+    }
   }
 
   escapeHTML(value) {
@@ -812,20 +813,29 @@ export class PuzzlesScreen {
   }
 
   destroy() {
+    if (this.destroyed) return;
+
     this.destroyed = true;
     this.loading = false;
 
-    if (typeof this.unsubscribePuzzle === "function") {
-      this.unsubscribePuzzle();
-      this.unsubscribePuzzle = null;
+    this.unsubscribePuzzle?.();
+    this.unsubscribePuzzle = null;
+
+    if (this.puzzleService?.abandonPuzzle) {
+      try {
+        this.puzzleService.abandonPuzzle();
+      } catch {
+        // Ignore cleanup errors.
+      }
     }
 
     this.currentPuzzle = null;
     this.puzzleList = [];
     this.solvedPuzzles.clear();
+    this.selectedSquare = null;
 
     if (this.container) {
-      this.container.innerHTML = "";
+      this.container.replaceChildren();
     }
 
     this.elements = {};
@@ -837,7 +847,6 @@ export function createPuzzlesScreen(options = {}) {
 }
 
 /* =========================================================
-   FILE 57B END — FILE 57 COMPLETE
-   PATH: js/screens/puzzles-screen.js
-========================================================= */
-
+   CORRECTION 14B COMPLETE
+   FULL FILE COMPLETE — CORRECTION NUMBER 14
+   ========================================================= */
