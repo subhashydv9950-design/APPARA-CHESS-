@@ -1,12 +1,7 @@
-
 /* =========================================================
-   APPARA CHESS — CHESS RULES ENGINE
+   APPARA CHESS
    FILE: js/chess/chess-engine.js
-   PURPOSE: Standard chess rules and legal move validation
-
-   DEPENDENCY:
-   chess.js 1.4.0
-   Import mapping will be configured in index.html.
+   CHESS RULES ENGINE — COMPLETE REPLACEMENT
    ========================================================= */
 
 import { Chess } from "chess.js";
@@ -15,10 +10,13 @@ const STARTING_FEN =
   "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 const VALID_SQUARE = /^[a-h][1-8]$/;
-
 const VALID_PROMOTIONS = ["q", "r", "b", "n"];
 
 function cloneData(value) {
+  if (value === undefined || value === null) {
+    return value;
+  }
+
   return JSON.parse(JSON.stringify(value));
 }
 
@@ -53,15 +51,19 @@ function normalizeMove(move) {
 }
 
 function getPositionKey(fen) {
-  // Repetition identity uses:
-  // piece placement, side to move, castling rights, en passant.
   return String(fen).split(" ").slice(0, 4).join(" ");
 }
 
 function countCurrentPositionOccurrences(chess) {
   const history = chess.history({ verbose: true });
 
-  const positions = [STARTING_FEN];
+  if (history.length === 0) {
+    return 1;
+  }
+
+  // Use the actual initial position of this game.
+  // This also supports games loaded from custom FEN.
+  const positions = [history[0].before];
 
   for (const move of history) {
     positions.push(move.after);
@@ -91,86 +93,56 @@ export class ChessEngine {
     this.chess = new Chess(fen);
   }
 
-  /**
-   * Start a new game.
-   */
   reset() {
     this.chess.reset();
-
     return this.getSnapshot();
   }
 
-  /**
-   * Load a FEN position.
-   */
   loadFEN(fen) {
     if (typeof fen !== "string" || !fen.trim()) {
       throw new TypeError("A valid FEN string is required.");
     }
 
     this.chess.load(fen.trim());
-
     return this.getSnapshot();
   }
 
-  /**
-   * Get current FEN.
-   */
   getFEN() {
     return this.chess.fen();
   }
 
-  /**
-   * Get current PGN.
-   */
   getPGN() {
     return this.chess.pgn();
   }
 
-  /**
-   * Load a PGN game.
-   */
   loadPGN(pgn) {
     if (typeof pgn !== "string" || !pgn.trim()) {
-      throw new TypeError("A valid PGN string is required.");
+      throw new TypeError("A valid PGN game is required.");
     }
 
     this.chess.loadPgn(pgn);
-
     return this.getSnapshot();
   }
 
-  /**
-   * Get current side to move.
-   * Returns "w" or "b".
-   */
   getTurn() {
     return this.chess.turn();
   }
 
-  /**
-   * Get the complete board.
-   */
   getBoard() {
     return cloneData(this.chess.board());
   }
 
-  /**
-   * Get a piece from a square.
-   */
   getPiece(square) {
-    if (!VALID_SQUARE.test(String(square))) {
+    const normalized = String(square || "").toLowerCase();
+
+    if (!VALID_SQUARE.test(normalized)) {
       return null;
     }
 
-    const piece = this.chess.get(square);
-
+    const piece = this.chess.get(normalized);
     return piece ? { ...piece } : null;
   }
 
-  /**
-   * Get all legal moves.
-   */
   getLegalMoves(options = {}) {
     const moveOptions = {};
 
@@ -191,26 +163,21 @@ export class ChessEngine {
     return cloneData(this.chess.moves(moveOptions));
   }
 
-  /**
-   * Check whether a square has any legal moves.
-   */
   hasLegalMovesFrom(square) {
-    if (!VALID_SQUARE.test(String(square))) {
+    const normalized = String(square || "").toLowerCase();
+
+    if (!VALID_SQUARE.test(normalized)) {
       return false;
     }
 
     return this.chess.moves({
-      square: String(square).toLowerCase()
+      square: normalized
     }).length > 0;
   }
 
-  /**
-   * Play a legal move.
-   */
   makeMove(move) {
     try {
       const normalized = normalizeMove(move);
-
       const result = this.chess.move(normalized);
 
       if (!result) {
@@ -236,9 +203,6 @@ export class ChessEngine {
     }
   }
 
-  /**
-   * Play a move using SAN notation.
-   */
   makeSANMove(san) {
     if (typeof san !== "string" || !san.trim()) {
       return {
@@ -266,95 +230,75 @@ export class ChessEngine {
     }
   }
 
-  /**
-   * Undo the last half-move.
-   */
   undoMove() {
-    const move = this.chess.undo();
+    try {
+      const move = this.chess.undo();
 
-    if (!move) return null;
+      if (!move) {
+        return {
+          success: false,
+          error: "There is no move to undo.",
+          move: null,
+          snapshot: this.getSnapshot()
+        };
+      }
 
-    return {
-      move: cloneData(move),
-      snapshot: this.getSnapshot()
-    };
+      return {
+        success: true,
+        error: null,
+        move: cloneData(move),
+        snapshot: this.getSnapshot()
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message || "Unable to undo move.",
+        move: null
+      };
+    }
   }
 
-  /**
-   * Get move history.
-   */
   getHistory(verbose = true) {
     return cloneData(
       this.chess.history({ verbose: Boolean(verbose) })
     );
   }
 
-  /**
-   * Check whether the current side is in check.
-   */
   isInCheck() {
     return this.chess.inCheck();
   }
 
-  /**
-   * Check for checkmate.
-   */
   isCheckmate() {
     return this.chess.isCheckmate();
   }
 
-  /**
-   * Check for stalemate.
-   */
   isStalemate() {
     return this.chess.isStalemate();
   }
 
-  /**
-   * Check for insufficient material.
-   */
   isInsufficientMaterial() {
     return this.chess.isInsufficientMaterial();
   }
 
-  /**
-   * Check whether a threefold repetition claim is available.
-   * This is a claim-based draw, not an automatic draw.
-   */
   canClaimThreefoldRepetition() {
     return countCurrentPositionOccurrences(this.chess) >= 3;
   }
 
-  /**
-   * Check whether a 50-move rule claim is available.
-   * 100 half-moves without a pawn move or capture.
-   */
   canClaimFiftyMoveDraw() {
     return getHalfmoveClock(this.getFEN()) >= 100;
   }
 
-  /**
-   * Check automatic 75-move draw condition.
-   * Checkmate is checked first in getGameStatus().
-   */
   isSeventyFiveMoveDraw() {
     return getHalfmoveClock(this.getFEN()) >= 150;
   }
 
-  /**
-   * Check automatic fivefold repetition condition.
-   */
   isFivefoldRepetition() {
     return countCurrentPositionOccurrences(this.chess) >= 5;
   }
 
-  /**
-   * Get the current game status.
-   */
   getGameStatus() {
     const inCheck = this.isInCheck();
 
-    // Checkmate takes priority over move-count draw.
     if (this.isCheckmate()) {
       return {
         state: "checkmate",
@@ -410,9 +354,6 @@ export class ChessEngine {
     };
   }
 
-  /**
-   * Get a complete game snapshot for UI rendering.
-   */
   getSnapshot() {
     return {
       fen: this.getFEN(),
@@ -424,59 +365,46 @@ export class ChessEngine {
     };
   }
 
-  /**
-   * Get the number of occurrences of the current position.
-   */
   getRepetitionCount() {
     return countCurrentPositionOccurrences(this.chess);
   }
 
-  /**
-   * Get the current half-move clock.
-   */
   getHalfmoveCount() {
     return getHalfmoveClock(this.getFEN());
   }
 
-  /**
-   * Get the current square color.
-   */
   getSquareColor(square) {
-    if (!VALID_SQUARE.test(String(square))) {
+    const normalized = String(square || "").toLowerCase();
+
+    if (!VALID_SQUARE.test(normalized)) {
       return null;
     }
 
-    return this.chess.squareColor(square);
+    return this.chess.squareColor(normalized);
   }
 
-  /**
-   * Check whether a square is attacked.
-   */
   isSquareAttacked(square, color) {
+    const normalized = String(square || "").toLowerCase();
+
     if (
-      !VALID_SQUARE.test(String(square)) ||
+      !VALID_SQUARE.test(normalized) ||
       !["w", "b"].includes(color)
     ) {
       return false;
     }
 
-    return this.chess.isAttacked(square, color);
+    return this.chess.isAttacked(normalized, color);
   }
 }
 
-/**
- * Create a new independent chess game.
- */
 export function createChessEngine(fen = STARTING_FEN) {
   return new ChessEngine(fen);
 }
 
-/**
- * Export starting position for other modules.
- */
 export { STARTING_FEN };
 
 /* =========================================================
-   FILE END: js/chess/chess-engine.js
+   FULL FILE COMPLETE
+   PATH: js/chess/chess-engine.js
    ========================================================= */
-  
+
