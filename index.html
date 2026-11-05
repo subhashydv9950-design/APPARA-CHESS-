@@ -1,7 +1,8 @@
+
 <!-- ======================================================
      APPARA CHESS
-     FILE 65: index.html
-     CORRECTION 15 — COMPLETE FILE
+     FILE: index.html
+     CORRECTION 24 — HOME CSS CONNECTION
 ====================================================== -->
 
 <!DOCTYPE html>
@@ -27,47 +28,24 @@
 
   <title>APPARA CHESS — The Royal Chess Experience</title>
 
-  <!-- APP ICON -->
-  <link
-    rel="icon"
-    href="./icons/app-icon.svg"
-    type="image/svg+xml"
-  >
+  <link rel="icon" href="./icons/app-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icons/app-icon.svg">
+  <link rel="manifest" href="./manifest.json">
 
-  <link
-    rel="apple-touch-icon"
-    href="./icons/app-icon.svg"
-  >
-
-  <!-- PWA MANIFEST -->
-  <link
-    rel="manifest"
-    href="./manifest.json"
-  >
-
-  <!-- FONT CONNECTIONS -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-  <link
-    rel="preconnect"
-    href="https://fonts.gstatic.com"
-    crossorigin
-  >
-
-  <!-- PREMIUM FONTS -->
   <link
     href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap"
     rel="stylesheet"
   >
 
-  <!-- MODULE IMPORT MAP -->
   <script type="importmap">
   {
     "imports": {
       "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
       "chess.js": "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/dist/esm/chess.js",
-
       "firebase/app": "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js",
       "firebase/auth": "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js",
       "firebase/firestore": "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js",
@@ -82,6 +60,10 @@
 
   <!-- SCREEN STYLESHEETS -->
   <link rel="stylesheet" href="./css/screens.css">
+
+  <!-- CORRECTION 24: HOME SCREEN CSS -->
+  <link rel="stylesheet" href="./css/home-screen.css">
+
   <link rel="stylesheet" href="./css/chess-arena.css">
   <link rel="stylesheet" href="./css/3d-effects.css">
   <link rel="stylesheet" href="./css/responsive.css">
@@ -90,24 +72,19 @@
 
 <body>
 
-  <!-- APPLICATION ROOT -->
   <div id="app" class="app-container">
 
-    <!-- LOADING SCREEN -->
     <section
       id="loading-screen"
       class="loading-screen"
       aria-live="polite"
     >
-
       <div class="loading-content">
-
         <div class="loading-logo">
           <span class="loading-crown">♛</span>
         </div>
 
         <h1>APPARA CHESS</h1>
-
         <p>THE ROYAL CHESS EXPERIENCE</p>
 
         <div class="loading-progress">
@@ -117,29 +94,19 @@
         <span class="loading-status">
           Preparing the Royal Chess World...
         </span>
-
       </div>
-
     </section>
 
-    <!-- MAIN APPLICATION -->
-    <main
-      id="app-view"
-      class="app-view"
-    >
-
+    <main id="app-view" class="app-view">
       <div id="screen-container"></div>
-
     </main>
 
-    <!-- MODAL ROOT -->
     <div
       id="modal-root"
       class="modal-root"
       aria-live="polite"
     ></div>
 
-    <!-- TOAST ROOT -->
     <div
       id="toast-root"
       class="toast-root"
@@ -149,17 +116,11 @@
 
   </div>
 
-  <!-- MAIN APPLICATION SCRIPT -->
-  <script
-    type="module"
-    src="./js/app.js"
-  ></script>
+  <script type="module" src="./js/app.js"></script>
 
-  <!-- SERVICE WORKER -->
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-
         navigator.serviceWorker
           .register("./sw.js")
           .catch(error => {
@@ -168,7 +129,6 @@
               error
             );
           });
-
       });
     }
   </script>
@@ -177,8 +137,7 @@
 </html>
 
 <!-- ======================================================
-     FILE 65 COMPLETE
-     CORRECTION 15 COMPLETE
+     CORRECTION 24 COMPLETE
+     FULL FILE COMPLETE
      PATH: index.html
 ====================================================== -->
-
