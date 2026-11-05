@@ -1,3 +1,4 @@
+
 /* =========================================================
    APPARA CHESS
    FILE: js/3d/three-engine.js
@@ -57,10 +58,13 @@ export class ThreeChessEngine {
 
     this.animationFrame = 0;
     this.resizeObserver = null;
+    this.clock = null;
 
     this.pointerStart = null;
     this.activePointerId = null;
     this.pointerMoved = false;
+    this.dragFromSquare = null;
+    this.dragStartedOnPiece = false;
 
     this.disposed = false;
 
@@ -108,26 +112,14 @@ export class ThreeChessEngine {
 
   createScene() {
     this.scene = new THREE.Scene();
-
     this.scene.background = new THREE.Color(COLORS.room);
-
-    this.scene.fog = new THREE.Fog(
-      COLORS.room,
-      24,
-      75
-    );
+    this.scene.fog = new THREE.Fog(COLORS.room, 24, 75);
   }
 
   createCamera() {
-    this.camera = new THREE.PerspectiveCamera(
-      38,
-      1,
-      0.1,
-      120
-    );
-
+    this.camera = new THREE.PerspectiveCamera(38, 1, 0.1, 120);
     this.camera.position.set(10, 12, 15);
-    this.camera.lookAt(0, 1, 0);
+    this.camera.lookAt(0, 1.7, 0);
   }
 
   createRenderer() {
@@ -138,24 +130,13 @@ export class ThreeChessEngine {
     });
 
     this.renderer.setPixelRatio(
-      Math.min(
-        window.devicePixelRatio || 1,
-        this.options.pixelRatioLimit
-      )
+      Math.min(window.devicePixelRatio || 1, this.options.pixelRatioLimit)
     );
 
-    this.renderer.shadowMap.enabled =
-      Boolean(this.options.shadows);
-
-    this.renderer.shadowMap.type =
-      THREE.PCFSoftShadowMap;
-
-    this.renderer.outputColorSpace =
-      THREE.SRGBColorSpace;
-
-    this.renderer.toneMapping =
-      THREE.ACESFilmicToneMapping;
-
+    this.renderer.shadowMap.enabled = Boolean(this.options.shadows);
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.12;
 
     const canvas = this.renderer.domElement;
@@ -185,7 +166,6 @@ export class ThreeChessEngine {
 
     keyLight.position.set(7, 13, 8);
     keyLight.castShadow = true;
-
     keyLight.shadow.mapSize.set(1024, 1024);
 
     keyLight.shadow.camera.left = -12;
@@ -288,12 +268,7 @@ export class ThreeChessEngine {
 
     for (const [x, z] of positions) {
       const pillar = new THREE.Mesh(
-        new THREE.CylinderGeometry(
-          0.48,
-          0.65,
-          8,
-          24
-        ),
+        new THREE.CylinderGeometry(0.48, 0.65, 8, 24),
         pillarMaterial
       );
 
@@ -301,12 +276,7 @@ export class ThreeChessEngine {
       pillar.castShadow = true;
 
       const base = new THREE.Mesh(
-        new THREE.CylinderGeometry(
-          0.9,
-          0.9,
-          0.28,
-          32
-        ),
+        new THREE.CylinderGeometry(0.9, 0.9, 0.28, 32),
         goldMaterial
       );
 
@@ -323,7 +293,7 @@ export class ThreeChessEngine {
    PART 1/4 END
    FILE CONTINUES — DO NOT SAVE YET
    ========================================================= */
-     createChessTable() {
+  createChessTable() {
     this.tableGroup = new THREE.Group();
     this.tableGroup.name = "apparachess-royal-chess-table";
 
@@ -339,40 +309,29 @@ export class ThreeChessEngine {
       metalness: 0.82
     });
 
-    // Main table top
+    // Table surface: world height 1.20.
+    // Board backing bottom also rests at world height 1.20.
     const tabletop = new THREE.Mesh(
-      new THREE.BoxGeometry(11.4, 0.48, 11.4),
+      new THREE.BoxGeometry(11.4, 0.24, 11.4),
       darkWood
     );
 
-    tabletop.position.y = 0.82;
+    tabletop.position.y = 0.03;
     tabletop.castShadow = true;
     tabletop.receiveShadow = true;
 
     this.tableGroup.add(tabletop);
 
-    // Golden table rim
+    // Golden rim around the table
     const rim = new THREE.Mesh(
-      new THREE.BoxGeometry(11.55, 0.12, 11.55),
+      new THREE.BoxGeometry(11.55, 0.07, 11.55),
       gold
     );
 
-    rim.position.y = 0.91;
+    rim.position.y = 0.145;
     this.tableGroup.add(rim);
 
-    // Tabletop overlay
-    const upperTop = new THREE.Mesh(
-      new THREE.BoxGeometry(11.25, 0.16, 11.25),
-      darkWood
-    );
-
-    upperTop.position.y = 1.12;
-    upperTop.castShadow = true;
-    upperTop.receiveShadow = true;
-
-    this.tableGroup.add(upperTop);
-
-    // Four decorative legs
+    // Four strong decorative legs
     const legPositions = [
       [-4.75, -4.75],
       [4.75, -4.75],
@@ -382,11 +341,11 @@ export class ThreeChessEngine {
 
     for (const [x, z] of legPositions) {
       const leg = new THREE.Mesh(
-        new THREE.BoxGeometry(0.65, 2.1, 0.65),
+        new THREE.BoxGeometry(0.65, 1.8, 0.65),
         darkWood
       );
 
-      leg.position.set(x, -0.25, z);
+      leg.position.set(x, -0.75, z);
       leg.castShadow = true;
       leg.receiveShadow = true;
 
@@ -395,14 +354,14 @@ export class ThreeChessEngine {
         gold
       );
 
-      foot.position.set(x, -1.25, z);
+      foot.position.set(x, -1.58, z);
 
       const collar = new THREE.Mesh(
         new THREE.BoxGeometry(0.78, 0.16, 0.78),
         gold
       );
 
-      collar.position.set(x, 0.55, z);
+      collar.position.set(x, 0.02, z);
 
       this.tableGroup.add(leg, foot, collar);
     }
@@ -413,7 +372,7 @@ export class ThreeChessEngine {
       darkWood
     );
 
-    frontPanel.position.set(0, 0.05, 5.25);
+    frontPanel.position.set(0, -0.32, 5.25);
     this.tableGroup.add(frontPanel);
 
     const emblem = new THREE.Mesh(
@@ -422,13 +381,11 @@ export class ThreeChessEngine {
     );
 
     emblem.rotation.x = Math.PI / 2;
-    emblem.position.set(0, 0.08, 5.37);
+    emblem.position.set(0, -0.32, 5.37);
 
     this.tableGroup.add(emblem);
 
-    // Place table in the royal hall
     this.tableGroup.position.y = 1.05;
-
     this.scene.add(this.tableGroup);
   }
 
@@ -566,7 +523,9 @@ export class ThreeChessEngine {
   }
 
   pickSquare(event) {
-    if (!this.camera || !this.boardBuilder) return null;
+    if (!this.camera || !this.boardBuilder || !this.renderer) {
+      return null;
+    }
 
     const rect = this.renderer.domElement.getBoundingClientRect();
 
@@ -578,10 +537,7 @@ export class ThreeChessEngine {
     this.pointer.y =
       -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-    this.raycaster.setFromCamera(
-      this.pointer,
-      this.camera
-    );
+    this.raycaster.setFromCamera(this.pointer, this.camera);
 
     const targets = [
       ...this.boardBuilder.group.children,
@@ -614,21 +570,22 @@ export class ThreeChessEngine {
    PART 2/4 END
    FILE CONTINUES — DO NOT SAVE YET
    ========================================================= */
-     setPosition(board) {
+  setPosition(board) {
     if (!Array.isArray(board) || board.length !== 8) {
       console.warn("APPARA CHESS: Invalid board position.");
       return false;
     }
 
-    this.clearPieces();
-
     for (let row = 0; row < 8; row++) {
       if (!Array.isArray(board[row]) || board[row].length !== 8) {
         console.warn("APPARA CHESS: Invalid board row.");
-        this.clearPieces();
         return false;
       }
+    }
 
+    this.clearPieces();
+
+    for (let row = 0; row < 8; row++) {
       for (let col = 0; col < 8; col++) {
         const piece = board[row][col];
 
@@ -673,11 +630,12 @@ export class ThreeChessEngine {
 
     const world = this.squareToWorld(square);
 
-    piece.position.set(
-      world.x,
-      1.715,
-      world.z
-    );
+    if (!world) {
+      this.pieceFactory.dispose?.(piece);
+      return null;
+    }
+
+    piece.position.copy(world);
 
     this.pieceGroup.add(piece);
     this.pieces.set(square, piece);
@@ -691,30 +649,37 @@ export class ThreeChessEngine {
     for (const [square, piece] of this.pieces) {
       this.pieceGroup?.remove(piece);
 
-      piece.traverse(object => {
-        if (object.geometry) {
-          object.geometry.dispose();
-        }
-      });
-
+      // Factory owns piece geometry/material disposal.
       if (this.pieceFactory?.dispose) {
         this.pieceFactory.dispose(piece);
       } else {
-        piece.traverse(object => {
-          if (!object.material) return;
-
-          const materials = Array.isArray(object.material)
-            ? object.material
-            : [object.material];
-
-          for (const material of materials) {
-            material.dispose();
-          }
-        });
+        this.disposeObjectResources(piece);
       }
     }
 
     this.pieces.clear();
+  }
+
+  disposeObjectResources(root) {
+    const geometries = new Set();
+    const materials = new Set();
+
+    root.traverse(object => {
+      if (object.geometry) geometries.add(object.geometry);
+
+      if (object.material) {
+        const list = Array.isArray(object.material)
+          ? object.material
+          : [object.material];
+
+        for (const material of list) {
+          if (material) materials.add(material);
+        }
+      }
+    });
+
+    for (const geometry of geometries) geometry.dispose();
+    for (const material of materials) material.dispose();
   }
 
   removePiece(square) {
@@ -722,32 +687,15 @@ export class ThreeChessEngine {
 
     if (!piece) return false;
 
-    this.pieceGroup.remove(piece);
-
-    piece.traverse(object => {
-      if (object.geometry) {
-        object.geometry.dispose();
-      }
-    });
+    this.pieceGroup?.remove(piece);
 
     if (this.pieceFactory?.dispose) {
       this.pieceFactory.dispose(piece);
     } else {
-      piece.traverse(object => {
-        if (!object.material) return;
-
-        const materials = Array.isArray(object.material)
-          ? object.material
-          : [object.material];
-
-        for (const material of materials) {
-          material.dispose();
-        }
-      });
+      this.disposeObjectResources(piece);
     }
 
     this.pieces.delete(square);
-
     return true;
   }
 
@@ -822,10 +770,7 @@ export class ThreeChessEngine {
     }
 
     for (const target of this.legalSquares) {
-      this.boardBuilder.highlightSquare(
-        target,
-        "legal"
-      );
+      this.boardBuilder.highlightSquare(target, "legal");
     }
   }
 
@@ -835,10 +780,7 @@ export class ThreeChessEngine {
     const tile = this.boardBuilder.getSquareObject?.(square);
 
     if (!tile) {
-      this.boardBuilder.highlightSquare(
-        square,
-        "lastMove"
-      );
+      this.boardBuilder.highlightSquare(square, "lastMove");
       return;
     }
 
@@ -869,10 +811,7 @@ export class ThreeChessEngine {
     const capturedPiece = this.pieces.get(to);
 
     if (capturedPiece && capturedPiece !== piece) {
-      await this.animationController.capturePiece(
-        capturedPiece
-      );
-
+      await this.animationController.capturePiece(capturedPiece);
       this.removePiece(to);
     }
 
@@ -895,7 +834,6 @@ export class ThreeChessEngine {
     );
 
     this.pieces.set(to, piece);
-
     this.clearHighlights();
 
     return true;
@@ -905,7 +843,7 @@ export class ThreeChessEngine {
    PART 3/4 END
    FILE CONTINUES — DO NOT SAVE YET
    ========================================================= */
-     setCameraView(view = "classic") {
+  setCameraView(view = "classic") {
     if (!this.cameraController) return;
 
     const presets = {
@@ -923,24 +861,15 @@ export class ThreeChessEngine {
   }
 
   zoom(factor = 1) {
-    if (!this.cameraController) return;
-
-    this.cameraController.zoom(factor);
+    this.cameraController?.zoom(factor);
   }
 
   resetCamera() {
-    if (!this.cameraController) return;
-
-    this.cameraController.reset();
+    this.cameraController?.reset();
   }
 
   rotateCamera(horizontal, vertical) {
-    if (!this.cameraController) return;
-
-    this.cameraController.rotate(
-      horizontal,
-      vertical
-    );
+    this.cameraController?.rotate(horizontal, vertical);
   }
 
   resize() {
@@ -948,24 +877,13 @@ export class ThreeChessEngine {
       return;
     }
 
-    const width = Math.max(
-      1,
-      this.container.clientWidth
-    );
-
-    const height = Math.max(
-      1,
-      this.container.clientHeight
-    );
+    const width = Math.max(1, this.container.clientWidth);
+    const height = Math.max(1, this.container.clientHeight);
 
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
 
-    this.renderer.setSize(
-      width,
-      height,
-      false
-    );
+    this.renderer.setSize(width, height, false);
 
     this.renderer.setPixelRatio(
       Math.min(
@@ -986,23 +904,12 @@ export class ThreeChessEngine {
       this.clock = new THREE.Clock();
     }
 
-    const delta = Math.min(
-      this.clock.getDelta(),
-      0.05
-    );
+    const delta = Math.min(this.clock.getDelta(), 0.05);
 
-    if (this.cameraController) {
-      this.cameraController.update(delta);
-    }
+    this.cameraController?.update(delta);
+    this.animationController?.update(delta);
 
-    if (this.animationController) {
-      this.animationController.update(delta);
-    }
-
-    this.renderer.render(
-      this.scene,
-      this.camera
-    );
+    this.renderer.render(this.scene, this.camera);
   }
 
   dispose() {
@@ -1019,40 +926,22 @@ export class ThreeChessEngine {
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
     } else {
-      window.removeEventListener(
-        "resize",
-        this.boundResize
-      );
+      window.removeEventListener("resize", this.boundResize);
     }
 
     if (this.renderer) {
       const canvas = this.renderer.domElement;
 
-      canvas.removeEventListener(
-        "pointerdown",
-        this.boundPointerDown
-      );
-
-      canvas.removeEventListener(
-        "pointerup",
-        this.boundPointerUp
-      );
-
-      canvas.removeEventListener(
-        "pointercancel",
-        this.boundPointerUp
-      );
+      canvas.removeEventListener("pointerdown", this.boundPointerDown);
+      canvas.removeEventListener("pointerup", this.boundPointerUp);
+      canvas.removeEventListener("pointercancel", this.boundPointerUp);
     }
 
-    if (this.cameraController) {
-      this.cameraController.dispose();
-      this.cameraController = null;
-    }
+    this.cameraController?.dispose();
+    this.cameraController = null;
 
-    if (this.animationController) {
-      this.animationController.dispose();
-      this.animationController = null;
-    }
+    this.animationController?.dispose();
+    this.animationController = null;
 
     this.clearPieces();
 
@@ -1061,15 +950,13 @@ export class ThreeChessEngine {
       this.boardBuilder = null;
     }
 
-    // Dispose remaining scene resources only once.
     if (this.scene) {
       const geometries = new Set();
       const materials = new Set();
+      const textures = new Set();
 
       this.scene.traverse(object => {
-        if (object.geometry) {
-          geometries.add(object.geometry);
-        }
+        if (object.geometry) geometries.add(object.geometry);
 
         if (object.material) {
           const list = Array.isArray(object.material)
@@ -1077,18 +964,18 @@ export class ThreeChessEngine {
             : [object.material];
 
           for (const material of list) {
-            if (material) materials.add(material);
+            if (!material) continue;
+
+            materials.add(material);
+
+            if (material.map) textures.add(material.map);
           }
         }
       });
 
-      for (const geometry of geometries) {
-        geometry.dispose();
-      }
-
-      for (const material of materials) {
-        material.dispose();
-      }
+      for (const geometry of geometries) geometry.dispose();
+      for (const texture of textures) texture.dispose();
+      for (const material of materials) material.dispose();
 
       this.scene.clear();
     }
@@ -1126,5 +1013,5 @@ export function createThreeChessEngine(options = {}) {
 /* =========================================================
    PART 4/4 END
    FULL FILE COMPLETE
-   FILE: js/3d/three-engine.js
+   PATH: js/3d/three-engine.js
    ========================================================= */
