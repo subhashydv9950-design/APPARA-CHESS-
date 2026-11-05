@@ -2,7 +2,7 @@
 /* =========================================================
    APPARA CHESS
    FILE: js/3d/three-game-screen.js
-   PURPOSE: Connect 3D Chess Engine with GameScreen
+   PURPOSE: 3D Chess Engine + GameScreen Integration
    PART 1/1 — FULL FILE
    ========================================================= */
 
@@ -20,9 +20,11 @@ export class ThreeGameScreen {
     this.engine = null;
     this.container = null;
     this.toolbar = null;
+    this.unsubscribe = null;
 
     this.destroyed = false;
     this.syncing = false;
+    this.moveInProgress = false;
   }
 
   mount() {
@@ -65,6 +67,10 @@ export class ThreeGameScreen {
 
       onSquareClick: square => {
         this.handleSquareClick(square);
+      },
+
+      onPieceMove: move => {
+        this.handlePieceMove(move);
       }
     });
 
@@ -90,10 +96,10 @@ export class ThreeGameScreen {
     });
 
     const controls = [
-      ["Classic", () => this.engine?.setCameraView("classic")],
-      ["Top", () => this.engine?.setCameraView("top")],
-      ["Cinema", () => this.engine?.setCameraView("cinematic")],
-      ["Close", () => this.engine?.setCameraView("close")],
+      ["Classic", () => this.setCamera("classic")],
+      ["Top", () => this.setCamera("top")],
+      ["Cinema", () => this.setCamera("cinematic")],
+      ["Close", () => this.setCamera("close")],
       ["−", () => this.engine?.zoom(1.12)],
       ["+", () => this.engine?.zoom(0.89)],
       ["Reset", () => this.engine?.resetCamera()]
@@ -123,23 +129,76 @@ export class ThreeGameScreen {
     frame.appendChild(this.toolbar);
   }
 
+  canMove() {
+    const screen = this.gameScreen;
+
+    return !(
+      this.destroyed ||
+      !this.engine ||
+      screen.isPaused ||
+      screen.isGameOver ||
+      screen.isThinking ||
+      this.moveInProgress
+    );
+  }
+
   async handleSquareClick(square) {
-    if (this.destroyed || !this.engine) return;
+    if (!this.canMove()) return;
 
     const screen = this.gameScreen;
 
-    if (
-      screen.isPaused ||
-      screen.isGameOver ||
-      screen.isThinking
-    ) {
-      return;
+    try {
+      screen.handleSquareClick(square);
+
+      // Selection and legal-target changes.
+      this.syncHighlights();
+
+      // The game state listener handles completed moves.
+      // This refresh also keeps the board correct after selection.
+      this.syncPosition();
+    } catch (error) {
+      console.error(
+        "[APPARA CHESS] 3D square click failed:",
+        error
+      );
     }
+  }
 
-    await screen.handleSquareClick(square);
+  async handlePieceMove(move) {
+    if (!this.canMove()) return;
 
-    this.syncPosition();
-    this.syncHighlights();
+    if (!move?.from || !move?.to) return;
+
+    this.moveInProgress = true;
+
+    try {
+      const screen = this.gameScreen;
+
+      // GameScreen remains responsible for chess rules,
+      // move validation, history, clocks and AI response.
+      const success = await screen.makeMove(
+        move.from,
+        move.to
+      );
+
+      if (success) {
+        this.syncPosition();
+        this.syncHighlights();
+      } else {
+        this.syncPosition();
+        this.syncHighlights();
+      }
+    } catch (error) {
+      console.error(
+        "[APPARA CHESS] 3D drag move failed:",
+        error
+      );
+
+      this.syncPosition();
+      this.syncHighlights();
+    } finally {
+      this.moveInProgress = false;
+    }
   }
 
   syncPosition() {
@@ -156,8 +215,17 @@ export class ThreeGameScreen {
     try {
       const board = this.gameScreen.getBoardPosition();
 
-      if (Array.isArray(board) && board.length === 8) {
+      const validBoard =
+        Array.isArray(board) &&
+        board.length === 8 &&
+        board.every(row => Array.isArray(row) && row.length === 8);
+
+      if (validBoard) {
         this.engine.setPosition(board);
+      } else {
+        console.warn(
+          "[APPARA CHESS] Invalid board data received."
+        );
       }
 
       this.syncHighlights();
@@ -177,8 +245,10 @@ export class ThreeGameScreen {
     const screen = this.gameScreen;
 
     this.engine.setSelection(
-      screen.selectedSquare,
-      screen.legalTargets || []
+      screen.selectedSquare || null,
+      Array.isArray(screen.legalTargets)
+        ? screen.legalTargets
+        : []
     );
 
     if (
@@ -200,14 +270,16 @@ export class ThreeGameScreen {
   watchGameState() {
     const state = this.gameScreen.gameState;
 
-    if (state?.on) {
-      const unsubscribe = state.on("change", () => {
-        this.syncPosition();
-      });
+    if (!state?.on) return;
 
-      if (typeof unsubscribe === "function") {
-        this.unsubscribe = unsubscribe;
-      }
+    const unsubscribe = state.on("change", () => {
+      if (this.destroyed) return;
+
+      this.syncPosition();
+    });
+
+    if (typeof unsubscribe === "function") {
+      this.unsubscribe = unsubscribe;
     }
   }
 
@@ -216,7 +288,9 @@ export class ThreeGameScreen {
   }
 
   setCamera(view) {
-    this.engine?.setCameraView(view);
+    if (!this.engine) return;
+
+    this.engine.setCameraView(view);
   }
 
   destroy() {
@@ -227,6 +301,8 @@ export class ThreeGameScreen {
     if (typeof this.unsubscribe === "function") {
       this.unsubscribe();
     }
+
+    this.unsubscribe = null;
 
     this.engine?.dispose();
     this.engine = null;
