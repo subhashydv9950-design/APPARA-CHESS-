@@ -1,9 +1,7 @@
-
 /* =========================================================
-   APPARA CHESS — FILE 52
-   File: js/screens/auth-screen.js
-   Section: Screens
-   Purpose: Login and registration screen
+   APPARA CHESS
+   CORRECTION 13A — PART 1/2
+   FILE: js/screens/auth-screen.js
    ========================================================= */
 
 export class AuthScreen {
@@ -12,21 +10,14 @@ export class AuthScreen {
     this.modalManager = options.modalManager || null;
     this.components = options.components || null;
     this.navigation = options.navigation || null;
+    this.onAuthSuccess = options.onAuthSuccess || null;
 
     this.container = null;
     this.mode = "login";
     this.loading = false;
     this.disposed = false;
-
-    this.onAuthSuccess =
-      options.onAuthSuccess || null;
-
     this.unsubscribeAuth = null;
   }
-
-  /* -------------------------------------------------------
-     INITIALIZATION
-     ------------------------------------------------------- */
 
   initialize(container) {
     this.ensureActive();
@@ -35,27 +26,25 @@ export class AuthScreen {
       throw new Error("Auth screen container is required.");
     }
 
-    this.container = container;
+    if (!this.authService) {
+      throw new Error("AuthService is not connected.");
+    }
 
+    this.container = container;
     this.render();
 
-    if (this.authService?.on) {
-      this.unsubscribeAuth = this.authService.on(
-        "auth:state-changed",
-        payload => {
-          if (payload?.user) {
-            this.handleSuccess(payload.user);
-          }
+    // AuthService emits "userChanged", not "auth:state-changed".
+    this.unsubscribeAuth = this.authService.on?.(
+      "userChanged",
+      payload => {
+        if (payload?.user) {
+          this.handleSuccess(payload.user);
         }
-      );
-    }
+      }
+    );
 
     return this;
   }
-
-  /* -------------------------------------------------------
-     MAIN RENDER
-     ------------------------------------------------------- */
 
   render() {
     if (!this.container) return false;
@@ -67,21 +56,28 @@ export class AuthScreen {
       className: "ac-auth-background"
     });
 
-    const glowOne = this.createElement("div", {
-      className: "ac-auth-glow ac-auth-glow--one"
-    });
-
-    const glowTwo = this.createElement("div", {
-      className: "ac-auth-glow ac-auth-glow--two"
-    });
-
-    background.append(glowOne, glowTwo);
-
     const panel = this.createElement("main", {
       className: "ac-auth-panel"
     });
 
-    panel.append(this.createBrand());
+    const brand = this.createElement("div", {
+      className: "ac-auth-brand"
+    });
+
+    brand.append(
+      this.createElement("div", {
+        className: "ac-auth-logo",
+        text: "♔"
+      }),
+      this.createElement("div", {
+        className: "ac-auth-brand-name",
+        text: "APPARA CHESS"
+      }),
+      this.createElement("div", {
+        className: "ac-auth-tagline",
+        text: "THE ROYAL CHESS EXPERIENCE"
+      })
+    );
 
     const heading = this.createElement("div", {
       className: "ac-auth-heading"
@@ -95,18 +91,21 @@ export class AuthScreen {
       }),
       this.createElement("p", {
         text: this.mode === "login"
-          ? "Enter the royal arena and continue your journey."
-          : "Join APPARA CHESS and begin your royal journey."
+          ? "Enter the royal arena."
+          : "Join the APPARA CHESS community."
       })
     );
 
-    panel.append(heading);
-    panel.append(this.createModeTabs());
-    panel.append(this.createEmailForm());
-    panel.append(this.createDivider("OR CONTINUE WITH"));
-    panel.append(this.createProviderButtons());
-    panel.append(this.createGuestButton());
-    panel.append(this.createFooter());
+    panel.append(
+      brand,
+      heading,
+      this.createModeTabs(),
+      this.createEmailForm(),
+      this.createDivider("OR CONTINUE WITH"),
+      this.createProviderButtons(),
+      this.createGuestButton(),
+      this.createFooter()
+    );
 
     background.append(panel);
     this.container.append(background);
@@ -114,70 +113,26 @@ export class AuthScreen {
     return true;
   }
 
-  /* -------------------------------------------------------
-     BRAND
-     ------------------------------------------------------- */
-
-  createBrand() {
-    const brand = this.createElement("div", {
-      className: "ac-auth-brand"
-    });
-
-    const logo = this.createElement("div", {
-      className: "ac-auth-logo",
-      text: "♔"
-    });
-
-    const name = this.createElement("div", {
-      className: "ac-auth-brand-name",
-      text: "APPARA CHESS"
-    });
-
-    const tagline = this.createElement("div", {
-      className: "ac-auth-tagline",
-      text: "THE ROYAL CHESS EXPERIENCE"
-    });
-
-    brand.append(logo, name, tagline);
-
-    return brand;
-  }
-
-  /* -------------------------------------------------------
-     LOGIN / SIGNUP TABS
-     ------------------------------------------------------- */
-
   createModeTabs() {
     const tabs = this.createElement("div", {
       className: "ac-auth-tabs"
     });
 
-    const loginButton = this.createElement("button", {
-      text: "Login",
-      className: this.mode === "login"
-        ? "ac-auth-tab active"
-        : "ac-auth-tab"
-    });
+    for (const mode of ["login", "signup"]) {
+      const button = this.createElement("button", {
+        className: this.mode === mode
+          ? "ac-auth-tab active"
+          : "ac-auth-tab",
+        text: mode === "login" ? "Login" : "Sign Up"
+      });
 
-    const signupButton = this.createElement("button", {
-      text: "Sign Up",
-      className: this.mode === "signup"
-        ? "ac-auth-tab active"
-        : "ac-auth-tab"
-    });
+      button.type = "button";
+      button.addEventListener("click", () => {
+        this.setMode(mode);
+      });
 
-    loginButton.type = "button";
-    signupButton.type = "button";
-
-    loginButton.addEventListener("click", () => {
-      this.setMode("login");
-    });
-
-    signupButton.addEventListener("click", () => {
-      this.setMode("signup");
-    });
-
-    tabs.append(loginButton, signupButton);
+      tabs.append(button);
+    }
 
     return tabs;
   }
@@ -187,17 +142,13 @@ export class AuthScreen {
       return false;
     }
 
-    if (this.mode === mode) return true;
+    if (this.loading) return false;
 
     this.mode = mode;
     this.render();
 
     return true;
   }
-
-  /* -------------------------------------------------------
-     EMAIL FORM
-     ------------------------------------------------------- */
 
   createEmailForm() {
     const form = this.createElement("form", {
@@ -210,16 +161,14 @@ export class AuthScreen {
     });
 
     if (this.mode === "signup") {
-      form.append(
-        this.createField({
-          label: "Display Name",
-          name: "displayName",
-          placeholder: "Enter your name",
-          type: "text",
-          required: true,
-          maxLength: 24
-        })
-      );
+      form.append(this.createField({
+        label: "Display Name",
+        name: "displayName",
+        placeholder: "Enter your name",
+        type: "text",
+        required: true,
+        maxLength: 24
+      }));
     }
 
     form.append(
@@ -230,50 +179,41 @@ export class AuthScreen {
         type: "email",
         required: true,
         autocomplete: "email"
-      })
-    );
-
-    form.append(
+      }),
       this.createField({
         label: "Password",
         name: "password",
-        placeholder: "Enter your password",
+        placeholder: "Enter password",
         type: "password",
         required: true,
-        minLength: 6,
-        autocomplete: this.mode === "login"
-          ? "current-password"
-          : "new-password"
+        minLength: 6
       })
     );
 
     if (this.mode === "signup") {
-      form.append(
-        this.createField({
-          label: "Confirm Password",
-          name: "confirmPassword",
-          placeholder: "Confirm your password",
-          type: "password",
-          required: true,
-          minLength: 6,
-          autocomplete: "new-password"
-        })
-      );
+      form.append(this.createField({
+        label: "Confirm Password",
+        name: "confirmPassword",
+        placeholder: "Confirm password",
+        type: "password",
+        required: true,
+        minLength: 6
+      }));
     }
 
-    const forgot = this.createElement("button", {
-      className: "ac-auth-forgot",
-      text: "Forgot Password?"
-    });
+    if (this.mode === "login") {
+      const forgot = this.createElement("button", {
+        className: "ac-auth-forgot",
+        text: "Forgot Password?"
+      });
 
-    forgot.type = "button";
-    forgot.hidden = this.mode !== "login";
+      forgot.type = "button";
+      forgot.addEventListener("click", () => {
+        this.showPasswordReset();
+      });
 
-    forgot.addEventListener("click", () => {
-      this.showPasswordReset();
-    });
-
-    form.append(forgot);
+      form.append(forgot);
+    }
 
     const submit = this.createElement("button", {
       className: "ac-auth-submit",
@@ -287,55 +227,46 @@ export class AuthScreen {
 
     form.append(submit);
 
-    this.submitButton = submit;
-
     return form;
   }
 
   createField(options = {}) {
-    const {
-      label,
-      name,
-      placeholder = "",
-      type = "text",
-      required = false,
-      minLength,
-      maxLength,
-      autocomplete
-    } = options;
-
     const wrapper = this.createElement("div", {
       className: "ac-auth-field"
     });
 
-    const labelElement = this.createElement("label", {
-      text: label
+    const label = this.createElement("label", {
+      text: options.label
     });
-
-    labelElement.htmlFor = `auth-${name}`;
 
     const input = this.createElement("input", {
       className: "ac-auth-input"
     });
 
-    input.id = `auth-${name}`;
-    input.name = name;
-    input.type = type;
-    input.placeholder = placeholder;
-    input.required = required;
+    input.name = options.name;
+    input.type = options.type || "text";
+    input.placeholder = options.placeholder || "";
+    input.required = Boolean(options.required);
 
-    if (minLength) input.minLength = minLength;
-    if (maxLength) input.maxLength = maxLength;
-    if (autocomplete) input.autocomplete = autocomplete;
+    if (options.minLength) {
+      input.minLength = options.minLength;
+    }
 
-    wrapper.append(labelElement, input);
+    if (options.maxLength) {
+      input.maxLength = options.maxLength;
+    }
+
+    if (options.autocomplete) {
+      input.autocomplete = options.autocomplete;
+    }
+
+    label.htmlFor = `auth-${options.name}`;
+    input.id = label.htmlFor;
+
+    wrapper.append(label, input);
 
     return wrapper;
   }
-
-  /* -------------------------------------------------------
-     EMAIL SUBMISSION
-     ------------------------------------------------------- */
 
   async submitEmailForm(form) {
     if (this.loading) return false;
@@ -349,7 +280,7 @@ export class AuthScreen {
     const password = String(data.get("password") || "");
 
     if (!email || !password) {
-      this.showMessage("Please enter your email and password.", "error");
+      this.showMessage("Enter email and password.", "error");
       return false;
     }
 
@@ -367,73 +298,66 @@ export class AuthScreen {
           data.get("confirmPassword") || ""
         );
 
-        if (!displayName) {
-          throw new Error("Please enter your display name.");
+        if (displayName.length < 2) {
+          throw new Error("Name must contain at least 2 characters.");
         }
 
         if (password !== confirmPassword) {
           throw new Error("Passwords do not match.");
         }
 
-        result = await this.authService.registerWithEmail(
+        // AuthService expects ONE object argument.
+        result = await this.authService.registerWithEmail({
           email,
           password,
-          {
-            displayName
-          }
-        );
+          displayName
+        });
       } else {
-        result = await this.authService.loginWithEmail(
+        // AuthService expects ONE object argument.
+        result = await this.authService.loginWithEmail({
           email,
           password
-        );
+        });
       }
 
-      if (result === false || result?.success === false) {
+      if (!result || result.success === false) {
         throw new Error(
           result?.message || "Authentication failed."
         );
       }
 
-      const user = result?.user || result;
-
-      if (user) {
-        await this.handleSuccess(user);
+      if (result.user) {
+        await this.handleSuccess(result.user);
       }
 
       return true;
-    } catch (error) {
-      this.showMessage(
-        this.getErrorMessage(error),
-        "error"
-      );
 
+    } catch (error) {
+      this.showMessage(this.getErrorMessage(error), "error");
       return false;
+
     } finally {
       this.setLoading(false);
     }
   }
 
-  /* -------------------------------------------------------
-     PASSWORD RESET
-     ------------------------------------------------------- */
-
   async showPasswordReset() {
-    const email = this.container?.querySelector(
-      '[name="email"]'
-    )?.value?.trim();
+    const email = this.container
+      ?.querySelector('[name="email"]')
+      ?.value?.trim();
 
     if (!email) {
-      this.showMessage(
-        "Enter your email address first.",
-        "warning"
-      );
-
+      this.showMessage("Enter your email address first.", "warning");
       return false;
     }
 
     try {
-      await this.authService.requestPasswordReset(email);
+      const result =
+        await this.authService.requestPasswordReset(email);
+
+      if (result?.success === false) {
+        throw new Error(result.message || "Reset request failed.");
+      }
 
       this.showMessage(
         "Password reset email has been requested.",
@@ -441,19 +365,24 @@ export class AuthScreen {
       );
 
       return true;
-    } catch (error) {
-      this.showMessage(
-        this.getErrorMessage(error),
-        "error"
-      );
 
+    } catch (error) {
+      this.showMessage(this.getErrorMessage(error), "error");
       return false;
     }
   }
 
-  /* -------------------------------------------------------
-     SOCIAL PROVIDERS
-     ------------------------------------------------------- */
+/* =========================================================
+   CORRECTION 13A COMPLETE
+   FILE NOT COMPLETE YET
+   NEXT: CORRECTION 13B — PART 2/2
+   ========================================================= */
+/* =========================================================
+   APPARA CHESS
+   CORRECTION 13B — PART 2/2
+   FILE: js/screens/auth-screen.js
+   CONTINUE INSIDE AuthScreen CLASS
+   ========================================================= */
 
   createProviderButtons() {
     const container = this.createElement("div", {
@@ -461,16 +390,8 @@ export class AuthScreen {
     });
 
     const providers = [
-      {
-        name: "google",
-        label: "Continue with Google",
-        icon: "G"
-      },
-      {
-        name: "facebook",
-        label: "Continue with Facebook",
-        icon: "f"
-      }
+      { name: "google", label: "Continue with Google", icon: "G" },
+      { name: "facebook", label: "Continue with Facebook", icon: "f" }
     ];
 
     for (const provider of providers) {
@@ -480,16 +401,15 @@ export class AuthScreen {
 
       button.type = "button";
 
-      const icon = this.createElement("span", {
-        className: "ac-auth-provider__icon",
-        text: provider.icon
-      });
-
-      const label = this.createElement("span", {
-        text: provider.label
-      });
-
-      button.append(icon, label);
+      button.append(
+        this.createElement("span", {
+          className: "ac-auth-provider__icon",
+          text: provider.icon
+        }),
+        this.createElement("span", {
+          text: provider.label
+        })
+      );
 
       button.addEventListener("click", () => {
         this.loginWithProvider(provider.name);
@@ -504,7 +424,6 @@ export class AuthScreen {
     });
 
     phoneButton.type = "button";
-
     phoneButton.addEventListener("click", () => {
       this.showPhoneLogin();
     });
@@ -530,34 +449,24 @@ export class AuthScreen {
         throw new Error("Unsupported login provider.");
       }
 
-      if (result === false || result?.success === false) {
-        throw new Error(
-          result?.message || "Provider login failed."
-        );
+      if (!result || result.success === false) {
+        throw new Error(result?.message || "Login failed.");
       }
 
-      const user = result?.user || result;
-
-      if (user) {
-        await this.handleSuccess(user);
+      if (result.user) {
+        await this.handleSuccess(result.user);
       }
 
       return true;
-    } catch (error) {
-      this.showMessage(
-        this.getErrorMessage(error),
-        "error"
-      );
 
+    } catch (error) {
+      this.showMessage(this.getErrorMessage(error), "error");
       return false;
+
     } finally {
       this.setLoading(false);
     }
   }
-
-  /* -------------------------------------------------------
-     PHONE LOGIN
-     ------------------------------------------------------- */
 
   showPhoneLogin() {
     const content = this.createElement("div", {
@@ -577,13 +486,19 @@ export class AuthScreen {
       className: "ac-auth-input",
       attributes: {
         type: "text",
-        placeholder: "Enter OTP",
+        placeholder: "Enter 6-digit OTP",
         inputmode: "numeric",
         autocomplete: "one-time-code"
       }
     });
 
     otpInput.hidden = true;
+
+    const recaptcha = this.createElement("div", {
+      attributes: {
+        id: "ac-phone-recaptcha"
+      }
+    });
 
     const sendButton = this.createElement("button", {
       className: "ac-auth-submit",
@@ -606,51 +521,49 @@ export class AuthScreen {
 
     content.append(
       phoneInput,
+      recaptcha,
       otpInput,
       sendButton,
       verifyButton,
       status
     );
 
-    let confirmation = null;
-
     sendButton.addEventListener("click", async () => {
       const phone = phoneInput.value.trim();
 
       if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
-        status.textContent =
-          "Enter the number with country code, e.g. +91...";
+        status.textContent = "Enter number with country code, e.g. +91...";
         return;
       }
 
       sendButton.disabled = true;
 
       try {
-        confirmation = await this.authService.requestPhoneOTP(
-          phone,
-          {
-            container: content
-          }
-        );
+        // AuthService uses sendPhoneOTP and containerId.
+        const result = await this.authService.sendPhoneOTP(phone, {
+          containerId: "ac-phone-recaptcha"
+        });
 
-        if (!confirmation) {
-          throw new Error("OTP request could not be completed.");
+        if (!result || result.success === false) {
+          throw new Error(result?.message || "OTP could not be sent.");
         }
 
         otpInput.hidden = false;
         verifyButton.hidden = false;
-        status.textContent = "OTP request completed.";
+        status.textContent = "OTP sent. Enter the verification code.";
+
       } catch (error) {
         status.textContent = this.getErrorMessage(error);
+
       } finally {
         sendButton.disabled = false;
       }
     });
 
     verifyButton.addEventListener("click", async () => {
-      const otp = otpInput.value.trim();
+      const code = otpInput.value.trim();
 
-      if (!/^\d{6}$/.test(otp)) {
+      if (!/^\d{6}$/.test(code)) {
         status.textContent = "Enter the 6-digit OTP.";
         return;
       }
@@ -658,21 +571,19 @@ export class AuthScreen {
       verifyButton.disabled = true;
 
       try {
-        const result = await this.authService.verifyPhoneOTP(
-          confirmation,
-          otp
-        );
+        // AuthService expects only the OTP code.
+        const result = await this.authService.verifyPhoneOTP(code);
 
-        const user = result?.user || result;
-
-        if (!user) {
+        if (!result?.user || result.success === false) {
           throw new Error("Phone verification failed.");
         }
 
         this.closePhoneDialog();
-        await this.handleSuccess(user);
+        await this.handleSuccess(result.user);
+
       } catch (error) {
         status.textContent = this.getErrorMessage(error);
+
       } finally {
         verifyButton.disabled = false;
       }
@@ -680,7 +591,7 @@ export class AuthScreen {
 
     this.phoneDialog = content;
 
-    if (this.modalManager) {
+    if (this.modalManager?.open) {
       this.modalManager.open({
         id: "ac-phone-login",
         title: "Mobile Login",
@@ -688,25 +599,20 @@ export class AuthScreen {
         size: "small"
       });
     } else {
-      this.showMessage(
-        "Mobile login dialog is unavailable.",
-        "error"
-      );
+      this.container?.querySelector(".ac-auth-panel")
+        ?.append(content);
     }
   }
 
   closePhoneDialog() {
-    this.modalManager?.close(
+    this.modalManager?.close?.(
       "ac-phone-login",
       "verified"
     );
 
+    this.phoneDialog?.remove();
     this.phoneDialog = null;
   }
-
-  /* -------------------------------------------------------
-     GUEST MODE
-     ------------------------------------------------------- */
 
   createGuestButton() {
     const button = this.createElement("button", {
@@ -715,7 +621,6 @@ export class AuthScreen {
     });
 
     button.type = "button";
-
     button.addEventListener("click", () => {
       this.startGuestMode();
     });
@@ -726,34 +631,36 @@ export class AuthScreen {
   startGuestMode() {
     const guest = {
       uid: `guest-${Date.now()}`,
+      playerId: `AC-GUEST-${Date.now().toString(36).toUpperCase()}`,
       displayName: "Guest Player",
       isGuest: true,
       isAuthenticated: false
     };
 
-    this.handleSuccess(guest, {
-      guest: true
-    });
+    this.handleSuccess(guest, { guest: true });
 
     return guest;
   }
 
-  /* -------------------------------------------------------
-     SUCCESS
-     ------------------------------------------------------- */
-
   async handleSuccess(user, options = {}) {
     if (!user) return false;
 
-    this.showMessage(
-      options.guest
-        ? "Guest session started."
-        : "Login successful.",
-      "success"
-    );
-
     try {
       await this.onAuthSuccess?.(user, options);
+
+      this.showMessage(
+        options.guest ? "Guest session started." : "Login successful.",
+        "success"
+      );
+
+      if (options.guest) {
+        await this.navigation?.navigate?.("home", {
+          guest: true
+        });
+      }
+
+      return true;
+
     } catch (error) {
       this.showMessage(
         "Account opened, but the next screen could not load.",
@@ -762,19 +669,21 @@ export class AuthScreen {
 
       return false;
     }
-
-    if (options.guest) {
-      this.navigation?.navigate?.("home", {
-        guest: true
-      });
-    }
-
-    return true;
   }
 
-  /* -------------------------------------------------------
-     FOOTER
-     ------------------------------------------------------- */
+  createDivider(text) {
+    const divider = this.createElement("div", {
+      className: "ac-auth-divider"
+    });
+
+    divider.append(
+      this.createElement("span", {}),
+      this.createElement("p", { text }),
+      this.createElement("span", {})
+    );
+
+    return divider;
+  }
 
   createFooter() {
     const footer = this.createElement("footer", {
@@ -793,46 +702,24 @@ export class AuthScreen {
     return footer;
   }
 
-  createDivider(text) {
-    const divider = this.createElement("div", {
-      className: "ac-auth-divider"
+  setLoading(value) {
+    this.loading = Boolean(value);
+
+    this.container?.querySelectorAll(
+      "[data-auth-submit], .ac-auth-provider, .ac-auth-guest"
+    ).forEach(button => {
+      button.disabled = this.loading;
     });
 
-    divider.append(
-      this.createElement("span", {}),
-      this.createElement("p", { text }),
-      this.createElement("span", {})
-    );
-
-    return divider;
-  }
-
-  /* -------------------------------------------------------
-     LOADING AND MESSAGES
-     ------------------------------------------------------- */
-
-  setLoading(loading) {
-    this.loading = Boolean(loading);
-
-    const submit = this.container?.querySelector(
-      "[data-auth-submit]"
-    );
+    const submit = this.container?.querySelector("[data-auth-submit]");
 
     if (submit) {
-      submit.disabled = this.loading;
-
       submit.textContent = this.loading
         ? "PLEASE WAIT..."
         : this.mode === "login"
           ? "ENTER THE ARENA"
           : "CREATE ACCOUNT";
     }
-
-    this.container?.querySelectorAll(
-      ".ac-auth-provider, .ac-auth-guest"
-    ).forEach(button => {
-      button.disabled = this.loading;
-    });
   }
 
   showMessage(message, type = "info") {
@@ -841,29 +728,23 @@ export class AuthScreen {
       return;
     }
 
-    let messageBox = this.container?.querySelector(
-      ".ac-auth-message"
-    );
+    let box = this.container?.querySelector(".ac-auth-message");
 
-    if (!messageBox) {
-      messageBox = this.createElement("div", {
+    if (!box) {
+      box = this.createElement("div", {
         className: "ac-auth-message"
       });
 
-      this.container?.querySelector(
-        ".ac-auth-panel"
-      )?.append(messageBox);
+      this.container?.querySelector(".ac-auth-panel")?.append(box);
     }
 
-    if (messageBox) {
-      messageBox.textContent = message;
-      messageBox.dataset.type = type;
+    if (box) {
+      box.textContent = message;
+      box.dataset.type = type;
     }
   }
 
   getErrorMessage(error) {
-    const code = error?.code || "";
-
     const messages = {
       "auth/invalid-email": "Please enter a valid email address.",
       "auth/user-not-found": "No account found with this email.",
@@ -878,17 +759,16 @@ export class AuthScreen {
       "auth/operation-not-allowed": "This login method is not enabled."
     };
 
-    return messages[code] ||
+    return messages[error?.code] ||
       error?.message ||
       "Something went wrong. Please try again.";
   }
 
-  /* -------------------------------------------------------
-     DOM HELPER
-     ------------------------------------------------------- */
-
   createElement(tag, options = {}) {
-    const element = document.createElement(tag);
+    const documentRef =
+      this.container?.ownerDocument || globalThis.document;
+
+    const element = documentRef.createElement(tag);
 
     if (options.className) {
       element.className = options.className;
@@ -899,9 +779,7 @@ export class AuthScreen {
     }
 
     if (options.attributes) {
-      for (const [key, value] of Object.entries(
-        options.attributes
-      )) {
+      for (const [key, value] of Object.entries(options.attributes)) {
         element.setAttribute(key, String(value));
       }
     }
@@ -914,9 +792,6 @@ export class AuthScreen {
       throw new Error("AuthScreen has been disposed.");
     }
   }
-  /* -------------------------------------------------------
-     DISPOSAL
-     ------------------------------------------------------- */
 
   dispose() {
     if (this.disposed) return;
@@ -936,12 +811,11 @@ export class AuthScreen {
   }
 }
 
-/* ---------------------------------------------------------
-   FACTORY
-   --------------------------------------------------------- */
-
 export function createAuthScreen(options = {}) {
   return new AuthScreen(options);
 }
 
-/* ================= FILE 52 END ================= */
+/* =========================================================
+   CORRECTION 13B COMPLETE
+   FULL FILE COMPLETE — CORRECTION NUMBER 13
+   ========================================================= */
