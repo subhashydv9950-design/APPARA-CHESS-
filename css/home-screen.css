@@ -1,0 +1,562 @@
+/* =========================================================
+   APPARA CHESS
+   FILE: css/home-screen.css
+   CORRECTION 23 — PREMIUM HOME SCREEN
+   ========================================================= */
+
+.ac-home-screen {
+  min-height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  color: #fff;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(115, 65, 190, .22), transparent 48%),
+    linear-gradient(145deg, #100b1c, #080711 65%, #05040a);
+  font-family: "Inter", sans-serif;
+}
+
+.ac-home-layout {
+  width: min(100%, 1500px);
+  min-height: 100vh;
+  margin: auto;
+  padding: clamp(14px, 3vw, 34px);
+}
+
+.ac-home-topbar {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 66px;
+  padding: 12px 18px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 18px;
+  background: rgba(24,17,39,.78);
+  box-shadow: 0 12px 35px rgba(0,0,0,.25);
+  backdrop-filter: blur(18px);
+}
+
+.ac-home-topbar__left,
+.ac-home-resources {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ac-home-menu-button,
+.ac-home-mini-profile,
+.ac-home-resource {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 9px 13px;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 12px;
+  background: rgba(255,255,255,.055);
+  cursor: pointer;
+}
+
+.ac-home-menu-button {
+  width: 44px;
+  font-size: 21px;
+}
+
+.ac-home-mini-profile__name {
+  font-weight: 700;
+}
+
+.ac-home-avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  overflow: hidden;
+  border: 2px solid #d8b85d;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(135deg,#8b5cf6,#38205d);
+  font-weight: 800;
+}
+
+.ac-home-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ac-home-resource {
+  font-size: .85rem;
+  font-weight: 800;
+}
+
+.ac-home-resource--coins {
+  border-color: rgba(245,200,75,.35);
+}
+
+.ac-home-resource--diamonds {
+  border-color: rgba(80,210,255,.3);
+}
+
+.ac-home-resource__icon {
+  font-size: 17px;
+}
+
+.ac-home-main {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  padding-top: 26px;
+}
+
+.ac-home-welcome {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(190px,270px);
+  align-items: center;
+  gap: 24px;
+  padding: clamp(22px,4vw,42px);
+  border: 1px solid rgba(212,175,55,.25);
+  border-radius: 24px;
+  background:
+    radial-gradient(ellipse at 85% 20%,rgba(139,92,246,.2),transparent 50%),
+    linear-gradient(120deg,rgba(31,22,48,.96),rgba(14,11,24,.96));
+  box-shadow: 0 18px 50px rgba(0,0,0,.28);
+}
+
+.ac-home-eyebrow {
+  margin: 0 0 10px;
+  color: #d8b85d;
+  font-size: .75rem;
+  font-weight: 800;
+  letter-spacing: .19em;
+}
+
+.ac-home-welcome h1,
+.ac-home-arena h2,
+.ac-home-section-heading h2 {
+  margin: 0;
+  font-family: "Cinzel", Georgia, serif;
+  font-weight: 700;
+}
+
+.ac-home-welcome h1 {
+  font-size: clamp(1.8rem,5vw,3.1rem);
+  line-height: 1.2;
+  color: #fff;
+}
+
+.ac-home-welcome__subtitle {
+  margin: 12px 0 0;
+  color: #c4bad7;
+  font-size: .98rem;
+  line-height: 1.6;
+}
+
+.ac-home-level-card {
+  padding: 20px;
+  border: 1px solid rgba(212,175,55,.3);
+  border-radius: 18px;
+  background: rgba(5,4,12,.5);
+}
+
+.ac-home-level-card__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #f4d77d;
+  font-weight: 800;
+}
+
+.ac-home-level-card__heading span:last-child {
+  color: #b9afca;
+  font-size: .82rem;
+}
+
+.ac-home-level-progress {
+  height: 9px;
+  margin-top: 16px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: rgba(255,255,255,.12);
+}
+
+.ac-home-level-progress__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg,#7540ce,#d9b64f);
+  box-shadow: 0 0 15px rgba(212,175,55,.35);
+}
+
+.ac-home-arena {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 290px;
+  padding: clamp(24px,5vw,50px);
+  overflow: hidden;
+  border: 1px solid rgba(139,92,246,.38);
+  border-radius: 25px;
+  background:
+    radial-gradient(circle at 80% 50%,rgba(132,77,205,.3),transparent 32%),
+    linear-gradient(120deg,#211536,#100c1c 70%);
+  box-shadow: 0 20px 55px rgba(0,0,0,.3);
+}
+
+.ac-home-arena__decoration {
+  position: absolute;
+  inset: 0;
+  opacity: .16;
+  background-image:
+    linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px);
+  background-size: 34px 34px;
+  mask-image: linear-gradient(90deg,black,transparent);
+}
+
+.ac-home-arena__symbol {
+  position: absolute;
+  right: 9%;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(231,199,112,.22);
+  font-size: clamp(120px,24vw,230px);
+  line-height: 1;
+  text-shadow: 0 0 55px rgba(212,175,55,.18);
+  pointer-events: none;
+}
+
+.ac-home-arena__content {
+  position: relative;
+  z-index: 1;
+  max-width: 620px;
+}
+
+.ac-home-arena h2 {
+  color: #fff;
+  font-size: clamp(1.7rem,4vw,2.7rem);
+}
+
+.ac-home-arena__content > p:not(.ac-home-eyebrow) {
+  margin-top: 12px;
+  color: #c8bfd7;
+  line-height: 1.6;
+}
+
+.ac-home-arena__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 25px;
+}
+
+.ac-home-play-button,
+.ac-home-training-button {
+  min-height: 48px;
+  padding: 0 23px;
+  border-radius: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform .2s,box-shadow .2s;
+}
+
+.ac-home-play-button {
+  color: #211507;
+  border: 1px solid #f5dc8a;
+  background: linear-gradient(135deg,#fff0a8,#d4af37 55%,#a77b22);
+  box-shadow: 0 8px 24px rgba(212,175,55,.2);
+}
+
+.ac-home-training-button {
+  color: #fff;
+  border: 1px solid rgba(181,144,255,.55);
+  background: rgba(117,64,206,.22);
+}
+
+.ac-home-play-button:hover,
+.ac-home-training-button:hover,
+.ac-home-mode-card:hover {
+  transform: translateY(-3px);
+}
+
+.ac-home-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.ac-home-section-heading h2 {
+  color: #fff;
+  font-size: clamp(1.4rem,3vw,2rem);
+}
+
+.ac-home-section-heading p {
+  margin-top: 6px;
+  color: #a99fb9;
+  font-size: .9rem;
+}
+
+.ac-home-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  gap: 15px;
+}
+
+.ac-home-mode-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  min-height: 190px;
+  padding: 20px;
+  overflow: hidden;
+  color: #fff;
+  text-align: left;
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 100% 0%,rgba(139,92,246,.15),transparent 55%),
+    linear-gradient(145deg,rgba(35,25,53,.95),rgba(15,12,25,.96));
+  box-shadow: 0 10px 28px rgba(0,0,0,.2);
+  cursor: pointer;
+  transition: .22s ease;
+}
+
+.ac-home-mode-card:hover {
+  border-color: rgba(212,175,55,.6);
+  box-shadow: 0 14px 32px rgba(0,0,0,.32),0 0 20px rgba(139,92,246,.12);
+}
+
+.ac-home-mode-card__icon {
+  margin-bottom: 13px;
+  font-size: 28px;
+}
+
+.ac-home-mode-card__badge {
+  color: #d9b95e;
+  font-size: .65rem;
+  font-weight: 900;
+  letter-spacing: .16em;
+}
+
+.ac-home-mode-card h3 {
+  margin: 7px 0;
+  font-family: "Cinzel",Georgia,serif;
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.ac-home-mode-card p {
+  color: #aaa0ba;
+  font-size: .78rem;
+  line-height: 1.5;
+}
+
+.ac-home-mode-card__arrow {
+  align-self: flex-end;
+  margin-top: auto;
+  padding-top: 12px;
+  color: #e5c66f;
+  font-size: 1.2rem;
+}
+
+.ac-home-extras {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 14px;
+}
+
+.ac-home-extra-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 12px;
+  color: #e8def7;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 14px;
+  background: rgba(27,20,42,.85);
+  font-weight: 700;
+  cursor: pointer;
+  transition: .2s;
+}
+
+.ac-home-extra-button:hover {
+  color: #f4d77d;
+  border-color: rgba(212,175,55,.5);
+  background: rgba(48,33,70,.9);
+}
+
+.ac-home-menu-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: flex;
+  background: rgba(0,0,0,.68);
+  backdrop-filter: blur(5px);
+}
+
+.ac-home-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(340px,85vw);
+  height: 100%;
+  padding: 22px;
+  border-right: 1px solid rgba(212,175,55,.3);
+  background: #100c1b;
+  box-shadow: 20px 0 50px rgba(0,0,0,.4);
+}
+
+.ac-home-menu__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 18px;
+  color: #e9ca70;
+  border-bottom: 1px solid rgba(255,255,255,.1);
+  font-family: "Cinzel",Georgia,serif;
+}
+
+.ac-home-menu__close {
+  width: 38px;
+  height: 38px;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 10px;
+  background: rgba(255,255,255,.07);
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.ac-home-menu__item {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  color: #e8e0f2;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.ac-home-menu__item:hover {
+  color: #f3d77d;
+  border-color: rgba(212,175,55,.25);
+  background: rgba(139,92,246,.12);
+}
+
+@media (max-width: 900px) {
+  .ac-home-mode-grid {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .ac-home-layout {
+    padding: 10px;
+  }
+
+  .ac-home-topbar {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 11px;
+  }
+
+  .ac-home-topbar__left {
+    flex: 1 1 100%;
+  }
+
+  .ac-home-resources {
+    width: 100%;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .ac-home-resource {
+    flex: 1;
+    padding: 8px 5px;
+    font-size: .75rem;
+  }
+
+  .ac-home-welcome {
+    grid-template-columns: minmax(0,1fr);
+    gap: 18px;
+    padding: 22px 18px;
+  }
+
+  .ac-home-welcome h1 {
+    font-size: 1.8rem;
+  }
+
+  .ac-home-arena {
+    min-height: 270px;
+    padding: 24px 19px;
+  }
+
+  .ac-home-arena__symbol {
+    right: -4%;
+    font-size: 145px;
+    opacity: .7;
+  }
+
+  .ac-home-arena__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ac-home-play-button,
+  .ac-home-training-button {
+    width: 100%;
+  }
+
+  .ac-home-mode-grid {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap: 10px;
+  }
+
+  .ac-home-mode-card {
+    min-height: 175px;
+    padding: 14px;
+  }
+
+  .ac-home-mode-card h3 {
+    font-size: .9rem;
+  }
+
+  .ac-home-mode-card p {
+    font-size: .72rem;
+  }
+
+  .ac-home-extras {
+    grid-template-columns: 1fr;
+    gap: 9px;
+  }
+
+  .ac-home-extra-button {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 360px) {
+  .ac-home-mode-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ac-home-welcome h1 {
+    font-size: 1.55rem;
+  }
+}
+
+/* =========================================================
+   CORRECTION 23 — PART 1 COMPLETE
+   FILE COMPLETE: css/home-screen.css
+   ========================================================= */
