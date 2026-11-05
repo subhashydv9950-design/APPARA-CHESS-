@@ -1,8 +1,8 @@
 /* =========================================================
    APPARA CHESS
-   CORRECTION 20 — COMPLETE FILE
+   CORRECTION 22 — COMPLETE FILE
    FILE: js/services/account-session-service.js
-   PURPOSE: Firebase account profile session management
+   PURPOSE: Firebase account session and cloud profile
    ========================================================= */
 
 import { PlayerService } from "./player-service.js";
@@ -66,13 +66,44 @@ export class AccountSessionService {
         authService: this.authService
       });
 
+      // Firebase Auth का मूल User Data प्राप्त करें।
+      const firebaseUser = this.firebaseService.auth?.currentUser;
+      const profile = player.getProfile();
+
+      // सुरक्षित User Data में email/photoURL न होने पर
+      // Firebase के मूल User Data से प्रोफाइल अपडेट करें।
+      if (profile && firebaseUser) {
+        const updates = {};
+
+        if (!profile.email && firebaseUser.email) {
+          updates.email = firebaseUser.email;
+        }
+
+        if (!profile.avatar && firebaseUser.photoURL) {
+          updates.avatar = firebaseUser.photoURL;
+        }
+
+        if (
+          !profile.displayName &&
+          firebaseUser.displayName
+        ) {
+          updates.displayName = firebaseUser.displayName;
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await player.updateProfile(updates);
+        }
+      }
+
       this.playerService = player;
       this.activeUid = currentUser.uid;
 
       return player;
+
     } catch (error) {
       this.disposePlayer();
       throw error;
+
     } finally {
       this.loading = false;
     }
@@ -94,7 +125,10 @@ export class AccountSessionService {
     try {
       this.playerService?.dispose?.();
     } catch (error) {
-      console.warn("Player session cleanup failed:", error);
+      console.warn(
+        "Player session cleanup failed:",
+        error
+      );
     }
 
     this.playerService = null;
@@ -109,5 +143,5 @@ export class AccountSessionService {
 
 /* =========================================================
    FILE: js/services/account-session-service.js
-   FULL FILE COMPLETE — CORRECTION NUMBER 20
+   CORRECTION 22 COMPLETE — FULL FILE COMPLETE
    ========================================================= */
