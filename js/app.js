@@ -1,6 +1,6 @@
 /* =========================================================
    APPARA CHESS
-   CORRECTION 12A — PART 1/2
+   CORRECTION 19 — PART 1/2
    FILE: js/app.js
    ========================================================= */
 
@@ -17,6 +17,9 @@ import { InventoryService } from "./services/inventory-service.js";
 import { SettingsService } from "./services/settings-service.js";
 import { RankService } from "./services/rank-service.js";
 
+import { FirebaseBootstrap } from "./services/firebase-bootstrap.js";
+import { AuthScreen } from "./screens/auth-screen.js";
+
 import { HomeScreen } from "./screens/home-screen.js";
 import { GameScreen } from "./screens/game-screen.js";
 import { OnlineScreen } from "./screens/online-screen.js";
@@ -32,11 +35,11 @@ import { AboutScreen } from "./screens/about-screen.js";
 
 import { createGameSession } from "./chess/game-session.js";
 
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "1.2.0";
 
 /* ---------------------------------------------------------
-   1. OFFLINE GUEST PLAYER
---------------------------------------------------------- */
+   OFFLINE GUEST PLAYER
+   --------------------------------------------------------- */
 
 class GuestPlayerService {
   constructor() {
@@ -54,7 +57,6 @@ class GuestPlayerService {
     }
 
     this.profile = saved || this.createProfile();
-
     this.profile.isGuest = true;
 
     this.profile.stats ||= {
@@ -184,7 +186,6 @@ class GuestPlayerService {
     if (!this.profile) return false;
 
     this.profile.updatedAt = Date.now();
-
     StorageService.saveGuestProfile(this.profile);
 
     this.emit("profileUpdated", {
@@ -197,7 +198,6 @@ class GuestPlayerService {
   async updateProfile(updates = {}) {
     Object.assign(this.profile, updates);
     await this.saveProfile();
-
     return this.getProfileSnapshot();
   }
 
@@ -209,7 +209,6 @@ class GuestPlayerService {
     }
 
     this.profile.displayName = value;
-
     return this.saveProfile();
   }
 
@@ -230,7 +229,6 @@ class GuestPlayerService {
 
   async recordGameResult(result = {}) {
     const stats = this.profile.stats;
-
     stats.gamesPlayed++;
 
     if (result.result === "win") {
@@ -250,7 +248,6 @@ class GuestPlayerService {
     }
 
     this.listeners.get(eventName).add(callback);
-
     return () => this.off(eventName, callback);
   }
 
@@ -274,8 +271,8 @@ class GuestPlayerService {
 }
 
 /* ---------------------------------------------------------
-   2. MAIN APP CLASS
---------------------------------------------------------- */
+   MAIN APP CLASS
+   --------------------------------------------------------- */
 
 class App {
   constructor() {
@@ -283,6 +280,11 @@ class App {
     this.eventBus = EventBus;
 
     this.playerService = new GuestPlayerService();
+
+    this.firebaseBootstrap = new FirebaseBootstrap();
+    this.firebaseService = null;
+    this.authService = null;
+    this.firebaseAvailable = false;
 
     this.navigation = null;
     this.components = null;
@@ -303,8 +305,8 @@ class App {
   }
 
   /* -------------------------------------------------------
-     3. INITIALIZE APPLICATION
-  ------------------------------------------------------- */
+     INITIALIZE APPLICATION
+     ------------------------------------------------------- */
 
   async initialize() {
     if (this.initialized) return this;
@@ -313,6 +315,24 @@ class App {
 
     try {
       this.playerService.initialize();
+
+      // Firebase failure must not block offline guest mode.
+      try {
+        const services = await this.firebaseBootstrap.initialize();
+
+        this.firebaseService = services.firebaseService;
+        this.authService = services.authService;
+        this.firebaseAvailable = true;
+
+        console.info("[APPARA CHESS] Firebase initialized.");
+      } catch (firebaseError) {
+        this.firebaseAvailable = false;
+
+        console.warn(
+          "[APPARA CHESS] Firebase unavailable. Offline mode remains active.",
+          firebaseError
+        );
+      }
 
       this.components = new UIComponents({
         eventBus: this.eventBus,
@@ -326,42 +346,7 @@ class App {
 
       this.modalManager.initialize();
 
-      this.progressionService = new ProgressionService({
-        playerService: this.playerService
-      });
-
-      this.progressionService.initialize(this.playerService);
-
-      this.economyService = new EconomyService({
-        playerService: this.playerService
-      });
-
-      this.economyService.initialize({
-        playerService: this.playerService
-      });
-
-      this.inventoryService = new InventoryService({
-        playerService: this.playerService,
-        economyService: this.economyService
-      });
-
-      this.inventoryService.initialize({
-        playerService: this.playerService,
-        economyService: this.economyService
-      });
-
-      this.settingsService = new SettingsService({
-        playerService: this.playerService,
-        eventBus: this.eventBus
-      });
-
-      this.settingsService.initialize();
-
-      this.rankService = new RankService({
-        playerService: this.playerService
-      });
-
-      this.rankService.initialize(this.playerService);
+      this.initializeGameServices();
 
       this.navigation = new Navigation({
         document: this.document,
@@ -377,7 +362,6 @@ class App {
       }
 
       this.navigation.initialize(container);
-
       this.registerRoutes();
 
       const opened = await this.navigation.navigate(
@@ -397,7 +381,8 @@ class App {
       this.hideLoading();
 
       this.eventBus.emit(APP_EVENTS.APP.READY, {
-        version: APP_VERSION
+        version: APP_VERSION,
+        firebaseAvailable: this.firebaseAvailable
       });
 
       return this;
@@ -410,8 +395,51 @@ class App {
   }
 
   /* -------------------------------------------------------
-     4. SCREEN OPTIONS
-  ------------------------------------------------------- */
+     INITIALIZE GAME SERVICES
+     ------------------------------------------------------- */
+
+  initializeGameServices() {
+    this.progressionService = new ProgressionService({
+      playerService: this.playerService
+    });
+
+    this.progressionService.initialize(this.playerService);
+
+    this.economyService = new EconomyService({
+      playerService: this.playerService
+    });
+
+    this.economyService.initialize({
+      playerService: this.playerService
+    });
+
+    this.inventoryService = new InventoryService({
+      playerService: this.playerService,
+      economyService: this.economyService
+    });
+
+    this.inventoryService.initialize({
+      playerService: this.playerService,
+      economyService: this.economyService
+    });
+
+    this.settingsService = new SettingsService({
+      playerService: this.playerService,
+      eventBus: this.eventBus
+    });
+
+    this.settingsService.initialize();
+
+    this.rankService = new RankService({
+      playerService: this.playerService
+    });
+
+    this.rankService.initialize(this.playerService);
+  }
+
+  /* -------------------------------------------------------
+     SCREEN OPTIONS
+     ------------------------------------------------------- */
 
   getScreenOptions(container, extra = {}) {
     return {
@@ -426,24 +454,28 @@ class App {
       components: this.components,
       modalManager: this.modalManager,
       eventBus: this.eventBus,
+      authService: this.authService,
+      firebaseService: this.firebaseService,
       ...extra
     };
   }
 
 /* =========================================================
-   CORRECTION 12A COMPLETE
+   CORRECTION 19 — PART 1 COMPLETE
    FILE NOT COMPLETE YET
-   NEXT: CORRECTION 12B — PART 2/2
+   NEXT: PART 2/2 — APP ROUTES AND CLEANUP
    ========================================================= */
+   
 /* =========================================================
    APPARA CHESS
-   CORRECTION 12B — PART 2/2
+   CORRECTION 19 — PART 2/2
    FILE: js/app.js
+   CONTINUE INSIDE App CLASS
    ========================================================= */
 
   /* -------------------------------------------------------
-     5. SCREEN ROUTE REGISTRATION
-  ------------------------------------------------------- */
+     SCREEN ROUTES
+     ------------------------------------------------------- */
 
   registerRoutes() {
     const routes = [
@@ -474,6 +506,57 @@ class App {
       });
     }
 
+    this.navigation.register("auth", {
+      title: "Player Login",
+
+      render: async () => {
+        this.destroyScreen("auth");
+
+        if (!this.authService || !this.firebaseAvailable) {
+          return this.createMessageScreen(
+            "Account Login",
+            "Firebase is currently unavailable. You can continue playing offline as a guest."
+          );
+        }
+
+        const mountNode = this.document.createElement("div");
+        mountNode.className = "ac-screen-content";
+
+        const screen = new AuthScreen({
+          authService: this.authService,
+          modalManager: this.modalManager,
+          components: this.components,
+          navigation: this.navigation,
+
+          onAuthSuccess: async (user, options = {}) => {
+            if (options.guest) {
+              return true;
+            }
+
+            // Authentication is complete. Keep the current
+            // offline game profile active until cloud profile
+            // synchronization is integrated separately.
+            this.authenticatedUser = user;
+
+            await this.navigation.navigate("home", {
+              authenticated: true
+            });
+
+            return true;
+          }
+        });
+
+        this.screenInstances.set("auth", screen);
+        screen.initialize(mountNode);
+
+        return mountNode;
+      },
+
+      afterLeave: async () => {
+        this.destroyScreen("auth");
+      }
+    });
+
     this.navigation.register("game", {
       title: "Chess Match",
 
@@ -484,15 +567,6 @@ class App {
       afterLeave: async () => {
         this.destroyGameScreen();
       }
-    });
-
-    this.navigation.register("auth", {
-      title: "Player Login",
-
-      render: async () => this.createMessageScreen(
-        "Player Login",
-        "Account sign-in will be available after authentication is configured."
-      )
     });
 
     this.navigation.register("review", {
@@ -506,8 +580,8 @@ class App {
   }
 
   /* -------------------------------------------------------
-     6. CREATE SCREEN
-  ------------------------------------------------------- */
+     CREATE SCREEN
+     ------------------------------------------------------- */
 
   renderScreen(name, ScreenClass, params = {}) {
     this.destroyScreen(name);
@@ -520,10 +594,12 @@ class App {
     });
 
     const screen = new ScreenClass(options);
-
     this.screenInstances.set(name, screen);
 
-    if (name === "home" && typeof screen.initialize === "function") {
+    if (
+      name === "home" &&
+      typeof screen.initialize === "function"
+    ) {
       screen.initialize(mountNode);
     } else if (typeof screen.mount === "function") {
       screen.mount(mountNode);
@@ -535,8 +611,8 @@ class App {
   }
 
   /* -------------------------------------------------------
-     7. GAME SCREEN
-  ------------------------------------------------------- */
+     GAME SCREEN
+     ------------------------------------------------------- */
 
   renderGameScreen(params = {}) {
     this.destroyGameScreen();
@@ -577,97 +653,36 @@ class App {
     this.screenInstances.set("game", gameScreen);
 
     const result = gameScreen.mount(mountNode);
-
     return result || gameScreen.root || mountNode;
   }
 
   /* -------------------------------------------------------
-     8. TIME CONTROL
-  ------------------------------------------------------- */
+     TIME CONTROL
+     ------------------------------------------------------- */
 
   getTimeControl(value) {
     const controls = {
-      "1+0": {
-        id: "1+0",
-        label: "Bullet 1+0",
-        minutes: 1,
-        increment: 0
-      },
-
-      "2+1": {
-        id: "2+1",
-        label: "Bullet 2+1",
-        minutes: 2,
-        increment: 1
-      },
-
-      "3+0": {
-        id: "3+0",
-        label: "Blitz 3+0",
-        minutes: 3,
-        increment: 0
-      },
-
-      "3+2": {
-        id: "3+2",
-        label: "Blitz 3+2",
-        minutes: 3,
-        increment: 2
-      },
-
-      "5+0": {
-        id: "5+0",
-        label: "Blitz 5+0",
-        minutes: 5,
-        increment: 0
-      },
-
-      "5+3": {
-        id: "5+3",
-        label: "Blitz 5+3",
-        minutes: 5,
-        increment: 3
-      },
-
-      "10+0": {
-        id: "10+0",
-        label: "Rapid 10+0",
-        minutes: 10,
-        increment: 0
-      },
-
-      "10+5": {
-        id: "10+5",
-        label: "Rapid 10+5",
-        minutes: 10,
-        increment: 5
-      },
-
-      "15+10": {
-        id: "15+10",
-        label: "Rapid 15+10",
-        minutes: 15,
-        increment: 10
-      },
-
-      "30+0": {
-        id: "30+0",
-        label: "Classical 30+0",
-        minutes: 30,
-        increment: 0
-      }
+      "1+0": { id: "1+0", label: "Bullet 1+0", minutes: 1, increment: 0 },
+      "2+1": { id: "2+1", label: "Bullet 2+1", minutes: 2, increment: 1 },
+      "3+0": { id: "3+0", label: "Blitz 3+0", minutes: 3, increment: 0 },
+      "3+2": { id: "3+2", label: "Blitz 3+2", minutes: 3, increment: 2 },
+      "5+0": { id: "5+0", label: "Blitz 5+0", minutes: 5, increment: 0 },
+      "5+3": { id: "5+3", label: "Blitz 5+3", minutes: 5, increment: 3 },
+      "10+0": { id: "10+0", label: "Rapid 10+0", minutes: 10, increment: 0 },
+      "10+5": { id: "10+5", label: "Rapid 10+5", minutes: 10, increment: 5 },
+      "15+10": { id: "15+10", label: "Rapid 15+10", minutes: 15, increment: 10 },
+      "30+0": { id: "30+0", label: "Classical 30+0", minutes: 30, increment: 0 }
     };
 
     return controls[value] || controls["10+0"];
   }
 
   /* -------------------------------------------------------
-     9. SCREEN CLEANUP
-  ------------------------------------------------------- */
+     SCREEN CLEANUP
+     ------------------------------------------------------- */
 
   destroyScreen(name) {
     const screen = this.screenInstances.get(name);
-
     if (!screen) return;
 
     try {
@@ -696,8 +711,8 @@ class App {
   }
 
   /* -------------------------------------------------------
-     10. MESSAGE SCREEN
-  ------------------------------------------------------- */
+     MESSAGE SCREEN
+     ------------------------------------------------------- */
 
   createMessageScreen(title, message) {
     const section = this.document.createElement("section");
@@ -719,13 +734,12 @@ class App {
     });
 
     section.append(heading, paragraph, backButton);
-
     return section;
   }
 
   /* -------------------------------------------------------
-     11. LOADING SCREEN
-  ------------------------------------------------------- */
+     LOADING
+     ------------------------------------------------------- */
 
   showLoading(message = "Loading APPARA CHESS...") {
     const loading = this.document.getElementById("loading-screen");
@@ -767,8 +781,8 @@ class App {
   }
 
   /* -------------------------------------------------------
-     12. FATAL ERROR
-  ------------------------------------------------------- */
+     FATAL ERROR
+     ------------------------------------------------------- */
 
   showFatalError(error) {
     console.error("[APPARA CHESS] Startup failed:", error);
@@ -780,7 +794,6 @@ class App {
         <div class="ac-error-screen">
           <h2>APPARA CHESS</h2>
           <p>Game start nahi ho paya.</p>
-
           <button type="button" id="ac-retry-button">
             Try Again
           </button>
@@ -802,8 +815,8 @@ class App {
   }
 
   /* -------------------------------------------------------
-     13. SAFE SERVICE CLEANUP
-  ------------------------------------------------------- */
+     SERVICE CLEANUP
+     ------------------------------------------------------- */
 
   disposeService(service, serviceName) {
     if (!service) return;
@@ -823,8 +836,8 @@ class App {
   }
 
   /* -------------------------------------------------------
-     14. APP DISPOSAL
-  ------------------------------------------------------- */
+     APP DISPOSAL
+     ------------------------------------------------------- */
 
   destroy() {
     if (this.destroyed) return;
@@ -841,35 +854,20 @@ class App {
     this.disposeService(this.modalManager, "Modal Manager");
     this.disposeService(this.components, "UI Components");
 
-    this.disposeService(
-      this.progressionService,
-      "Progression Service"
-    );
+    this.disposeService(this.progressionService, "Progression Service");
+    this.disposeService(this.economyService, "Economy Service");
+    this.disposeService(this.inventoryService, "Inventory Service");
+    this.disposeService(this.settingsService, "Settings Service");
+    this.disposeService(this.rankService, "Rank Service");
 
-    this.disposeService(
-      this.economyService,
-      "Economy Service"
-    );
+    this.disposeService(this.playerService, "Player Service");
 
-    this.disposeService(
-      this.inventoryService,
-      "Inventory Service"
-    );
+    // FirebaseBootstrap owns both FirebaseService and AuthService.
+    this.disposeService(this.firebaseBootstrap, "Firebase Bootstrap");
 
-    this.disposeService(
-      this.settingsService,
-      "Settings Service"
-    );
-
-    this.disposeService(
-      this.rankService,
-      "Rank Service"
-    );
-
-    this.disposeService(
-      this.playerService,
-      "Player Service"
-    );
+    this.firebaseService = null;
+    this.authService = null;
+    this.firebaseAvailable = false;
 
     this.eventBus?.emit?.(APP_EVENTS.APP.ERROR, {
       message: "Application stopped."
@@ -880,8 +878,8 @@ class App {
 }
 
 /* ---------------------------------------------------------
-   15. APPLICATION INSTANCE
---------------------------------------------------------- */
+   APPLICATION INSTANCE
+   --------------------------------------------------------- */
 
 let appInstance = null;
 
@@ -913,8 +911,8 @@ export function stopApp() {
 }
 
 /* ---------------------------------------------------------
-   16. GLOBAL ERROR HANDLING
---------------------------------------------------------- */
+   GLOBAL ERROR HANDLING
+   --------------------------------------------------------- */
 
 if (typeof globalThis.addEventListener === "function") {
   globalThis.addEventListener("unhandledrejection", event => {
@@ -933,8 +931,8 @@ if (typeof globalThis.addEventListener === "function") {
 }
 
 /* ---------------------------------------------------------
-   17. START APPLICATION
---------------------------------------------------------- */
+   START APPLICATION
+   --------------------------------------------------------- */
 
 function bootApp() {
   startApp().catch(error => {
@@ -955,6 +953,7 @@ if (globalThis.document) {
 }
 
 /* =========================================================
-   CORRECTION 12B COMPLETE
-   FULL FILE COMPLETE — CORRECTION NUMBER 12
+   FILE: js/app.js
+   FULL FILE COMPLETE — CORRECTION NUMBER 19
    ========================================================= */
+     
