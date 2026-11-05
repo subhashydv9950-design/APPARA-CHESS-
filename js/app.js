@@ -1,6 +1,7 @@
+
 /* =========================================================
    APPARA CHESS
-   CORRECTION 19 — PART 1/2
+   CORRECTION 21 — PART 1/2
    FILE: js/app.js
    ========================================================= */
 
@@ -18,6 +19,7 @@ import { SettingsService } from "./services/settings-service.js";
 import { RankService } from "./services/rank-service.js";
 
 import { FirebaseBootstrap } from "./services/firebase-bootstrap.js";
+import { AccountSessionService } from "./services/account-session-service.js";
 import { AuthScreen } from "./screens/auth-screen.js";
 
 import { HomeScreen } from "./screens/home-screen.js";
@@ -286,6 +288,10 @@ class App {
     this.authService = null;
     this.firebaseAvailable = false;
 
+    this.accountSessionService = null;
+    this.accountActivationPromise = null;
+    this.authenticatedUser = null;
+
     this.navigation = null;
     this.components = null;
     this.modalManager = null;
@@ -399,6 +405,13 @@ class App {
      ------------------------------------------------------- */
 
   initializeGameServices() {
+    // Rebuild dependent services whenever the active player changes.
+    this.disposeService(this.progressionService, "Progression Service");
+    this.disposeService(this.economyService, "Economy Service");
+    this.disposeService(this.inventoryService, "Inventory Service");
+    this.disposeService(this.settingsService, "Settings Service");
+    this.disposeService(this.rankService, "Rank Service");
+
     this.progressionService = new ProgressionService({
       playerService: this.playerService
     });
@@ -406,11 +419,13 @@ class App {
     this.progressionService.initialize(this.playerService);
 
     this.economyService = new EconomyService({
-      playerService: this.playerService
+      playerService: this.playerService,
+      firebaseService: this.firebaseService
     });
 
     this.economyService.initialize({
-      playerService: this.playerService
+      playerService: this.playerService,
+      firebaseService: this.firebaseService
     });
 
     this.inventoryService = new InventoryService({
@@ -437,6 +452,71 @@ class App {
     this.rankService.initialize(this.playerService);
   }
 
+  /* =========================================================
+     PART 1 COMPLETE — FILE NOT COMPLETE YET
+     NEXT: PART 2/2
+     ========================================================= */
+  
+  /* -------------------------------------------------------
+     ACTIVATE FIREBASE ACCOUNT SESSION
+     ------------------------------------------------------- */
+
+  async activateAccountSession(user) {
+    if (!user?.uid) {
+      throw new Error("Signed-in account could not be identified.");
+    }
+
+    if (!this.firebaseAvailable || !this.firebaseService || !this.authService) {
+      throw new Error("Firebase account services are unavailable.");
+    }
+
+    // Auth state events can trigger the same callback more than once.
+    if (
+      this.authenticatedUser?.uid === user.uid &&
+      this.accountSessionService?.isCloudAccountActive?.()
+    ) {
+      return this.playerService;
+    }
+
+    if (this.accountActivationPromise) {
+      return this.accountActivationPromise;
+    }
+
+    if (!this.accountSessionService) {
+      this.accountSessionService = new AccountSessionService({
+        firebaseService: this.firebaseService,
+        authService: this.authService,
+        storageService: StorageService
+      });
+    }
+
+    this.accountActivationPromise = (async () => {
+      try {
+        const cloudPlayer = await this.accountSessionService.activate(user);
+
+        if (!cloudPlayer?.getProfile?.()) {
+          throw new Error("Cloud player profile could not be loaded.");
+        }
+
+        this.playerService = cloudPlayer;
+
+        // Reconnect progression, economy, inventory and rank
+        // services to the newly activated cloud player.
+        this.initializeGameServices();
+
+        this.authenticatedUser = user;
+
+        console.info("[APPARA CHESS] Cloud player profile activated.");
+
+        return cloudPlayer;
+      } finally {
+        this.accountActivationPromise = null;
+      }
+    })();
+
+    return this.accountActivationPromise;
+  }
+
   /* -------------------------------------------------------
      SCREEN OPTIONS
      ------------------------------------------------------- */
@@ -459,19 +539,6 @@ class App {
       ...extra
     };
   }
-
-/* =========================================================
-   CORRECTION 19 — PART 1 COMPLETE
-   FILE NOT COMPLETE YET
-   NEXT: PART 2/2 — APP ROUTES AND CLEANUP
-   ========================================================= */
-   
-/* =========================================================
-   APPARA CHESS
-   CORRECTION 19 — PART 2/2
-   FILE: js/app.js
-   CONTINUE INSIDE App CLASS
-   ========================================================= */
 
   /* -------------------------------------------------------
      SCREEN ROUTES
@@ -533,13 +600,11 @@ class App {
               return true;
             }
 
-            // Authentication is complete. Keep the current
-            // offline game profile active until cloud profile
-            // synchronization is integrated separately.
-            this.authenticatedUser = user;
+            await this.activateAccountSession(user);
 
             await this.navigation.navigate("home", {
-              authenticated: true
+              authenticated: true,
+              cloudProfile: true
             });
 
             return true;
@@ -860,6 +925,14 @@ class App {
     this.disposeService(this.settingsService, "Settings Service");
     this.disposeService(this.rankService, "Rank Service");
 
+    this.disposeService(
+      this.accountSessionService,
+      "Account Session Service"
+    );
+
+    this.accountSessionService = null;
+    this.accountActivationPromise = null;
+
     this.disposeService(this.playerService, "Player Service");
 
     // FirebaseBootstrap owns both FirebaseService and AuthService.
@@ -954,6 +1027,6 @@ if (globalThis.document) {
 
 /* =========================================================
    FILE: js/app.js
-   FULL FILE COMPLETE — CORRECTION NUMBER 19
+   PART 2 COMPLETE — FULL FILE COMPLETE
+   CORRECTION NUMBER 21
    ========================================================= */
-     
