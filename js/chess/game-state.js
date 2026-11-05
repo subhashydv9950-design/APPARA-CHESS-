@@ -1,4 +1,3 @@
-
 /* =========================================================
    APPARA CHESS
    FILE 17: game-state.js
@@ -339,13 +338,9 @@ export class GameState {
     }
 
     if (chessStatus?.gameOver) {
-
       this.finishFromEngineStatus(chessStatus);
-
     } else {
-
       this.lastKnownStatus = chessStatus;
-
     }
 
     return {
@@ -354,8 +349,7 @@ export class GameState {
       snapshot: this.getState()
     };
   }
-
-
+   
   /* -------------------------------------------------------
      10. FINISH GAME FROM CHESS ENGINE
   ------------------------------------------------------- */
@@ -369,9 +363,13 @@ export class GameState {
     let result = "draw";
     let reason = status.reason || status.state || "game-over";
 
-    if (status.winner === "w") {
+    // ChessEngine winner formats: white/black and w/b.
+    if (status.winner === "w" || status.winner === "white") {
       result = "white";
-    } else if (status.winner === "b") {
+    } else if (
+      status.winner === "b" ||
+      status.winner === "black"
+    ) {
       result = "black";
     }
 
@@ -573,13 +571,22 @@ export class GameState {
 
     const result = this.engine.undoMove();
 
-    if (!result.success) {
-      return result;
+    if (!result || !result.success) {
+      return result || {
+        success: false,
+        error: "Unable to undo the move."
+      };
     }
 
-    this.state.lastMove = null;
+    const history = this.engine.getHistory();
+
+    // Restore the actual previous move, if one remains.
+    this.state.lastMove = history.length
+      ? cloneData(history[history.length - 1])
+      : null;
+
     this.state.currentTurn = this.engine.getTurn();
-    this.state.moveCount = this.engine.getHistory().length;
+    this.state.moveCount = history.length;
 
     this.lastKnownStatus = this.engine.getGameStatus();
 
@@ -598,8 +605,7 @@ export class GameState {
       snapshot: this.getState()
     };
   }
-
-
+   
   /* -------------------------------------------------------
      15. PAUSE GAME
   ------------------------------------------------------- */
@@ -679,20 +685,53 @@ export class GameState {
       };
     }
 
-    const result = this.engine.loadFEN(fen);
-
-    if (!result.success) {
-      return result;
+    if (typeof fen !== "string" || !fen.trim()) {
+      return {
+        success: false,
+        error: "A valid FEN position is required."
+      };
     }
 
-    this.state.currentTurn = this.engine.getTurn();
-    this.state.moveCount = this.engine.getHistory().length;
-    this.state.lastMove = null;
+    try {
 
-    return {
-      success: true,
-      state: this.getState()
-    };
+      // ChessEngine.loadFEN returns a snapshot on success.
+      // It does not return a { success: true } wrapper.
+      const snapshot = this.engine.loadFEN(fen.trim());
+
+      if (!snapshot || !snapshot.fen) {
+        return {
+          success: false,
+          error: "Unable to load the supplied FEN position."
+        };
+      }
+
+      this.state.currentTurn = this.engine.getTurn();
+      this.state.moveCount = this.engine.getHistory().length;
+      this.state.lastMove = null;
+      this.state.result = null;
+      this.state.resultReason = null;
+      this.state.drawClaim = null;
+      this.state.endedAt = null;
+
+      this.lastKnownStatus = this.engine.getGameStatus();
+
+      EventBus.emit(APP_EVENTS.GAME.POSITION_UPDATED, {
+        fen: this.engine.getFEN(),
+        board: this.engine.getSnapshot()
+      });
+
+      return {
+        success: true,
+        state: this.getState()
+      };
+
+    } catch (error) {
+
+      return {
+        success: false,
+        error: error?.message || "Invalid FEN position."
+      };
+    }
   }
 
 
@@ -706,21 +745,31 @@ export class GameState {
       ? options.mode
       : this.state.mode;
 
-    this.engine = new ChessEngine(
-      options.startingFen || STARTING_FEN
-    );
+    try {
 
-    this.state = this.createInitialState({
-      ...options,
-      mode
-    });
+      this.engine = new ChessEngine(
+        options.startingFen || STARTING_FEN
+      );
 
-    this.lastKnownStatus = this.engine.getGameStatus();
+      this.state = this.createInitialState({
+        ...options,
+        mode
+      });
 
-    return {
-      success: true,
-      state: this.getState()
-    };
+      this.lastKnownStatus = this.engine.getGameStatus();
+
+      return {
+        success: true,
+        state: this.getState()
+      };
+
+    } catch (error) {
+
+      return {
+        success: false,
+        error: error?.message || "Unable to reset the game."
+      };
+    }
   }
 
 
@@ -771,5 +820,5 @@ export function createGameState(options = {}) {
 /* =========================================================
    FILE 17 END
    FILE: js/chess/game-state.js
+   FULL FILE COMPLETE
    ========================================================= */
-   
