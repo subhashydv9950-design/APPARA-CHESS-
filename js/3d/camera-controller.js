@@ -1,49 +1,41 @@
-
 /* =========================================================
    APPARA CHESS
    FILE: js/3d/camera-controller.js
-   PURPOSE: 3D Chess Camera Controller
-   Features:
-   - Mouse orbit
-   - Mobile touch orbit
-   - Smooth zoom
-   - Camera presets
-   - Reset camera
+   PREMIUM 3D CAMERA CONTROLLER
+   FULL FILE REPLACEMENT
    ========================================================= */
 
 import * as THREE from "three";
 
-const CAMERA_TARGET = new THREE.Vector3(0, 1, 0);
-
 const CAMERA_PRESETS = {
   classic: {
     position: [10, 12, 15],
-    target: [0, 1, 0]
+    target: [0, 1.7, 0]
   },
 
   top: {
     position: [0, 20, 0.01],
-    target: [0, 1, 0]
+    target: [0, 1.7, 0]
   },
 
   cinematic: {
     position: [13, 8, 17],
-    target: [0, 1, 0]
+    target: [0, 1.7, 0]
   },
 
   close: {
     position: [6, 8, 9],
-    target: [0, 1, 0]
+    target: [0, 1.7, 0]
   },
 
   white: {
     position: [0, 10, 16],
-    target: [0, 1, 0]
+    target: [0, 1.7, 0]
   },
 
   black: {
     position: [0, 10, -16],
-    target: [0, 1, 0]
+    target: [0, 1.7, 0]
   }
 };
 
@@ -51,7 +43,7 @@ export class ChessCameraController {
   constructor(camera, element, options = {}) {
     if (!camera || !element) {
       throw new Error(
-        "ChessCameraController requires a camera and DOM element."
+        "ChessCameraController requires camera and element."
       );
     }
 
@@ -66,10 +58,13 @@ export class ChessCameraController {
       minPolarAngle: 0.12,
       maxPolarAngle: Math.PI * 0.46,
       damping: 0.16,
+      target: new THREE.Vector3(0, 1.7, 0),
       ...options
     };
 
-    this.target = CAMERA_TARGET.clone();
+    this.target = this.options.target.isVector3
+      ? this.options.target.clone()
+      : new THREE.Vector3(0, 1.7, 0);
 
     this.currentSpherical = new THREE.Spherical();
     this.targetSpherical = new THREE.Spherical();
@@ -149,8 +144,6 @@ export class ChessCameraController {
     this.pointerX = event.clientX;
     this.pointerY = event.clientY;
     this.isRotating = true;
-
-    this.element.setPointerCapture?.(event.pointerId);
   }
 
   onPointerMove(event) {
@@ -180,10 +173,6 @@ export class ChessCameraController {
   onPointerUp(event) {
     if (this.pointerId !== event.pointerId) return;
 
-    try {
-      this.element.releasePointerCapture?.(event.pointerId);
-    } catch (_) {}
-
     this.pointerId = null;
     this.isRotating = false;
   }
@@ -193,11 +182,11 @@ export class ChessCameraController {
 
     event.preventDefault();
 
-    const zoomFactor = Math.exp(
+    const factor = Math.exp(
       event.deltaY * this.options.zoomSpeed
     );
 
-    this.targetSpherical.radius *= zoomFactor;
+    this.targetSpherical.radius *= factor;
 
     this.targetSpherical.radius = THREE.MathUtils.clamp(
       this.targetSpherical.radius,
@@ -291,6 +280,11 @@ export class ChessCameraController {
     return true;
   }
 
+  // Compatibility with ThreeChessEngine
+  setPreset(view = "classic") {
+    return this.setView(view, false);
+  }
+
   zoom(factor = 1) {
     if (this.disposed || !Number.isFinite(factor)) {
       return false;
@@ -324,6 +318,11 @@ export class ChessCameraController {
 
   setEnabled(enabled) {
     this.enabled = Boolean(enabled);
+
+    if (!this.enabled) {
+      this.pointerId = null;
+      this.isRotating = false;
+    }
   }
 
   dispose() {
@@ -364,6 +363,18 @@ export class ChessCameraController {
     this.pointerId = null;
     this.isRotating = false;
   }
+}
+
+export function createChessCameraController(
+  camera,
+  element,
+  options = {}
+) {
+  return new ChessCameraController(
+    camera,
+    element,
+    options
+  );
 }
 
 /* =========================================================
