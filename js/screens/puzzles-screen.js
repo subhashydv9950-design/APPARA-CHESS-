@@ -18,6 +18,11 @@ const PUZZLE_DIFFICULTIES = [
   { id: "expert", label: "Expert" }
 ];
 
+const PUZZLE_PIECES = {
+  K: "♔", Q: "♕", R: "♖", B: "♗", N: "♘", P: "♙",
+  k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟"
+};
+
 export class PuzzlesScreen {
   constructor(options = {}) {
     this.container = options.container || null;
@@ -37,13 +42,18 @@ export class PuzzlesScreen {
     this.attempts = 0;
     this.hintsUsed = 0;
 
+    this.boardPosition = [];
+    this.playerColor = "w";
+    this.positionTurn = "w";
+
+    this.selectedSquare = null;
     this.loading = false;
     this.solved = false;
     this.destroyed = false;
+    this.loadToken = 0;
 
-    this.selectedSquare = null;
-    this.unsubscribePuzzle = null;
     this.elements = {};
+    this.boundClick = event => this.handleClick(event);
   }
 
   mount(container = this.container) {
@@ -55,7 +65,8 @@ export class PuzzlesScreen {
     this.destroyed = false;
 
     this.render();
-    this.bindEvents();
+    this.container.addEventListener("click", this.boundClick);
+
     this.loadPuzzleProgress();
     this.loadSelectedCategory();
 
@@ -68,7 +79,7 @@ export class PuzzlesScreen {
 
         <header class="puzzles-header">
           <button type="button" class="puzzles-back-button"
-            data-action="back">←</button>
+            data-action="back" aria-label="Go back">←</button>
 
           <div class="puzzles-heading">
             <span class="puzzles-eyebrow">APPARA CHESS ACADEMY</span>
@@ -113,6 +124,7 @@ export class PuzzlesScreen {
           <div class="puzzles-section-heading">
             <h2>Puzzle Categories</h2>
           </div>
+
           <div class="puzzles-category-grid">
             ${PUZZLE_CATEGORIES.map(category => `
               <button type="button"
@@ -159,7 +171,7 @@ export class PuzzlesScreen {
           </div>
 
           <p class="puzzles-prompt" data-role="prompt">
-            Select the piece and then its destination square.
+            Select a piece and then its destination square.
           </p>
 
           <div class="puzzles-feedback" data-role="feedback"
@@ -217,60 +229,54 @@ export class PuzzlesScreen {
     this.elements.nextButton = find('[data-action="next"]');
   }
 
-  bindEvents() {
-    this.container.addEventListener("click", event => {
-      const category = event.target.closest("[data-category]");
+  handleClick(event) {
+    const target = event.target.closest(
+      "[data-action], [data-category], [data-difficulty], [data-square]"
+    );
 
-      if (category) {
-        this.selectCategory(category.dataset.category);
-        return;
-      }
+    if (!target || !this.container.contains(target)) return;
 
-      const difficulty = event.target.closest("[data-difficulty]");
+    if (target.dataset.category) {
+      this.selectCategory(target.dataset.category);
+      return;
+    }
 
-      if (difficulty) {
-        this.selectDifficulty(difficulty.dataset.difficulty);
-        return;
-      }
+    if (target.dataset.difficulty) {
+      this.selectDifficulty(target.dataset.difficulty);
+      return;
+    }
 
-      const square = event.target.closest("[data-square]");
+    if (target.dataset.square) {
+      this.selectBoardSquare(target.dataset.square);
+      return;
+    }
 
-      if (square) {
-        this.selectBoardSquare(square.dataset.square);
-        return;
-      }
-
-      const action = event.target.closest("[data-action]");
-
-      if (!action) return;
-
-      switch (action.dataset.action) {
-        case "back":
-          this.goBack();
-          break;
-        case "daily":
-          this.selectCategory("daily");
-          break;
-        case "hint":
-          this.showHint();
-          break;
-        case "check":
-          this.checkAnswer();
-          break;
-        case "next":
-          this.nextPuzzle();
-          break;
-        case "training":
-          this.navigation?.navigate("training");
-          break;
-        case "play":
-          this.navigation?.navigate("game", {
-            mode: "offline",
-            source: "puzzles"
-          });
-          break;
-      }
-    });
+    switch (target.dataset.action) {
+      case "back":
+        this.goBack();
+        break;
+      case "daily":
+        this.selectCategory("daily");
+        break;
+      case "hint":
+        this.showHint();
+        break;
+      case "check":
+        this.checkAnswer();
+        break;
+      case "next":
+        this.nextPuzzle();
+        break;
+      case "training":
+        this.navigation?.navigate("training");
+        break;
+      case "play":
+        this.navigation?.navigate("game", {
+          mode: "offline",
+          source: "puzzles"
+        });
+        break;
+    }
   }
 
   selectCategory(categoryId) {
@@ -326,10 +332,14 @@ export class PuzzlesScreen {
   }
 
   async loadSelectedCategory() {
-    if (this.loading || this.destroyed) return;
+    if (this.destroyed) return;
+
+    const token = ++this.loadToken;
 
     if (!this.puzzleService) {
-      this.showEmptyPuzzle("Puzzle service is not connected yet.");
+      this.showEmptyPuzzle(
+        "Puzzle service is not connected yet."
+      );
       return;
     }
 
@@ -340,7 +350,8 @@ export class PuzzlesScreen {
     this.elements.feedback.textContent = "";
     this.elements.board.innerHTML = `
       <div class="puzzles-loading">
-        <span>♟</span><p>Preparing your puzzle...</p>
+        <span>♟</span>
+        <p>Preparing your puzzle...</p>
       </div>
     `;
 
@@ -350,30 +361,27 @@ export class PuzzlesScreen {
       if (this.selectedCategory === "daily") {
         result = await this.puzzleService.getDailyPuzzle();
       } else {
-        const themeMap = {
-          mate: "mate",
-          tactics: "tactics",
-          endgame: "endgame"
-        };
-
         result = await this.puzzleService.getPuzzleSet({
           difficulty: this.selectedDifficulty,
-          theme: themeMap[this.selectedCategory],
+          theme: this.selectedCategory,
           limit: 10
         });
       }
 
-      if (this.destroyed) return;
+      if (this.destroyed || token !== this.loadToken) return;
 
       this.setPuzzleResult(result);
 
     } catch (error) {
-      this.showEmptyPuzzle(
-        error?.message || "Unable to load puzzles."
-      );
-
+      if (token === this.loadToken) {
+        this.showEmptyPuzzle(
+          error?.message || "Unable to load puzzles."
+        );
+      }
     } finally {
-      this.loading = false;
+      if (token === this.loadToken) {
+        this.loading = false;
+      }
     }
   }
 
@@ -392,20 +400,70 @@ export class PuzzlesScreen {
     }
 
     this.currentIndex = 0;
-    this.currentPuzzle = this.puzzleList[0] || null;
+    this.startCurrentPuzzle();
+  }
 
-    if (!this.currentPuzzle) {
+  startCurrentPuzzle() {
+    const puzzle = this.puzzleList[this.currentIndex];
+
+    if (!puzzle) {
       this.showEmptyPuzzle("No puzzle found in this category.");
       return;
     }
 
-    // PuzzleService requires startPuzzle before checkMove.
-    const started = this.puzzleService.startPuzzle(
-      this.currentPuzzle
-    );
+    try {
+      const started = this.puzzleService.startPuzzle(puzzle);
 
-    this.currentPuzzle = started.puzzle;
-    this.renderCurrentPuzzle();
+      this.currentPuzzle = started.puzzle;
+      this.initializeBoard(this.currentPuzzle);
+      this.resetPuzzleState();
+      this.renderCurrentPuzzle();
+
+    } catch (error) {
+      this.showEmptyPuzzle(
+        error?.message || "This puzzle could not be started."
+      );
+    }
+  }
+
+  initializeBoard(puzzle) {
+    const fen = String(puzzle.fen || "");
+    const fields = fen.split(" ");
+    const rows = fields[0]?.split("/") || [];
+
+    if (rows.length !== 8) {
+      throw new Error("Invalid puzzle board position.");
+    }
+
+    this.boardPosition = [];
+
+    for (const row of rows) {
+      const parsed = [];
+
+      for (const character of row) {
+        if (/\d/.test(character)) {
+          for (let i = 0; i < Number(character); i++) {
+            parsed.push("");
+          }
+        } else if (PUZZLE_PIECES[character]) {
+          parsed.push(character);
+        } else {
+          throw new Error("Invalid piece in puzzle position.");
+        }
+      }
+
+      if (parsed.length !== 8) {
+        throw new Error("Invalid chess board row.");
+      }
+
+      this.boardPosition.push(parsed);
+    }
+
+    this.positionTurn = fields[1] === "b" ? "b" : "w";
+    this.playerColor = puzzle.sideToMove === "b" ||
+      puzzle.sideToMove === "w"
+      ? puzzle.sideToMove
+      : this.positionTurn;
   }
 
   resetPuzzleState() {
@@ -436,105 +494,47 @@ export class PuzzlesScreen {
       String(puzzle.difficulty || this.selectedDifficulty).toUpperCase();
 
     this.elements.prompt.textContent =
-      puzzle.description || "Select a piece, then its destination square.";
+      puzzle.description || "Find the best move for your side.";
 
     this.elements.feedback.textContent = "";
-    this.elements.board.innerHTML = "";
+    this.elements.feedback.classList.remove("success", "error");
 
-    this.renderPuzzleBoard(puzzle);
+    this.renderPuzzleBoard();
   }
 
-  renderPuzzleBoard(puzzle) {
-    if (!puzzle.fen) {
-      this.showEmptyPuzzle("Board position is missing from this puzzle.");
-      return;
-    }
-
+  renderPuzzleBoard() {
     this.elements.board.innerHTML = `
       <div class="puzzles-board-frame">
         <div class="puzzles-board" data-role="puzzle-board">
-          ${this.createBoardSquares(puzzle.fen)}
+          ${this.createBoardSquares()}
         </div>
       </div>
     `;
   }
 
-  createBoardSquares(fen) {
-    const rows = fen.split(" ")[0].split("/");
-    const symbols = {
-      K: "♔", Q: "♕", R: "♖", B: "♗", N: "♘", P: "♙",
-      k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟"
-    };
-
-    if (rows.length !== 8) return "";
-
+  createBoardSquares() {
     let html = "";
 
-    rows.forEach((row, rowIndex) => {
-      let column = 0;
+    for (let row = 0; row < 8; row++) {
+      for (let column = 0; column < 8; column++) {
+        const file = "abcdefgh"[column];
+        const rank = 8 - row;
+        const square = `${file}${rank}`;
+        const piece = this.boardPosition[row][column];
+        const light = (row + column) % 2 === 0;
 
-      for (const character of row) {
-        if (/\d/.test(character)) {
-          const count = Number(character);
-
-          for (let i = 0; i < count; i++) {
-            html += this.createSquare(rowIndex, column, "");
-            column++;
-          }
-        } else {
-          html += this.createSquare(
-            rowIndex,
-            column,
-            symbols[character] || ""
-          );
-          column++;
-        }
+        html += `
+          <button type="button"
+            class="puzzles-square ${light ? "light" : "dark"}"
+            data-square="${square}"
+            aria-label="${square}${piece ? ` ${piece}` : ""}">
+            ${piece ? `<span>${PUZZLE_PIECES[piece]}</span>` : ""}
+          </button>
+        `;
       }
-    });
+    }
 
     return html;
-  }
-
-  createSquare(row, column, piece) {
-    const file = "abcdefgh"[column];
-    const rank = 8 - row;
-    const square = `${file}${rank}`;
-    const light = (row + column) % 2 === 0;
-
-    return `
-      <button type="button"
-        class="puzzles-square ${light ? "light" : "dark"}"
-        data-square="${square}"
-        aria-label="${square}">
-        ${piece ? `<span>${piece}</span>` : ""}
-      </button>
-    `;
-  }
-
-  showEmptyPuzzle(message) {
-    this.currentPuzzle = null;
-    this.puzzleList = [];
-
-    if (this.elements.title) {
-      this.elements.title.textContent = "Puzzle Unavailable";
-    }
-
-    if (this.elements.board) {
-      this.elements.board.innerHTML = `
-        <div class="puzzles-empty-state">
-          <span>♘</span>
-          <p>${this.escapeHTML(message)}</p>
-        </div>
-      `;
-    }
-
-    if (this.elements.feedback) {
-      this.elements.feedback.textContent = "";
-    }
-
-    if (this.elements.nextButton) {
-      this.elements.nextButton.disabled = true;
-    }
   }
 
 /* =========================================================
@@ -552,40 +552,73 @@ export class PuzzlesScreen {
   selectBoardSquare(square) {
     if (!this.currentPuzzle || this.solved || this.loading) return;
 
-    const button = this.container.querySelector(
-      `[data-square="${square}"]`
-    );
+    const position = this.getSquarePosition(square);
+    if (!position) return;
 
-    if (!button) return;
+    const piece = this.boardPosition[position.row][position.column];
 
     if (!this.selectedSquare) {
+      if (!piece) {
+        this.setFeedback("Select a square containing your piece.", "error");
+        return;
+      }
+
+      if (!this.isPlayerPiece(piece)) {
+        this.setFeedback("Select one of your own pieces.", "error");
+        return;
+      }
+
       this.selectedSquare = square;
-      button.classList.add("selected");
-      this.elements.feedback.textContent =
-        `Selected ${square}. Now select the destination square.`;
+      this.highlightSelectedSquare();
+      this.setFeedback(
+        `Selected ${square}. Now select the destination.`,
+        ""
+      );
       return;
     }
 
     const from = this.selectedSquare;
     const to = square;
 
-    this.container.querySelectorAll(".puzzles-square.selected")
-      .forEach(item => item.classList.remove("selected"));
-
-    this.selectedSquare = null;
-
     if (from === to) {
-      this.elements.feedback.textContent = "Select a different destination square.";
+      this.selectedSquare = null;
+      this.renderPuzzleBoard();
+      this.setFeedback("Selection cleared.", "");
       return;
     }
 
+    this.selectedSquare = null;
     this.submitMove({ from, to });
+  }
+
+  getSquarePosition(square) {
+    if (!/^[a-h][1-8]$/.test(square)) return null;
+
+    return {
+      row: 8 - Number(square[1]),
+      column: "abcdefgh".indexOf(square[0])
+    };
+  }
+
+  isPlayerPiece(piece) {
+    return this.playerColor === "w"
+      ? piece === piece.toUpperCase()
+      : piece === piece.toLowerCase();
+  }
+
+  highlightSelectedSquare() {
+    this.renderPuzzleBoard();
+
+    const selected = this.container.querySelector(
+      `[data-square="${this.selectedSquare}"]`
+    );
+
+    selected?.classList.add("selected");
   }
 
   submitMove(move) {
     if (!this.puzzleService?.checkMove) {
-      this.elements.feedback.textContent =
-        "Puzzle move checker is not available.";
+      this.setFeedback("Puzzle move checker is unavailable.", "error");
       return;
     }
 
@@ -596,69 +629,114 @@ export class PuzzlesScreen {
       this.updateStats();
 
       if (!result.correct) {
-        this.handleIncorrectAnswer(result);
+        this.setFeedback(
+          result.message || "Not quite. Try another move.",
+          "error"
+        );
         return;
       }
+
+      this.applyBoardMove(move);
 
       if (result.completed) {
-        this.handleCorrectAnswer(result);
+        this.handleCorrectAnswer();
         return;
       }
 
-      this.elements.feedback.textContent =
-        "Correct move! Continue with the next move in the solution.";
+      this.setFeedback("Correct move! Continue.", "success");
 
-      this.elements.feedback.classList.remove("error");
-      this.elements.feedback.classList.add("success");
-
-      if (result.nextMove) {
-        this.applyAutomaticReply(result.nextMove);
-      }
+      this.processOpponentReplies();
 
     } catch (error) {
-      this.elements.feedback.textContent =
-        error?.message || "Unable to check this move.";
+      this.setFeedback(
+        error?.message || "Unable to check this move.",
+        "error"
+      );
     }
   }
 
-  applyAutomaticReply(move) {
-    /*
-      The service solution can contain both sides' moves.
-      The reply is applied to the visual position only when
-      the puzzle board can be updated safely.
-    */
-    if (!move?.from || !move?.to) return;
+  processOpponentReplies() {
+    let safetyCount = 0;
 
-    const fromButton = this.container.querySelector(
-      `[data-square="${move.from}"]`
-    );
+    while (
+      this.currentPuzzle &&
+      !this.solved &&
+      safetyCount < 10
+    ) {
+      const progress = this.puzzleService.getProgress?.();
+      const nextMove = this.puzzleService
+        .getCurrentPuzzle?.()
+        ?.solution?.[progress?.currentStep];
 
-    const toButton = this.container.querySelector(
-      `[data-square="${move.to}"]`
-    );
+      if (!nextMove) return;
 
-    if (!fromButton || !toButton) return;
+      const nextColor = this.positionTurn === "w" ? "b" : "w";
 
-    const piece = fromButton.querySelector("span");
+      // जब अगली चाल फिर खिलाड़ी की है, तो इंतजार करें।
+      if (nextColor === this.playerColor) return;
 
-    toButton.replaceChildren();
+      const reply = {
+        from: nextMove.from,
+        to: nextMove.to,
+        promotion: nextMove.promotion || null
+      };
 
-    if (piece) {
-      toButton.append(piece.cloneNode(true));
+      const result = this.puzzleService.checkMove(reply);
+
+      if (!result.correct) {
+        this.setFeedback(
+          "Puzzle response could not be processed.",
+          "error"
+        );
+        return;
+      }
+
+      this.applyBoardMove(reply);
+      safetyCount++;
+
+      if (result.completed) {
+        this.handleCorrectAnswer();
+        return;
+      }
+    }
+  }
+
+  applyBoardMove(move) {
+    const from = this.getSquarePosition(move.from);
+    const to = this.getSquarePosition(move.to);
+
+    if (!from || !to) return false;
+
+    const piece = this.boardPosition[from.row][from.column];
+
+    if (!piece) return false;
+
+    this.boardPosition[from.row][from.column] = "";
+
+    let placedPiece = piece;
+
+    if (move.promotion) {
+      const promotion = String(move.promotion).toLowerCase();
+      const promoted = promotion === "q" || promotion === "r" ||
+        promotion === "b" || promotion === "n"
+        ? promotion
+        : "q";
+
+      placedPiece = this.playerColor === "w"
+        ? promoted.toUpperCase()
+        : promoted;
     }
 
-    fromButton.replaceChildren();
+    this.boardPosition[to.row][to.column] = placedPiece;
+    this.positionTurn = this.positionTurn === "w" ? "b" : "w";
+
+    this.renderPuzzleBoard();
+    return true;
   }
 
-  handleIncorrectAnswer(result = {}) {
-    this.elements.feedback.textContent =
-      result.message || "Not quite. Review the position and try again.";
+  async handleCorrectAnswer() {
+    if (this.solved) return;
 
-    this.elements.feedback.classList.remove("success");
-    this.elements.feedback.classList.add("error");
-  }
-
-  async handleCorrectAnswer(result = {}) {
     this.solved = true;
 
     const puzzleId = this.currentPuzzle?.id;
@@ -667,11 +745,10 @@ export class PuzzlesScreen {
       this.solvedPuzzles.add(puzzleId);
     }
 
-    this.elements.feedback.textContent =
-      "Excellent! Puzzle solved successfully.";
-
-    this.elements.feedback.classList.remove("error");
-    this.elements.feedback.classList.add("success");
+    this.setFeedback(
+      "Excellent! Puzzle solved successfully.",
+      "success"
+    );
 
     this.elements.nextButton.disabled =
       this.currentIndex >= this.puzzleList.length - 1;
@@ -681,41 +758,45 @@ export class PuzzlesScreen {
 
     await this.savePuzzleProgress();
 
-    // Completion is recorded by the backend when the player is logged in.
     try {
       await this.puzzleService.completePuzzle();
-    } catch (error) {
-      this.elements.feedback.textContent +=
-        " Your local result is saved; online reward could not be recorded.";
+    } catch {
+      this.setFeedback(
+        "Puzzle solved! Online reward could not be recorded.",
+        "success"
+      );
     }
 
     this.updateStats();
   }
 
-  async showHint() {
+  showHint() {
     if (!this.currentPuzzle || this.solved || this.loading) return;
 
-    const solution = this.currentPuzzle.solution;
+    const progress = this.puzzleService.getProgress?.();
+    const step = progress?.currentStep || 0;
+    const move = this.currentPuzzle.solution?.[step];
 
-    if (!Array.isArray(solution) || !solution.length) {
-      this.elements.feedback.textContent =
-        "Hint is not available for this puzzle.";
+    if (!move) {
+      this.setFeedback("Hint is not available.", "error");
       return;
     }
 
     this.hintsUsed++;
 
-    const move = solution[0];
-
-    this.elements.feedback.textContent =
-      `Hint: Look carefully at the move from ${move.from} to ${move.to}.`;
+    this.setFeedback(
+      `Hint: Look for a move from ${move.from} to ${move.to}.`,
+      ""
+    );
   }
 
-  async checkAnswer() {
+  checkAnswer() {
     if (!this.currentPuzzle || this.solved || this.loading) return;
 
-    this.elements.feedback.textContent =
-      "Select a piece on the board, then select its destination square.";
+    this.setFeedback(
+      "Select one of your pieces, then select its destination square.",
+      ""
+    );
   }
 
   async savePuzzleProgress() {
@@ -731,9 +812,7 @@ export class PuzzlesScreen {
 
     try {
       if (typeof this.playerService.updateProfile === "function") {
-        await this.playerService.updateProfile({
-          puzzles
-        });
+        await this.playerService.updateProfile({ puzzles });
       }
     } catch (error) {
       console.warn("Puzzle progress could not be saved:", error);
@@ -763,34 +842,56 @@ export class PuzzlesScreen {
 
   nextPuzzle() {
     if (!this.solved) {
-      this.elements.feedback.textContent =
-        "Solve the current puzzle before moving to the next one.";
+      this.setFeedback(
+        "Solve the current puzzle before moving to the next one.",
+        "error"
+      );
       return;
     }
 
     if (this.currentIndex >= this.puzzleList.length - 1) {
-      this.elements.feedback.textContent =
-        "You have reached the end of this puzzle set.";
+      this.setFeedback("You have reached the end of this puzzle set.", "");
       return;
     }
 
     this.currentIndex++;
-    this.currentPuzzle = this.puzzleList[this.currentIndex];
+    this.startCurrentPuzzle();
+  }
 
-    this.resetPuzzleState();
+  setFeedback(message, type = "") {
+    if (!this.elements.feedback) return;
 
-    try {
-      const started = this.puzzleService.startPuzzle(
-        this.currentPuzzle
-      );
+    this.elements.feedback.textContent = message;
+    this.elements.feedback.classList.remove("success", "error");
 
-      this.currentPuzzle = started.puzzle;
-      this.renderCurrentPuzzle();
+    if (type) {
+      this.elements.feedback.classList.add(type);
+    }
+  }
 
-    } catch (error) {
-      this.showEmptyPuzzle(
-        error?.message || "The next puzzle could not be started."
-      );
+  showEmptyPuzzle(message) {
+    this.currentPuzzle = null;
+    this.puzzleList = [];
+
+    if (this.elements.title) {
+      this.elements.title.textContent = "Puzzle Unavailable";
+    }
+
+    if (this.elements.board) {
+      this.elements.board.innerHTML = `
+        <div class="puzzles-empty-state">
+          <span>♘</span>
+          <p>${this.escapeHTML(message)}</p>
+        </div>
+      `;
+    }
+
+    if (this.elements.feedback) {
+      this.elements.feedback.textContent = "";
+    }
+
+    if (this.elements.nextButton) {
+      this.elements.nextButton.disabled = true;
     }
   }
 
@@ -816,29 +917,23 @@ export class PuzzlesScreen {
     if (this.destroyed) return;
 
     this.destroyed = true;
-    this.loading = false;
+    this.loadToken++;
 
-    this.unsubscribePuzzle?.();
-    this.unsubscribePuzzle = null;
+    this.container?.removeEventListener("click", this.boundClick);
 
-    if (this.puzzleService?.abandonPuzzle) {
-      try {
-        this.puzzleService.abandonPuzzle();
-      } catch {
-        // Ignore cleanup errors.
-      }
+    try {
+      this.puzzleService?.abandonPuzzle?.();
+    } catch {
+      // Ignore cleanup errors.
     }
 
     this.currentPuzzle = null;
     this.puzzleList = [];
-    this.solvedPuzzles.clear();
+    this.boardPosition = [];
     this.selectedSquare = null;
-
-    if (this.container) {
-      this.container.replaceChildren();
-    }
-
     this.elements = {};
+
+    this.container?.replaceChildren();
   }
 }
 
