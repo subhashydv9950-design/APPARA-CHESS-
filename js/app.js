@@ -1,9 +1,7 @@
-
 /* =========================================================
    APPARA CHESS
-   FILE 67: MAIN APPLICATION
-   Path: js/app.js
-   PART 1/2
+   CORRECTION 12A — PART 1/2
+   FILE: js/app.js
    ========================================================= */
 
 import { EventBus, APP_EVENTS } from "./core/event-bus.js";
@@ -36,7 +34,6 @@ import { createGameSession } from "./chess/game-session.js";
 
 const APP_VERSION = "1.1.0";
 
-
 /* ---------------------------------------------------------
    1. OFFLINE GUEST PLAYER
 --------------------------------------------------------- */
@@ -59,6 +56,7 @@ class GuestPlayerService {
     this.profile = saved || this.createProfile();
 
     this.profile.isGuest = true;
+
     this.profile.stats ||= {
       wins: 0,
       losses: 0,
@@ -275,7 +273,6 @@ class GuestPlayerService {
   }
 }
 
-
 /* ---------------------------------------------------------
    2. MAIN APP CLASS
 --------------------------------------------------------- */
@@ -304,7 +301,6 @@ class App {
     this.destroyed = false;
     this.loadingElement = null;
   }
-
 
   /* -------------------------------------------------------
      3. INITIALIZE APPLICATION
@@ -372,7 +368,9 @@ class App {
         eventBus: this.eventBus
       });
 
-      const container = this.document.getElementById("screen-container");
+      const container = this.document.getElementById(
+        "screen-container"
+      );
 
       if (!container) {
         throw new Error("Screen container was not found.");
@@ -411,7 +409,6 @@ class App {
     }
   }
 
-
   /* -------------------------------------------------------
      4. SCREEN OPTIONS
   ------------------------------------------------------- */
@@ -433,14 +430,19 @@ class App {
     };
   }
 
+/* =========================================================
+   CORRECTION 12A COMPLETE
+   FILE NOT COMPLETE YET
+   NEXT: CORRECTION 12B — PART 2/2
+   ========================================================= */
+/* =========================================================
+   APPARA CHESS
+   CORRECTION 12B — PART 2/2
+   FILE: js/app.js
+   ========================================================= */
 
-  /* =======================================================
-     FILE 67 — PART 1 END
-     PART 2 इसी के नीचे जोड़ना है।
-     अभी Commit मत करना।
-  ======================================================= */
   /* -------------------------------------------------------
-     8. SCREEN ROUTE REGISTRATION
+     5. SCREEN ROUTE REGISTRATION
   ------------------------------------------------------- */
 
   registerRoutes() {
@@ -461,9 +463,11 @@ class App {
     for (const [name, ScreenClass, title] of routes) {
       this.navigation.register(name, {
         title,
+
         render: async ({ params = {} }) => {
           return this.renderScreen(name, ScreenClass, params);
         },
+
         afterLeave: async () => {
           this.destroyScreen(name);
         }
@@ -472,9 +476,11 @@ class App {
 
     this.navigation.register("game", {
       title: "Chess Match",
+
       render: async ({ params = {} }) => {
         return this.renderGameScreen(params);
       },
+
       afterLeave: async () => {
         this.destroyGameScreen();
       }
@@ -482,6 +488,7 @@ class App {
 
     this.navigation.register("auth", {
       title: "Player Login",
+
       render: async () => this.createMessageScreen(
         "Player Login",
         "Account sign-in will be available after authentication is configured."
@@ -490,6 +497,7 @@ class App {
 
     this.navigation.register("review", {
       title: "Game Review",
+
       render: async () => this.createMessageScreen(
         "Game Review",
         "Game review screen is being prepared."
@@ -497,9 +505,8 @@ class App {
     });
   }
 
-
   /* -------------------------------------------------------
-     9. CREATE SCREEN
+     6. CREATE SCREEN
   ------------------------------------------------------- */
 
   renderScreen(name, ScreenClass, params = {}) {
@@ -509,17 +516,7 @@ class App {
     mountNode.className = "ac-screen-content";
 
     const options = this.getScreenOptions(mountNode, {
-      ...params,
-      navigation: this.navigation,
-      playerService: this.playerService,
-      progressionService: this.progressionService,
-      economyService: this.economyService,
-      inventoryService: this.inventoryService,
-      settingsService: this.settingsService,
-      rankService: this.rankService,
-      components: this.components,
-      modalManager: this.modalManager,
-      eventBus: this.eventBus
+      ...params
     });
 
     const screen = new ScreenClass(options);
@@ -537,9 +534,8 @@ class App {
     return screen.root || mountNode;
   }
 
-
   /* -------------------------------------------------------
-     10. GAME SCREEN
+     7. GAME SCREEN
   ------------------------------------------------------- */
 
   renderGameScreen(params = {}) {
@@ -553,7 +549,6 @@ class App {
       : "offline";
 
     const difficulty = params.difficulty || "medium";
-
     const timeControl = this.getTimeControl(params.timeControl);
 
     this.activeGameSession = createGameSession({
@@ -586,31 +581,88 @@ class App {
     return result || gameScreen.root || mountNode;
   }
 
-
   /* -------------------------------------------------------
-     11. TIME CONTROL
+     8. TIME CONTROL
   ------------------------------------------------------- */
 
   getTimeControl(value) {
     const controls = {
-      "1+0": { id: "1+0", label: "Bullet 1+0", minutes: 1, increment: 0 },
-      "2+1": { id: "2+1", label: "Bullet 2+1", minutes: 2, increment: 1 },
-      "3+0": { id: "3+0", label: "Blitz 3+0", minutes: 3, increment: 0 },
-      "3+2": { id: "3+2", label: "Blitz 3+2", minutes: 3, increment: 2 },
-      "5+0": { id: "5+0", label: "Blitz 5+0", minutes: 5, increment: 0 },
-      "5+3": { id: "5+3", label: "Blitz 5+3", minutes: 5, increment: 3 },
-      "10+0": { id: "10+0", label: "Rapid 10+0", minutes: 10, increment: 0 },
-      "10+5": { id: "10+5", label: "Rapid 10+5", minutes: 10, increment: 5 },
-      "15+10": { id: "15+10", label: "Rapid 15+10", minutes: 15, increment: 10 },
-      "30+0": { id: "30+0", label: "Classical 30+0", minutes: 30, increment: 0 }
+      "1+0": {
+        id: "1+0",
+        label: "Bullet 1+0",
+        minutes: 1,
+        increment: 0
+      },
+
+      "2+1": {
+        id: "2+1",
+        label: "Bullet 2+1",
+        minutes: 2,
+        increment: 1
+      },
+
+      "3+0": {
+        id: "3+0",
+        label: "Blitz 3+0",
+        minutes: 3,
+        increment: 0
+      },
+
+      "3+2": {
+        id: "3+2",
+        label: "Blitz 3+2",
+        minutes: 3,
+        increment: 2
+      },
+
+      "5+0": {
+        id: "5+0",
+        label: "Blitz 5+0",
+        minutes: 5,
+        increment: 0
+      },
+
+      "5+3": {
+        id: "5+3",
+        label: "Blitz 5+3",
+        minutes: 5,
+        increment: 3
+      },
+
+      "10+0": {
+        id: "10+0",
+        label: "Rapid 10+0",
+        minutes: 10,
+        increment: 0
+      },
+
+      "10+5": {
+        id: "10+5",
+        label: "Rapid 10+5",
+        minutes: 10,
+        increment: 5
+      },
+
+      "15+10": {
+        id: "15+10",
+        label: "Rapid 15+10",
+        minutes: 15,
+        increment: 10
+      },
+
+      "30+0": {
+        id: "30+0",
+        label: "Classical 30+0",
+        minutes: 30,
+        increment: 0
+      }
     };
 
     return controls[value] || controls["10+0"];
   }
 
-
   /* -------------------------------------------------------
-     12. SCREEN CLEANUP
+     9. SCREEN CLEANUP
   ------------------------------------------------------- */
 
   destroyScreen(name) {
@@ -625,12 +677,14 @@ class App {
         screen.dispose();
       }
     } catch (error) {
-      console.error(`[APPARA CHESS] ${name} cleanup failed:`, error);
+      console.error(
+        `[APPARA CHESS] ${name} cleanup failed:`,
+        error
+      );
     }
 
     this.screenInstances.delete(name);
   }
-
 
   destroyGameScreen() {
     this.destroyScreen("game");
@@ -641,14 +695,14 @@ class App {
     }
   }
 
-
   /* -------------------------------------------------------
-     13. MESSAGE SCREEN
+     10. MESSAGE SCREEN
   ------------------------------------------------------- */
 
   createMessageScreen(title, message) {
     const section = this.document.createElement("section");
-    section.className = "ac-screen-content ac-placeholder-screen";
+    section.className =
+      "ac-screen-content ac-placeholder-screen";
 
     const heading = this.document.createElement("h1");
     heading.textContent = title;
@@ -659,6 +713,7 @@ class App {
     const backButton = this.document.createElement("button");
     backButton.type = "button";
     backButton.textContent = "Back to Home";
+
     backButton.addEventListener("click", () => {
       this.navigation.navigate("home");
     });
@@ -668,17 +723,24 @@ class App {
     return section;
   }
 
-
   /* -------------------------------------------------------
-     14. LOADING SCREEN
+     11. LOADING SCREEN
   ------------------------------------------------------- */
 
-  showLoading() {
+  showLoading(message = "Loading APPARA CHESS...") {
     const loading = this.document.getElementById("loading-screen");
 
     if (loading) {
       loading.hidden = false;
       loading.style.display = "flex";
+
+      const textElement = loading.querySelector(
+        "[data-loading-message]"
+      );
+
+      if (textElement) {
+        textElement.textContent = message;
+      }
     }
 
     const appView = this.document.getElementById("app-view");
@@ -687,7 +749,6 @@ class App {
       appView.setAttribute("aria-busy", "true");
     }
   }
-
 
   hideLoading() {
     const loading = this.document.getElementById("loading-screen");
@@ -705,9 +766,8 @@ class App {
     }
   }
 
-
   /* -------------------------------------------------------
-     15. FATAL ERROR
+     12. FATAL ERROR
   ------------------------------------------------------- */
 
   showFatalError(error) {
@@ -720,6 +780,7 @@ class App {
         <div class="ac-error-screen">
           <h2>APPARA CHESS</h2>
           <p>Game start nahi ho paya.</p>
+
           <button type="button" id="ac-retry-button">
             Try Again
           </button>
@@ -740,9 +801,29 @@ class App {
     });
   }
 
+  /* -------------------------------------------------------
+     13. SAFE SERVICE CLEANUP
+  ------------------------------------------------------- */
+
+  disposeService(service, serviceName) {
+    if (!service) return;
+
+    try {
+      if (typeof service.dispose === "function") {
+        service.dispose();
+      } else if (typeof service.destroy === "function") {
+        service.destroy();
+      }
+    } catch (error) {
+      console.error(
+        `[APPARA CHESS] ${serviceName} cleanup failed:`,
+        error
+      );
+    }
+  }
 
   /* -------------------------------------------------------
-     16. APP DISPOSAL
+     14. APP DISPOSAL
   ------------------------------------------------------- */
 
   destroy() {
@@ -756,28 +837,51 @@ class App {
       this.destroyScreen(name);
     }
 
-    this.navigation?.dispose?.();
-    this.modalManager?.destroy?.();
-    this.components?.destroy?.();
+    this.disposeService(this.navigation, "Navigation");
+    this.disposeService(this.modalManager, "Modal Manager");
+    this.disposeService(this.components, "UI Components");
 
-    this.progressionService?.destroy?.();
-    this.economyService?.destroy?.();
-    this.inventoryService?.destroy?.();
-    this.settingsService?.destroy?.();
-    this.rankService?.destroy?.();
+    this.disposeService(
+      this.progressionService,
+      "Progression Service"
+    );
 
-    this.playerService?.dispose?.();
+    this.disposeService(
+      this.economyService,
+      "Economy Service"
+    );
+
+    this.disposeService(
+      this.inventoryService,
+      "Inventory Service"
+    );
+
+    this.disposeService(
+      this.settingsService,
+      "Settings Service"
+    );
+
+    this.disposeService(
+      this.rankService,
+      "Rank Service"
+    );
+
+    this.disposeService(
+      this.playerService,
+      "Player Service"
+    );
 
     this.eventBus?.emit?.(APP_EVENTS.APP.ERROR, {
       message: "Application stopped."
     });
+
+    this.initialized = false;
   }
 }
 
-
-/* =========================================================
-   17. APPLICATION INSTANCE
-========================================================= */
+/* ---------------------------------------------------------
+   15. APPLICATION INSTANCE
+--------------------------------------------------------- */
 
 let appInstance = null;
 
@@ -808,25 +912,29 @@ export function stopApp() {
   appInstance = null;
 }
 
-
-/* =========================================================
-   18. GLOBAL ERROR HANDLING
-========================================================= */
+/* ---------------------------------------------------------
+   16. GLOBAL ERROR HANDLING
+--------------------------------------------------------- */
 
 if (typeof globalThis.addEventListener === "function") {
   globalThis.addEventListener("unhandledrejection", event => {
-    console.error("[APPARA CHESS] Unhandled promise:", event.reason);
+    console.error(
+      "[APPARA CHESS] Unhandled promise:",
+      event.reason
+    );
   });
 
   globalThis.addEventListener("error", event => {
-    console.error("[APPARA CHESS] Runtime error:", event.error || event.message);
+    console.error(
+      "[APPARA CHESS] Runtime error:",
+      event.error || event.message
+    );
   });
 }
 
-
-/* =========================================================
-   19. START APPLICATION
-========================================================= */
+/* ---------------------------------------------------------
+   17. START APPLICATION
+--------------------------------------------------------- */
 
 function bootApp() {
   startApp().catch(error => {
@@ -836,17 +944,17 @@ function bootApp() {
 
 if (globalThis.document) {
   if (globalThis.document.readyState === "loading") {
-    globalThis.document.addEventListener("DOMContentLoaded", bootApp, {
-      once: true
-    });
+    globalThis.document.addEventListener(
+      "DOMContentLoaded",
+      bootApp,
+      { once: true }
+    );
   } else {
     bootApp();
   }
 }
 
-
 /* =========================================================
-   FILE 67 COMPLETE
-   FILE: js/app.js
-   PART 2/2
+   CORRECTION 12B COMPLETE
+   FULL FILE COMPLETE — CORRECTION NUMBER 12
    ========================================================= */
