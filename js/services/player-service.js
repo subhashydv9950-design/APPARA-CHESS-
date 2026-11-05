@@ -1,6 +1,7 @@
 /* =========================================================
    APPARA CHESS — PLAYER SERVICE
    FILE: js/services/player-service.js
+   CORRECTION: 18
    PURPOSE: Player profile, identity, stats and persistence
    ========================================================= */
 
@@ -74,7 +75,8 @@ export class PlayerService {
 
     if (
       !firebaseService ||
-      !firebaseService.isInitialized
+      typeof firebaseService.isInitialized !== "function" ||
+      !firebaseService.isInitialized()
     ) {
       throw new Error(
         "FirebaseService must be initialized first."
@@ -120,14 +122,15 @@ export class PlayerService {
         );
       }
 
+      // FirebaseService.getDocument accepts one path.
+      // It returns { id, ...documentData } or null.
       const document = await this.firebase.getDocument(
-        this.options.collection,
-        user.uid
+        `${this.options.collection}/${user.uid}`
       );
 
-      if (document?.data) {
+      if (document) {
         this.player = this.normalizeProfile({
-          ...document.data,
+          ...document,
           uid: user.uid
         });
       } else {
@@ -165,12 +168,14 @@ export class PlayerService {
       PLAYER_DEFAULTS.displayName
     );
 
+    const now = Date.now();
+
     return {
       uid: user.uid || "",
       playerId: this.generatePlayerId(),
 
       displayName,
-      email: "",
+      email: user.email || "",
       avatar: user.photoURL || "",
       bio: "",
       country: "",
@@ -213,9 +218,9 @@ export class PlayerService {
 
       achievements: [],
 
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      lastSeenAt: Date.now(),
+      createdAt: now,
+      updatedAt: now,
+      lastSeenAt: now,
 
       isGuest: false,
       isBanned: false
@@ -248,6 +253,7 @@ export class PlayerService {
   normalizeProfile(profile = {}) {
     const defaults = this.createDefaultProfile({
       uid: profile.uid || "",
+      email: profile.email || "",
       displayName:
         profile.displayName ||
         PLAYER_DEFAULTS.displayName,
@@ -291,10 +297,6 @@ export class PlayerService {
   async saveProfile(profile = null) {
     this.ensurePlayer();
 
-    /*
-     * Accepting a profile argument allows other services
-     * to save an updated profile explicitly.
-     */
     if (profile !== null) {
       if (
         typeof profile !== "object" ||
@@ -317,9 +319,9 @@ export class PlayerService {
     this.player.updatedAt = Date.now();
 
     try {
+      // FirebaseService.setDocument(path, data)
       await this.firebase.setDocument(
-        this.options.collection,
-        this.player.uid,
+        `${this.options.collection}/${this.player.uid}`,
         this.player
       );
 
@@ -343,12 +345,6 @@ export class PlayerService {
       return null;
     }
 
-    /*
-     * Return the active profile reference.
-     * Existing services update this object and then call
-     * saveProfile(). Returning a clone here would silently
-     * discard those updates.
-     */
     return this.player;
   }
 
@@ -810,7 +806,7 @@ export function createPlayerService(options = {}) {
 }
 
 /* =========================================================
-   FILE 4 COMPLETE
    FILE: js/services/player-service.js
+   FULL FILE COMPLETE — CORRECTION NUMBER 18
    ========================================================= */
-      
+   
