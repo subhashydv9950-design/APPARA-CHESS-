@@ -1,3 +1,9 @@
+/* =========================================================
+   APPARA CHESS
+   FILE: js/3d/board-builder.js
+   PREMIUM ROYAL 3D CHESS BOARD
+   FULL FILE REPLACEMENT
+   ========================================================= */
 
 import * as THREE from "three";
 
@@ -9,10 +15,15 @@ export class ChessBoardBuilder {
       squareSize: 1,
       boardY: 0.62,
       showCoordinates: true,
+      lightColor: 0xe8d9b8,
+      darkColor: 0x392541,
+      borderColor: 0xc9a45c,
       ...options
     };
 
     this.group = new THREE.Group();
+    this.group.name = "apparachess-3d-board";
+
     this.tiles = new Map();
     this.materials = {};
     this.disposed = false;
@@ -28,19 +39,19 @@ export class ChessBoardBuilder {
 
   createMaterials() {
     this.materials.light = new THREE.MeshStandardMaterial({
-      color: 0xe3cfaa,
-      roughness: 0.34,
-      metalness: 0.04
+      color: this.options.lightColor,
+      roughness: 0.3,
+      metalness: 0.08
     });
 
     this.materials.dark = new THREE.MeshStandardMaterial({
-      color: 0x493025,
+      color: this.options.darkColor,
       roughness: 0.3,
-      metalness: 0.1
+      metalness: 0.12
     });
 
     this.materials.gold = new THREE.MeshStandardMaterial({
-      color: 0xc9a45c,
+      color: this.options.borderColor,
       roughness: 0.22,
       metalness: 0.82
     });
@@ -52,21 +63,21 @@ export class ChessBoardBuilder {
     });
 
     this.materials.selection = new THREE.MeshStandardMaterial({
-      color: 0xe3cfaa,
+      color: this.options.lightColor,
       roughness: 0.3,
       emissive: 0x28a9e8,
       emissiveIntensity: 0
     });
 
     this.materials.legal = new THREE.MeshStandardMaterial({
-      color: 0xe3cfaa,
+      color: this.options.lightColor,
       roughness: 0.3,
       emissive: 0x20c879,
       emissiveIntensity: 0
     });
 
     this.materials.lastMove = new THREE.MeshStandardMaterial({
-      color: 0xe3cfaa,
+      color: this.options.lightColor,
       roughness: 0.3,
       emissive: 0xc59a32,
       emissiveIntensity: 0
@@ -74,6 +85,7 @@ export class ChessBoardBuilder {
   }
 
   createBase() {
+    // Royal gold bottom border
     const goldBase = new THREE.Mesh(
       new THREE.BoxGeometry(8.62, 0.28, 8.62),
       this.materials.gold
@@ -86,6 +98,7 @@ export class ChessBoardBuilder {
 
     this.group.add(goldBase);
 
+    // Dark wooden board backing
     const woodBacking = new THREE.Mesh(
       new THREE.BoxGeometry(8.38, 0.16, 8.38),
       this.materials.backing
@@ -97,12 +110,14 @@ export class ChessBoardBuilder {
 
     this.group.add(woodBacking);
 
+    // Fine golden inner trim
     const innerTrim = new THREE.Mesh(
       new THREE.BoxGeometry(8.16, 0.045, 8.16),
       this.materials.gold
     );
 
     innerTrim.position.y = 0.585;
+
     this.group.add(innerTrim);
   }
 
@@ -118,13 +133,18 @@ export class ChessBoardBuilder {
         const square = `${FILES[col]}${8 - row}`;
         const isLight = (row + col) % 2 === 0;
 
-        const material = (
-          isLight
-            ? this.materials.light
-            : this.materials.dark
-        ).clone();
+        const sourceMaterial = isLight
+          ? this.materials.light
+          : this.materials.dark;
 
-        const tile = new THREE.Mesh(geometry, material);
+        const material = sourceMaterial.clone();
+
+        const tile = new THREE.Mesh(
+          geometry,
+          material
+        );
+
+        tile.name = `square-${square}`;
 
         tile.position.set(
           col - 3.5,
@@ -132,8 +152,8 @@ export class ChessBoardBuilder {
           row - 3.5
         );
 
-        tile.receiveShadow = true;
         tile.castShadow = true;
+        tile.receiveShadow = true;
 
         tile.userData.square = square;
         tile.userData.baseColor = material.color.getHex();
@@ -184,25 +204,30 @@ export class ChessBoardBuilder {
       );
 
       sprite.userData.isCoordinate = true;
+
       this.group.add(sprite);
     }
   }
 
   createTextSprite(text) {
     const canvas = document.createElement("canvas");
+
     canvas.width = 128;
     canvas.height = 128;
 
     const context = canvas.getContext("2d");
 
     context.clearRect(0, 0, 128, 128);
+
     context.fillStyle = "#d7b66f";
     context.font = "bold 68px Georgia";
     context.textAlign = "center";
     context.textBaseline = "middle";
+
     context.fillText(text, 64, 65);
 
     const texture = new THREE.CanvasTexture(canvas);
+
     texture.colorSpace = THREE.SRGBColorSpace;
 
     const material = new THREE.SpriteMaterial({
@@ -212,6 +237,7 @@ export class ChessBoardBuilder {
     });
 
     const sprite = new THREE.Sprite(material);
+
     sprite.scale.set(0.22, 0.22, 1);
 
     return sprite;
@@ -219,6 +245,11 @@ export class ChessBoardBuilder {
 
   getTile(square) {
     return this.tiles.get(square) || null;
+  }
+
+  // Compatibility alias used by ThreeChessEngine.
+  getSquareObject(square) {
+    return this.getTile(square);
   }
 
   highlight(square, type = "selection") {
@@ -236,14 +267,21 @@ export class ChessBoardBuilder {
 
     if (!source) return false;
 
-    tile.material.emissive.copy(source.emissive);
-    tile.material.emissiveIntensity = (
-      type === "legal" ? 0.48 : 0.65
+    tile.material.emissive.copy(
+      source.emissive
     );
+
+    tile.material.emissiveIntensity =
+      type === "legal" ? 0.48 : 0.65;
 
     tile.userData.highlightType = type;
 
     return true;
+  }
+
+  // Compatibility alias used by ThreeChessEngine.
+  highlightSquare(square, type = "selection") {
+    return this.highlight(square, type);
   }
 
   clearHighlights() {
@@ -254,7 +292,11 @@ export class ChessBoardBuilder {
     }
   }
 
-  setHighlights(selection, legalSquares = [], lastMove = []) {
+  setHighlights(
+    selection,
+    legalSquares = [],
+    lastMove = []
+  ) {
     this.clearHighlights();
 
     if (lastMove.length === 2) {
@@ -286,9 +328,10 @@ export class ChessBoardBuilder {
   }
 
   getSquareWorldPosition(square) {
-    if (!this.tiles.has(square)) return null;
+    const tile = this.getTile(square);
 
-    const tile = this.tiles.get(square);
+    if (!tile) return null;
+
     const position = new THREE.Vector3();
 
     tile.getWorldPosition(position);
@@ -305,29 +348,47 @@ export class ChessBoardBuilder {
 
     this.disposed = true;
 
+    const geometries = new Set();
+    const materials = new Set();
+    const textures = new Set();
+
     this.group.traverse(object => {
       if (object.geometry) {
-        object.geometry.dispose();
+        geometries.add(object.geometry);
       }
 
       if (object.material) {
-        const materials = Array.isArray(object.material)
+        const list = Array.isArray(object.material)
           ? object.material
           : [object.material];
 
-        for (const material of materials) {
-          if (material.map) material.map.dispose();
-          material.dispose();
+        for (const material of list) {
+          if (!material) continue;
+
+          materials.add(material);
+
+          if (material.map) {
+            textures.add(material.map);
+          }
         }
       }
     });
 
-    this.tiles.clear();
-    this.group.clear();
+    for (const geometry of geometries) {
+      geometry.dispose();
+    }
 
-    for (const material of Object.values(this.materials)) {
+    for (const texture of textures) {
+      texture.dispose();
+    }
+
+    for (const material of materials) {
       material.dispose();
     }
+
+    this.tiles.clear();
+    this.group.clear();
+    this.materials = {};
   }
 }
 
@@ -335,4 +396,7 @@ export function createChessBoard(options = {}) {
   return new ChessBoardBuilder(options);
 }
 
-/* APPARA CHESS — 3D BOARD BUILDER COMPLETE */
+/* =========================================================
+   FILE COMPLETE
+   PATH: js/3d/board-builder.js
+   ========================================================= */
